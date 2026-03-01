@@ -16,16 +16,20 @@ export interface CheckoutData {
 }
 
 export interface CartContextType {
-  // Cart
-  addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
+  // Cart (Scoped to current business)
+  addItem: (item: Omit<CartItem, "quantity"> & { businessId?: string }, quantity?: number) => void;
   clearCart: () => void;
   itemCount: number;
   items: CartItem[];
-  removeItem: (id: string) => void;
+  removeItem: (id: string, businessId?: string) => void;
   subtotal: number;
-  updateQuantity: (id: string, quantity: number) => void;
+  updateQuantity: (id: string, quantity: number, businessId?: string) => void;
 
-  // Checkout (Namespace this too if needed, but let's stick to cart first)
+  // Global Cart (Platform view)
+  allCarts: MultiCartData;
+  clearAllCarts: () => void;
+
+  // Checkout
   checkoutData: CheckoutData | null;
   setCheckoutData: (data: CheckoutData | null) => void;
   clearCheckoutData: () => void;
@@ -124,10 +128,11 @@ export function CartProvider({ children }: React.PropsWithChildren) {
 
   /* ----------------------------- Cart Actions ---------------------------- */
   const addItem = React.useCallback(
-    (newItem: Omit<CartItem, "quantity">, qty = 1) => {
+    (newItem: Omit<CartItem, "quantity"> & { businessId?: string }, qty = 1) => {
       if (qty <= 0) return;
+      const targetId = newItem.businessId || businessId;
       setAllCarts((prev) => {
-        const currentItems = prev[businessId] || [];
+        const currentItems = prev[targetId] || [];
         const existing = currentItems.find((i) => i.id === newItem.id);
         
         let nextItems;
@@ -139,7 +144,7 @@ export function CartProvider({ children }: React.PropsWithChildren) {
           nextItems = [...currentItems, { ...newItem, quantity: qty }];
         }
         
-        return { ...prev, [businessId]: nextItems };
+        return { ...prev, [targetId]: nextItems };
       });
       clearCheckoutData();
     },
@@ -147,11 +152,12 @@ export function CartProvider({ children }: React.PropsWithChildren) {
   );
 
   const removeItem = React.useCallback(
-    (id: string) => {
+    (id: string, bizId?: string) => {
+      const targetId = bizId || businessId;
       setAllCarts((prev) => {
-        const currentItems = prev[businessId] || [];
+        const currentItems = prev[targetId] || [];
         const nextItems = currentItems.filter((i) => i.id !== id);
-        return { ...prev, [businessId]: nextItems };
+        return { ...prev, [targetId]: nextItems };
       });
       clearCheckoutData();
     },
@@ -159,15 +165,16 @@ export function CartProvider({ children }: React.PropsWithChildren) {
   );
 
   const updateQuantity = React.useCallback(
-    (id: string, qty: number) => {
+    (id: string, qty: number, bizId?: string) => {
+      const targetId = bizId || businessId;
       setAllCarts((prev) => {
-        const currentItems = prev[businessId] || [];
+        const currentItems = prev[targetId] || [];
         const nextItems = currentItems.flatMap((i) => {
           if (i.id !== id) return i;
           if (qty <= 0) return [];
           return { ...i, quantity: qty };
         });
-        return { ...prev, [businessId]: nextItems };
+        return { ...prev, [targetId]: nextItems };
       });
       clearCheckoutData();
     },
@@ -178,6 +185,11 @@ export function CartProvider({ children }: React.PropsWithChildren) {
     setAllCarts((prev) => ({ ...prev, [businessId]: [] }));
     clearCheckoutData();
   }, [businessId, clearCheckoutData]);
+
+  const clearAllCarts = React.useCallback(() => {
+    setAllCarts({});
+    clearCheckoutData();
+  }, [clearCheckoutData]);
 
   /* --------------------------- Derived data ------------------------------ */
   const itemCount = React.useMemo(
@@ -199,6 +211,8 @@ export function CartProvider({ children }: React.PropsWithChildren) {
       itemCount,
       items,
       subtotal,
+      allCarts,
+      clearAllCarts,
       checkoutData,
       setCheckoutData,
       clearCheckoutData,
@@ -211,6 +225,8 @@ export function CartProvider({ children }: React.PropsWithChildren) {
       itemCount,
       items,
       subtotal,
+      allCarts,
+      clearAllCarts,
       checkoutData,
       setCheckoutData,
       clearCheckoutData,

@@ -10,15 +10,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing from or to date" }, { status: 400 });
   }
 
-  const from = new Date(fromStr);
-  const to = new Date(toStr);
+  const bid = searchParams.get("businessId");
 
   try {
+    const whereBase: any = {
+       createdAt: { gte: from, lte: to }
+    };
+    if (bid) whereBase.businessId = bid;
+
     /* ================= PAID CARTS FOR REVENUE & PROFIT ================= */
     const paidCarts = await prisma.cart.findMany({
       where: {
+        ...whereBase,
         status: "paid",
-        createdAt: { gte: from, lte: to },
       },
       include: {
         products: {
@@ -41,8 +45,7 @@ export async function GET(req: Request) {
 
     const totalProfit = totalRevenue - totalCost;
 
-    /* ================= REVENUE OVER TIME (For chart) ================= */
-    // Grouping by day manually as Prisma doesn't do it easily for MongoDB
+    /* ================= REVENUE OVER TIME ================= */
     const revenueByDay: Record<string, number> = {};
     paidCarts.forEach(cart => {
       const day = cart.createdAt.toISOString().split("T")[0];
@@ -54,7 +57,7 @@ export async function GET(req: Request) {
       revenue
     })).sort((a, b) => a.date.localeCompare(b.date));
 
-    /* ================= PROFIT OVER TIME (For chart) ================= */
+    /* ================= PROFIT OVER TIME ================= */
     const profitByDay: Record<string, { revenue: number; cost: number; profit: number }> = {};
     paidCarts.forEach(cart => {
       const day = cart.createdAt.toISOString().split("T")[0];
@@ -78,9 +81,7 @@ export async function GET(req: Request) {
     /* ================= CART STATUS DISTRIBUTION ================= */
     const cartStatusCountsRaw = await prisma.cart.groupBy({
       by: ["status"],
-      where: {
-        createdAt: { gte: from, lte: to },
-      },
+      where: whereBase,
       _count: { status: true },
     });
 
@@ -94,8 +95,8 @@ export async function GET(req: Request) {
       by: ["productId"],
       where: {
         cart: {
+          ...whereBase,
           status: "paid",
-          createdAt: { gte: from, lte: to }
         }
       },
       _sum: { quantity: true },
@@ -120,9 +121,7 @@ export async function GET(req: Request) {
 
     /* ================= VISITS OVER TIME ================= */
     const visitsRaw = await prisma.visit.findMany({
-      where: {
-        createdAt: { gte: from, lte: to },
-      },
+      where: whereBase,
       select: { createdAt: true }
     });
 
@@ -140,9 +139,7 @@ export async function GET(req: Request) {
     /* ================= REFUND REASONS ================= */
     const refundsRaw = await prisma.refund.groupBy({
       by: ["reason"],
-      where: {
-        createdAt: { gte: from, lte: to },
-      },
+      where: whereBase,
       _count: { reason: true },
     });
 
@@ -155,7 +152,7 @@ export async function GET(req: Request) {
     const ordersCount = paidCarts.length;
     
     const refundAgg = await prisma.refund.aggregate({
-      where: { createdAt: { gte: from, lte: to } },
+      where: whereBase,
       _sum: { amount: true }
     });
 
@@ -164,6 +161,8 @@ export async function GET(req: Request) {
     });
 
     const totalUsers = await prisma.user.count();
+
+    const businessesCount = bid ? 1 : await prisma.business.count();
 
     return NextResponse.json({
       revenue: totalRevenue,
@@ -179,7 +178,8 @@ export async function GET(req: Request) {
         totalOrders: ordersCount,
         totalRefunds: refundAgg._sum.amount || 0,
         newUsers,
-        totalUsers
+        totalUsers,
+        businessesCount
       }
     });
   } catch (error) {

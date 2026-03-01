@@ -34,7 +34,7 @@ const Stocks = ({ categoryFilter, search, selectedId }: StocksProps) => {
   const fetchProducts = async () => {
     try {
       const res = await axios.get("/api/dbhandler?model=product");
-      let fetchedProducts: Product[] = res.data;
+      const fetchedProducts: Product[] = res.data;
 
       // Filter and prioritize
       let prioritized: Product[] = [];

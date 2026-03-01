@@ -81,7 +81,7 @@ async function dbHandler({
           return { status: 200, data: items };
         }
 
-      case "POST":
+      case "POST": {
         if (body.price) body.price = parseFloat(body.price);
         if (body.url) body.images = [body.url]; // convert URL to images array
         const newItem = await prismaModel.create({ data: body });
@@ -95,15 +95,15 @@ async function dbHandler({
         }
 
         return { status: 200, data: newItem };
-
-      case "PUT":
+      }
+      case "PUT": {
         const { id: _id, ...updatedData } = body;
         const updatedItem = await prismaModel.update({
           where: { id: _id },
           data: updatedData,
         });
         return { status: 200, data: updatedItem };
-
+      }
       case "DELETE":
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };

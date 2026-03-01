@@ -1,14 +1,17 @@
+"use client"
 import { Facebook, Github, Instagram, Linkedin, Twitter } from "lucide-react";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import linksData from "../../../data/links";
 
 import { SEO_CONFIG } from "../../../app/layout";
 import { cn } from "@/lib/utils"
-// import { Button } from "~/ui/primitives/button";
 import { Button } from "@/components/ui/button";
+import { useParams } from "next/navigation";
 
-export async function Footer({ className }: { className?: string }) {
+export function Footer({ categories, className }: { categories: any[], className?: string }) {
+  const { storeName } = useParams();
+  
+  if (storeName) return null;
   const socialMediaLinks = [
     { href: "#", icon: <Facebook className="h-4 w-4" />, label: "Facebook" },
     { href: "#", icon: <Twitter className="h-4 w-4" />, label: "Twitter" },
@@ -16,13 +19,6 @@ export async function Footer({ className }: { className?: string }) {
     //{ href: "#", icon: <Github className="h-4 w-4" />, label: "GitHub" },
     { href: "#", icon: <Linkedin className="h-4 w-4" />, label: "LinkedIn" },
   ];
-  
-  // Fetch categories from DB
-  const categories = await prisma.category.findMany({
-      take: 6,
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true }
-  });
 
   const pageLinks = linksData.Links.map(l => ({
       href: l.path,

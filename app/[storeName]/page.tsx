@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings } from 'lucide-react'
+import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3 } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
@@ -82,11 +83,16 @@ const DynamicStorePage = () => {
                <span className="font-bold hidden md:inline">Admin Mode: {business.name}</span>
             </div>
             <div className="flex gap-2">
+               <Link href={`/${storeName}/analytics`}>
+                 <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
+                    <BarChart3 className="h-4 w-4" /> Insights
+                 </Button>
+               </Link>
                <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
                   <PlusCircle className="h-4 w-4" /> Add Page
                </Button>
                <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
-                  <Settings className="h-4 w-4" /> Edit Sections
+                  <Settings className="h-4 w-4" /> Edit Layout
                </Button>
             </div>
          </div>

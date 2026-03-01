@@ -10,7 +10,7 @@ interface PriceDisplayProps {
 export const PriceDisplay = ({ amount, className = "" }: PriceDisplayProps) => {
   const { currentBusiness } = useAppContext();
   
-  const currency = currentBusiness?.settings?.currency || "USD";
+  const currency = currentBusiness?.settings?.currency || "NGN";
   const exchangeRate = currentBusiness?.settings?.exchangeRate || 1.0;
   
   const convertedAmount = amount * exchangeRate;

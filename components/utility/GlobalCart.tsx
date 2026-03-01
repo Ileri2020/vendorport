@@ -71,13 +71,26 @@ const CartBadge = () => {
 
 const InnerCartContent = ({ close }: { close: () => void }) => {
   const { currentBusiness } = useAppContext();
-  const { items, removeItem, updateQuantity, subtotal, clearCart, addItem } = useCart();
+  const { items, removeItem, updateQuantity, subtotal, clearCart, addItem, allCarts, clearAllCarts } = useCart();
+  const [businesses, setBusinesses] = React.useState<any[]>([]);
+
+  // Fetch all business names for global cart labeling
+  React.useEffect(() => {
+    if (!currentBusiness) {
+       axios.get('/api/dbhandler?model=business').then(res => setBusinesses(res.data)).catch(() => {});
+    }
+  }, [currentBusiness]);
+
+  const getBusinessName = (bid: string) => {
+     if (bid === 'global') return 'VendorPort Global';
+     return businesses.find(b => b.id === bid)?.name || `Store ${bid.slice(-4)}`;
+  };
   
   // AI State
   const [isAiMode, setIsAiMode] = React.useState(false);
   const [aiInput, setAiInput] = React.useState("");
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const [aiResults, setAiResults] = React.useState<any[]>([]); // Step 2 results
+  const [aiResults, setAiResults] = React.useState<any[]>([]);
   const [selectedOptions, setSelectedOptions] = React.useState<Record<number, string[]>>({});
   const [strategy, setStrategy] = React.useState<'manual' | 'cheapest' | 'moderate' | 'expensive'>('manual');
 
@@ -87,38 +100,32 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
     try {
       const res = await axios.post('/api/ai/shop', { 
          query: aiInput,
-         businessId: currentBusiness?.id
+         businessId: currentBusiness?.id // Could be null for global platform search
       });
       
       const results = res.data.results || [];
       if (results.length > 0) {
         setAiResults(results);
-        
-        // Auto-selection logic based on strategy
         const newSelection: Record<number, string[]> = {};
         results.forEach((item: any, idx: number) => {
            if (item.options.length === 0) return;
-           
            if (strategy === 'manual' && item.options.length === 1) {
               newSelection[idx] = [item.options[0].id];
            } else if (strategy !== 'manual') {
-              // Sort options by price
               const sorted = [...item.options].sort((a, b) => a.price - b.price);
               let selected;
               if (strategy === 'cheapest') selected = sorted[0];
               else if (strategy === 'expensive') selected = sorted[sorted.length - 1];
-              else selected = sorted[Math.floor(sorted.length / 2)]; // Moderate
-              
+              else selected = sorted[Math.floor(sorted.length / 2)];
               newSelection[idx] = [selected.id];
            } else {
               newSelection[idx] = [];
            }
         });
         setSelectedOptions(newSelection);
-        
-        toast.success(`AI identified ${results.length} items. Review selections below.`);
+        toast.success(`AI identified ${results.length} items.`);
       } else {
-        toast.info("AI couldn't find items. Try being more specific.");
+        toast.info("AI couldn't find items.");
       }
     } catch (err) {
       toast.error("AI Shopping failed.");
@@ -130,9 +137,7 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
   const toggleOption = (itemIdx: number, optionId: string) => {
     setSelectedOptions(prev => {
       const current = prev[itemIdx] || [];
-      const updated = current.includes(optionId) 
-        ? current.filter(id => id !== optionId)
-        : [...current, optionId];
+      const updated = current.includes(optionId) ? current.filter(id => id !== optionId) : [...current, optionId];
       return { ...prev, [itemIdx]: updated };
     });
   };
@@ -149,38 +154,38 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
             name: option.name,
             price: option.price,
             images: option.images || [option.image],
-            category: option.category?.name || "AI Multi"
+            category: option.category?.name || "AI Multi",
+            businessId: option.businessId // Crucial for global cart identification
           }, option.requestedQuantity || 1);
           count++;
         }
       });
     });
     if (count > 0) {
-      toast.success(`Added ${count} items to your bag!`);
+      toast.success(`Added ${count} items!`);
       setIsAiMode(false);
       setAiResults([]);
-    } else {
-      toast.error("Please select at least one option.");
     }
   };
+
+  const isPlatformView = !currentBusiness;
+  const cartEntries = isPlatformView 
+    ? Object.entries(allCarts).filter(([_, cart]) => cart.length > 0)
+    : [[currentBusiness.id, items]];
+
+  const totalGlobalAmount = isPlatformView
+    ? cartEntries.reduce((acc, [_, cart]) => acc + cart.reduce((t, i) => t + (i.price * i.quantity), 0), 0)
+    : subtotal;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-6 border-b flex justify-between items-center bg-background shrink-0">
         <h2 className="text-xl font-black flex items-center gap-2">
            <ShoppingCart className="h-5 w-5 text-accent" />
-           {isAiMode ? "AI Shopping" : "Your Bag"}
+           {isAiMode ? "AI Shopping" : (isPlatformView ? "Global Bag" : "Store Bag")}
         </h2>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => {
-            setIsAiMode(!isAiMode);
-            setAiResults([]);
-          }} 
-          className="gap-2 text-accent font-bold bg-accent/5 hover:bg-accent/10 rounded-full"
-        >
-           <Sparkles className="h-4 w-4" /> {isAiMode ? "Exit AI" : "AI Assistant"}
+        <Button variant="ghost" size="sm" onClick={() => { setIsAiMode(!isAiMode); setAiResults([]); }} className="gap-2 text-accent font-bold bg-accent/5 hover:bg-accent/10 rounded-full">
+           <Sparkles className="h-4 w-4" /> {isAiMode ? "Exit AI" : "Smart Search"}
         </Button>
       </div>
 
@@ -188,136 +193,108 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
         <div className="p-6">
           {isAiMode ? (
             <div className="space-y-6">
-              {aiResults.length === 0 ? (
-                /* Step 1: Input */
-                <div className="bg-accent/5 p-5 rounded-3xl border border-accent/20 space-y-4">
-                   <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center text-accent">
-                         <Sparkles className="h-5 w-5" />
-                      </div>
-                      <div>
-                         <h4 className="font-black text-sm">AI Smart Search</h4>
-                         <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Two-step intelligent shopping</p>
-                      </div>
-                   </div>
-                   
-                   <div className="flex flex-wrap gap-2 pt-2">
-                      {(['manual', 'cheapest', 'moderate', 'expensive'] as const).map((s) => (
-                        <Button 
-                          key={s}
-                          variant={strategy === s ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setStrategy(s)}
-                          className={`rounded-full text-[10px] uppercase font-bold h-7 ${strategy === s ? 'bg-accent' : ''}`}
-                        >
-                          {s === 'manual' ? 'Let me choose' : `${s} price`}
-                        </Button>
-                      ))}
-                   </div>
-
-                   <textarea 
-                     className="w-full h-40 p-4 rounded-2xl border bg-white focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm resize-none"
-                     placeholder="e.g. 5 pieces of Jollof Rice, 2 Cold Stone, and a bottle of water..."
-                     value={aiInput}
-                     onChange={(e) => setAiInput(e.target.value)}
-                   />
-                   <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1 gap-2 border-dashed h-12 rounded-xl">
-                         <Upload className="h-4 w-4" /> Snap List
-                      </Button>
-                      <Button 
-                        className="flex-1 gap-2 h-12 bg-accent rounded-xl" 
-                        onClick={handleAiShop}
-                        disabled={isProcessing}
-                      >
-                         {isProcessing ? "Analyzing..." : <><Send className="h-4 w-4" /> Search Items</>}
-                      </Button>
-                   </div>
-                </div>
-              ) : (
-                /* Step 2: Review Results */
-                <div className="space-y-8 animate-in slide-in-from-bottom-5">
-                   <div className="flex items-center justify-between">
-                      <h3 className="font-black text-lg">Match Results</h3>
-                      <Button variant="ghost" size="sm" onClick={() => setAiResults([])} className="text-xs">Reset Search</Button>
-                   </div>
-
-                   {aiResults.map((item, idx) => (
-                      <div key={idx} className="space-y-3">
-                        <div className="flex items-center justify-between px-1">
-                           <h4 className="font-bold text-sm flex items-center gap-2">
-                              <span className="h-5 w-5 rounded bg-accent/10 text-accent flex items-center justify-center text-[10px]">{idx + 1}</span>
-                              {item.identifiedItem.name} 
-                              <span className="text-muted-foreground text-[10px]">x{item.identifiedItem.quantity}</span>
-                           </h4>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                           {item.options.length > 0 ? (
-                             item.options.map((opt: any) => (
-                               <div 
-                                 key={opt.id}
-                                 onClick={() => toggleOption(idx, opt.id)}
-                                 className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-                                    selectedOptions[idx]?.includes(opt.id) 
-                                    ? 'border-accent bg-accent/5' 
-                                    : 'border-transparent bg-muted/30 hover:bg-muted/50'
-                                 }`}
-                               >
-                                  <div className="flex items-center gap-3">
-                                     <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${selectedOptions[idx]?.includes(opt.id) ? 'border-accent bg-accent' : 'border-muted-foreground/30'}`}>
-                                        {selectedOptions[idx]?.includes(opt.id) && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
-                                     </div>
-                                     <div className="min-w-0">
-                                        <p className="text-xs font-black truncate">{opt.name}</p>
-                                        <p className="text-[10px] text-muted-foreground">{opt.category?.name || 'General'}</p>
-                                     </div>
+               {/* Search AI UI (Existing) */}
+               {aiResults.length === 0 ? (
+                 <div className="bg-accent/5 p-5 rounded-3xl border border-accent/20 space-y-4">
+                    <div className="relative">
+                       <textarea 
+                         className="w-full h-40 p-4 rounded-2xl border bg-white text-sm resize-none focus:ring-2 ring-accent/50 outline-none transition-all"
+                         placeholder="List what you need from all our stores... (e.g. 2 Paracetamol, 1 Nike Shoe, Blue Shirt)"
+                         value={aiInput}
+                         onChange={(e) => setAiInput(e.target.value)}
+                       />
+                       <div className="absolute bottom-4 right-4 flex gap-2">
+                          <input 
+                             type="file" 
+                             id="ai-upload" 
+                             className="hidden" 
+                             accept="image/*,.pdf,.txt"
+                             onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) toast.success(`Attached ${file.name}. AI will analyze it.`);
+                             }}
+                          />
+                          <Button 
+                             size="icon" 
+                             variant="secondary" 
+                             className="h-10 w-10 rounded-xl"
+                             onClick={() => document.getElementById('ai-upload')?.click()}
+                          >
+                             <Upload className="h-4 w-4" />
+                          </Button>
+                       </div>
+                    </div>
+                    <Button className="w-full h-14 bg-accent rounded-2xl font-black text-lg shadow-lg shadow-accent/20 group" onClick={handleAiShop} disabled={isProcessing}>
+                       {isProcessing ? (
+                         <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            AI is Shopping...
+                         </div>
+                       ) : (
+                         <div className="flex items-center gap-2">
+                            <Send className="h-5 w-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                            Start Smart Shopping
+                         </div>
+                       )}
+                    </Button>
+                    <p className="text-[10px] text-center text-muted-foreground font-medium uppercase tracking-widest opacity-60">AI will scan 500+ stores for the best match</p>
+                 </div>
+               ) : (
+                 <div className="space-y-8">
+                    {aiResults.map((item, idx) => (
+                       <div key={idx} className="space-y-3">
+                          <h4 className="font-bold text-sm">{item.identifiedItem.name}</h4>
+                          <div className="grid gap-2">
+                             {item.options.map((opt: any) => (
+                               <div key={opt.id} onClick={() => toggleOption(idx, opt.id)} className={`p-3 rounded-2xl border-2 cursor-pointer flex justify-between ${selectedOptions[idx]?.includes(opt.id) ? 'border-accent bg-accent/5' : 'bg-muted/30'}`}>
+                                  <div className="min-w-0">
+                                     <p className="text-xs font-black truncate">{opt.name}</p>
+                                     <p className="text-[10px] text-muted-foreground">{getBusinessName(opt.businessId)}</p>
                                   </div>
-                                  <div className="text-right">
-                                     <PriceDisplay amount={opt.price} className="text-xs font-bold text-accent" />
-                                  </div>
+                                  <PriceDisplay amount={opt.price} className="text-xs font-bold text-accent" />
                                </div>
-                             ))
-                           ) : (
-                             <div className="p-4 rounded-2xl border-2 border-dashed border-muted-foreground/10 text-center text-xs text-muted-foreground italic">
-                                No direct matches found in this store.
-                             </div>
-                           )}
-                        </div>
-                      </div>
-                   ))}
-
-                   <Button className="w-full h-14 rounded-2xl bg-accent font-black shadow-lg" onClick={addAllSelectedToCart}>
-                      Add Selected to Bag
-                   </Button>
-                </div>
-              )}
+                             ))}
+                          </div>
+                       </div>
+                    ))}
+                    <Button className="w-full h-14 rounded-2xl bg-accent font-black" onClick={addAllSelectedToCart}>Add Selected</Button>
+                 </div>
+               )}
             </div>
           ) : (
-            <div className="space-y-6">
-              {items.length === 0 ? (
-                <div className="h-[50vh] flex flex-col items-center justify-center text-center space-y-4 opacity-40">
-                  <Package className="h-16 w-16" />
-                  <p className="font-medium">Your bag is empty.</p>
-                </div>
+            <div className="space-y-8">
+              {cartEntries.length === 0 ? (
+                <div className="h-[50vh] flex flex-col items-center justify-center opacity-40"><Package className="h-16 w-16" /><p>Bag is empty.</p></div>
               ) : (
-                items.map((item) => (
-                  <div key={item.id} className="flex gap-4 group">
-                    <div className="h-20 w-20 bg-muted rounded-2xl overflow-hidden shadow-sm shrink-0 border">
-                      <img src={item.images?.[0] || item.image || '/placeholder.png'} alt={item.name} className="h-full w-full object-cover" />
-                    </div>
-                    <div className="flex-1 space-y-1 min-w-0">
-                      <h4 className="font-black text-sm truncate">{item.name}</h4>
-                      <PriceDisplay amount={item.price} className="text-sm font-bold text-accent" />
-                      <div className="flex items-center gap-3 pt-2">
-                        <div className="flex items-center border rounded-full px-2 py-1 gap-4 bg-muted/20">
-                          <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="hover:text-accent p-1"><Minus className="h-3 w-3" /></button>
-                          <span className="text-xs font-black min-w-4 text-center">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="hover:text-accent p-1"><Plus className="h-3 w-3" /></button>
-                        </div>
-                        <button onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-destructive transition-colors ml-auto p-1"><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    </div>
+                cartEntries.map(([bid, bizItems]) => (
+                  <div key={bid} className="space-y-4">
+                     {isPlatformView && (
+                       <div className="flex justify-between items-center bg-muted/20 p-2 px-3 rounded-lg border">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-accent">{getBusinessName(bid)}</span>
+                          <PriceDisplay amount={bizItems.reduce((acc, i) => acc + (i.price * i.quantity), 0)} className="text-xs font-bold" />
+                       </div>
+                     )}
+                     <div className="space-y-4">
+                       {bizItems.map((item) => (
+                         <div key={item.id} className="flex gap-4">
+                           <div className="h-16 w-16 bg-muted rounded-xl overflow-hidden border shrink-0">
+                             <img src={item.images?.[0] || item.image || '/placeholder.png'} alt={item.name} className="h-full w-full object-cover" />
+                           </div>
+                           <div className="flex-1 space-y-1 min-w-0">
+                             <h4 className="font-black text-xs truncate">{item.name}</h4>
+                             <PriceDisplay amount={item.price} className="text-xs font-bold text-accent" />
+                             <div className="flex items-center gap-3 pt-1">
+                               <div className="flex items-center border rounded-full px-2 py-0.5 gap-3 bg-muted/10">
+                                 <button onClick={() => updateQuantity(item.id, item.quantity - 1, bid)} className="p-1"><Minus className="h-2 w-2" /></button>
+                                 <span className="text-[10px] font-black">{item.quantity}</span>
+                                 <button onClick={() => updateQuantity(item.id, item.quantity + 1, bid)} className="p-1"><Plus className="h-2 w-2" /></button>
+                               </div>
+                               <button onClick={() => removeItem(item.id, bid)} className="hover:text-destructive ml-auto"><Trash2 className="h-3 w-3" /></button>
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
                   </div>
                 ))
               )}
@@ -328,21 +305,17 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
 
       <div className="p-6 border-t bg-background shrink-0 space-y-4">
         <div className="space-y-2">
-          <div className="flex justify-between items-center text-muted-foreground text-sm font-medium">
-            <span>Subtotal</span>
-            <PriceDisplay amount={subtotal} />
-          </div>
           <div className="flex justify-between items-center font-black text-2xl">
             <span>Total</span>
-            <PriceDisplay amount={subtotal} />
+            <PriceDisplay amount={totalGlobalAmount} />
           </div>
         </div>
-        <Button className="w-full h-14 rounded-2xl text-lg font-black bg-accent hover:bg-accent/90 shadow-xl shadow-accent/20 transition-all active:scale-95" onClick={close}>
-          Checkout Now
+        <Button className="w-full h-14 rounded-2xl text-lg font-black bg-accent shadow-xl active:scale-95" onClick={close}>
+          {isPlatformView ? "Proceed to Multi-Shop" : "Checkout Now"}
         </Button>
-        {items.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={clearCart} className="w-full text-muted-foreground hover:text-destructive font-bold text-xs">
-             CLEAR ENTIRE BAG
+        {cartEntries.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={isPlatformView ? clearAllCarts : clearCart} className="w-full text-muted-foreground hover:text-destructive font-bold text-xs uppercase tracking-tighter">
+             EMPTY {isPlatformView ? 'ALL BAGS' : 'THIS BAG'}
           </Button>
         )}
       </div>

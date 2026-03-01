@@ -1,16 +1,12 @@
 "use client"
 
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import Nav from './nav';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import Sidenav from './sidenav';
 import { ModeToggle } from '@/components/ui/mode-toggle';
-import { Suspense, useEffect } from "react"
-import { AiOutlineSearch } from "react-icons/ai"
 import { Advert } from "@/components/myComponents/subs"
-import loyzspiceslogo from "@/public/logo.png"
-import Image from "next/image";
 import { GlobalCart } from '../utility/GlobalCart';
 import { SearchInput } from '../myComponents/subs/searchcomponent';
 import { useSession } from "next-auth/react";
@@ -22,10 +18,17 @@ import {
   TooltipContent
 } from "@/components/ui/tooltip";
 import { GlobalDialog } from '../ui/GlobalDialog';
+import Login from '../myComponents/subs/login';
+import { usePathname, useParams } from 'next/navigation';
 
-const Navbar = (): JSX.Element => {
+const Navbar = (): JSX.Element | null => {
   const { setUser, user } = useAppContext();
   const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const { storeName } = useParams();
+
+  // Hide platform navbar if we're in a specific store route
+  if (storeName) return null;
 
   useEffect(() => {
     if (status === "authenticated" && user.email === "nil") {
@@ -37,9 +40,9 @@ const Navbar = (): JSX.Element => {
 
   return (
     <TooltipProvider>
-      <div className="sticky top-0 z-30 w-[100vw] overflow-clip flex flex-col m-0 p-0">
-        <header className="w-[100%] justify-center items-center py-1 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
-          <div className="container mx-auto flex justify-between items-center gap-2 h-[60px] /md:h-[50px] overflow-clip">
+      <div className="sticky top-0 z-30 w-full overflow-clip flex flex-col m-0 p-0">
+        <header className="w-full justify-center items-center py-1 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
+          <div className="container mx-auto flex justify-between items-center gap-2 h-[60px] overflow-clip">
 
             {/* Sidenav Mobile */}
             <Tooltip>
@@ -56,78 +59,46 @@ const Navbar = (): JSX.Element => {
             {/* Logo */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link href={"/"} className="flex dark:hidden flex-1 md:flex-none h-full max-h-[200px] md:max-h-[50px] /bg-red-500 overflow-clip justify-center items-center">
-                  <Image src={loyzspiceslogo} alt="Home" className="h-8 w-20" />
+                <Link href={"/"} className="flex flex-1 md:flex-none h-full items-center">
+                   <div className="flex items-center gap-2">
+                      <div className="bg-accent h-8 w-8 rounded-lg flex items-center justify-center text-white font-black text-xl shadow-lg">V</div>
+                      <span className="text-2xl font-black tracking-tighter hidden sm:block">VendorPort</span>
+                   </div>
                 </Link>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Go Home</p>
+                <p>VendorPort Home</p>
               </TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href={"/"} className="hidden dark:flex flex-1 md:flex-none max-h-[43px] md:max-h-[50px] overflow-clip justify-center items-center py-5">
-                  <Image src={loyzspiceslogo} alt="Home" className="w-[100px] h-auto" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Go Home</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Mobile Search Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className="lg:hidden relative flex justify-center items-center text-accent text-xl gap-1"
-                >
-                  {/* <Button 
-                    variant='outline'
-                    className="justify-center items-center rounded-full w-[35px] h-[35px] overflow-clip text-accent text-xl"
-                  >
-                    <AiOutlineSearch />
-                  </Button> */}
-
-                  <GlobalCart />
-
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Cart</p>
-              </TooltipContent>
-            </Tooltip>
+            {/* Mobile Search/Cart */}
+            <div className="lg:hidden relative flex items-center gap-2">
+               <GlobalCart />
+               {user?.email === "nil" ? <Login /> : (
+                 <Link href="/create-store">
+                   <Button size="sm" className="bg-accent font-bold">Build</Button>
+                 </Link>
+               )}
+            </div>
 
             <div className="md:flex hidden">
-              {/* Search Input */}
               <SearchInput />
             </div>
 
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center gap-8">
-
               <Nav />
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <GlobalCart />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View Cart</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <ModeToggle />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Toggle Theme</p>
-                </TooltipContent>
-              </Tooltip>
-
+              <GlobalCart />
+              <ModeToggle />
+              {user?.email === "nil" ? (
+                <div className="flex gap-2">
+                   <Login />
+                </div>
+              ) : (
+                <Link href="/create-store">
+                   <Button className="bg-accent hover:bg-accent/90 text-white font-bold">Create My Store</Button>
+                </Link>
+              )}
             </div>
           </div>
         </header>

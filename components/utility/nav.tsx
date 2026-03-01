@@ -53,13 +53,25 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 
+import { BarChart, LayoutDashboard } from "lucide-react";
+import { useAppContext } from "@/hooks/useAppContext";
+
 const Nav = () => {
   const pathname = usePathname();
+  const { user } = useAppContext();
+
+  const baseLinks = [...Links.Links];
+  if (user?.role === "admin") {
+     baseLinks.push(
+        { path: "/admin", name: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+        { path: "/admin/analytics", name: "Analytics", icon: <BarChart className="h-5 w-5" /> }
+     );
+  }
 
   return (
     <TooltipProvider>
       <nav className="flex gap-8 text-xl">
-        {Links.Links.map((link, index) => {
+        {baseLinks.map((link: any, index: number) => {
           const isActive = link.path === pathname;
 
           return (
@@ -69,8 +81,8 @@ const Nav = () => {
                   href={link.path}
                   className={`${
                     isActive &&
-                    "text-accent border-b-2 border-accent border-none outline-none"
-                  } capitalize font-medium hover:text-accent transition-all`}
+                    "text-accent border-b-2 border-accent"
+                  } capitalize font-medium hover:text-accent transition-all flex items-center h-full`}
                 >
                   {link.icon} 
                 </Link>

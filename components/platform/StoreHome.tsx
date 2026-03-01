@@ -6,6 +6,7 @@ import axios from 'axios'
 import { toast } from 'sonner'
 import { useAppContext } from '@/hooks/useAppContext'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -319,15 +320,16 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: Section, onUpdate
 
 const StoreNavbar = ({ business }: { business: Business }) => {
    const { storeName } = useParams();
+   const isAdmin = useIsBusinessAdmin();
    const pages = business.settings?.pages || [];
 
    return (
-     <nav className="w-full bg-background border-b sticky top-0 z-[50] py-4 px-6 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
+     <nav className="w-full border-b sticky top-0 z-[50] py-4 px-6 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
         <Link href={`/${storeName}`} className="text-2xl font-black tracking-tighter text-accent flex items-center gap-2">
            <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg">
               {business.name.charAt(0)}
            </div>
-           {business.name}
+           <span className="truncate max-w-[150px] md:max-w-none">{business.name}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
            {pages.map(page => (
@@ -341,9 +343,16 @@ const StoreNavbar = ({ business }: { business: Business }) => {
            ))}
         </div>
         <div className="flex items-center gap-4">
+           {isAdmin && (
+              <Link href={`/${storeName}/analytics`}>
+                <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2">
+                   ADMIN <Layout className="h-3 w-3 ml-1" />
+                </Badge>
+              </Link>
+           )}
            <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
            <GlobalCart />
-           <Button variant="outline" className="rounded-full font-bold md:flex hidden">Get Started</Button>
+           <Button variant="outline" className="rounded-full font-bold md:flex hidden">Join Platform</Button>
            <Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-5 w-5" /></Button>
         </div>
      </nav>

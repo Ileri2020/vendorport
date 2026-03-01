@@ -13,9 +13,20 @@ import dynamic from 'next/dynamic'
 const Login = dynamic(() => import('@/components/myComponents/subs').then((e) => e.Login), { ssr: false, })
 import { Signup } from "@/components/myComponents/subs"
 
+import { BarChart, LayoutDashboard } from "lucide-react";
+
 const Sidenav = () => {
     const pathname = usePathname();
     const { user, setUser } = useAppContext();
+
+    const baseLinks = [...Links.Links];
+    if (user?.role === "admin") {
+        baseLinks.push(
+            { path: "/admin", name: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+            { path: "/admin/analytics", name: "Analytics", icon: <BarChart className="h-5 w-5" /> }
+        );
+    }
+
     return (
         <Sheet>
             <SheetTrigger className="flex justify-center items-center text-[32px] text-accent">
@@ -23,9 +34,9 @@ const Sidenav = () => {
             </SheetTrigger>
             <SheetHeader></SheetHeader>
             <SheetTitle></SheetTitle>
-            <SheetContent className="flex flex-col justify-between items-center">
-                <nav className="flex flex-col justify-center items-center gap-8 text-xl">
-                    {Links.Links.map((link, index) => {
+            <SheetContent className="flex flex-col justify-between items-center overflow-y-auto">
+                <nav className="flex flex-col justify-center items-center gap-8 text-xl py-10">
+                    {baseLinks.map((link: any, index: number) => {
                         return (
                             <Link href={link.path} key={index} className={`${link.path === pathname && "text-accent border-b-2 border-accent"} capitalize font-medium hover:text-accent transition-all flex items-center gap-2`}>
                                 {link.icon}

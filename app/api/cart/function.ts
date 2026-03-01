@@ -55,7 +55,7 @@ async function dbHandler({
           const items = await prismaModel.findMany();
           return { status: 200, data: items };
         }
-      case 'POST':
+      case 'POST': {
         const data = body;
         const newItem = await prismaModel.create({ data });
         if (profileImage && model === 'posts') {
@@ -71,13 +71,15 @@ async function dbHandler({
           }
         }
         return { status: 200, data: newItem };
-      case 'PUT':
+      }
+      case 'PUT': {
         const { _id, ...updatedata } = body;
         const updatedItem = await prismaModel.update({
           where: { id : _id },
           data: updatedata,
         });
         return { status: 200, data: updatedItem };
+      }
       case 'DELETE':
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };

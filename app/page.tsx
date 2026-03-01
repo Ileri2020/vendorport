@@ -11,7 +11,7 @@ export default async function Home() {
         }
       }
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: { ratings: "desc" }
   });
 
   return (

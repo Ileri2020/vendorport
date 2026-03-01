@@ -273,30 +273,38 @@ export async function GET(req: NextRequest) {
     // PRODUCT SEARCH
     // =====================
     if (model === "product") {
-      const where: any = {};
+      const minPrice = parseFloat(searchParams.get("minPrice") || "0");
+      const maxPrice = parseFloat(searchParams.get("maxPrice") || "999999999");
+      const bid = searchParams.get("businessId");
+
+      const where: any = {
+        price: { gte: minPrice, lte: maxPrice }
+      };
+
+      if (bid) where.businessId = bid;
 
       if (searchQuery || categoryFilter) {
-        where.OR = [];
-
+        where.AND = [];
         if (searchQuery) {
-          where.OR.push({
-            name: { contains: searchQuery, mode: "insensitive" },
+          where.AND.push({
+            OR: [
+              { name: { contains: searchQuery, mode: "insensitive" } },
+              { business: { name: { contains: searchQuery, mode: "insensitive" } } }
+            ]
           });
         }
-
         if (categoryFilter) {
-          where.OR.push({
-            category: {
-              name: { contains: categoryFilter, mode: "insensitive" },
-            },
+          where.AND.push({
+            category: { name: { contains: categoryFilter, mode: "insensitive" } }
           });
         }
       }
 
       const products = await prisma.product.findMany({
         where,
-        include: includeMap.product,
-        take: 50,
+        include: { ...includeMap.product, business: true },
+        take: 100,
+        orderBy: { createdAt: 'desc' }
       });
 
       return NextResponse.json(products);

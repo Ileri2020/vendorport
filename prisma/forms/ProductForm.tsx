@@ -1,4 +1,4 @@
-// components/BookForm.tsx
+"use client";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
@@ -7,29 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-// interface Product {
-//   id: string;
-//   //ministryId: string;
-//   title: string;
-//   author?: string;
-//   @id @default(auto()) @map("_id") @db.ObjectId
-//   name     String
-//   description String?
-//   category     Category     @relation(fields: [categoryId], references: [id])
-//   categoryId    String    @db.ObjectId
-//   price    Float
-//   stock: any;
-//   reviews  Review[]
-//   cartItems: any;
-//   Featured : any;
-//   images: any;
-//   createdAt?: Date;
-//   updatedAt?: Date; 
-// }
-
-export default function ProductForm({ initialProduct, hideList = false }: { initialProduct?: any, hideList?: boolean }) {
+export default function ProductForm({ initialProduct, hideList = false, businessId }: { initialProduct?: any, hideList?: boolean, businessId?: string }) {
   const [products, setProducts] = useState<any>([]);
-  const [formData, setFormData] = useState<any>({ //useState<Omit<any, 'id' | 'createdAt' | 'updatedAt'>>({
+  const [formData, setFormData] = useState<any>({ 
     name: initialProduct?.name || '',
     description: initialProduct?.description || '',
     categoryId: initialProduct?.categoryId || '',
@@ -37,18 +17,16 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     costPrice: initialProduct?.costPrice || 0,
     images: initialProduct?.images || null,
   });
-  const [file, setFile] = useState(null);
-  const [categories, setCategories] = useState([]);//categories to be mapped to the select input
-  const [preview, setPreview] = useState(null);
-  const [uploadStatus , setUploadStatus] = useState("");
-
-  const [productImage, setProductImage] = useState(null);
+  
+  const [file, setFile] = useState<any>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [preview, setPreview] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(initialProduct?.id || null);
 
   useEffect(() => {
     if (!hideList) fetchProducts();
     fetchCategories();
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     if (initialProduct) {
@@ -64,10 +42,10 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     }
   }, [initialProduct]);
 
-
   const fetchProducts = async () => {
     try {
-      const res = await axios.get('/api/dbhandler?model=product');
+      const url = `/api/dbhandler?model=product${businessId ? `&businessId=${businessId}` : ''}`;
+      const res = await axios.get(url);
       setProducts(res.data);
     } catch (err) {
       console.error('Failed to fetch products', err);
@@ -75,14 +53,17 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   };
 
   const fetchCategories = async () => {
-    const res = await axios.get('/api/dbhandler?model=category');
-    setCategories(res.data);
-    if (res.data.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        categoryId: res.data[0].id,
-        category: res.data[0].name
-      }));
+    try {
+      const res = await axios.get('/api/dbhandler?model=category');
+      setCategories(res.data);
+      if (!formData.categoryId && res.data.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          categoryId: res.data[0].id,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch categories', err);
     }
   };
 
@@ -91,7 +72,6 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       name: '',
       description: '',
       categoryId: categories.length > 0 ? categories[0].id : '',
-      category: categories.length > 0 ? categories[0].name : '',
       price: 0,
       costPrice: 0,
       images: null,
@@ -101,59 +81,48 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     setPreview(null);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleImageChange = (e: any) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+        if (selectedFile.size > 1000 * 1024) {
+            toast.warning("File size greater than 1MB. Upload might be slow.");
+        }
+        setFile(selectedFile);
+        setPreview(URL.createObjectURL(selectedFile));
+    }
+  };
 
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
     const pformData = new FormData();
 
-    if (file) {
-      pformData.append("file", file);
-    }
-
+    if (file) pformData.append("file", file);
     pformData.append("name", formData.name);
     pformData.append("description", formData.description);
     pformData.append("categoryId", formData.categoryId);
     pformData.append("price", String(formData.price));
-    if (formData.costPrice) {
-      pformData.append("costPrice", String(formData.costPrice));
-    }
+    if (formData.costPrice) pformData.append("costPrice", String(formData.costPrice));
+    if (businessId) pformData.append("businessId", businessId);
 
     try {
       if (editId) {
-        await axios.put(
-          `/api/dbhandler?model=product&id=${editId}`,
-          pformData
-        );
+        await axios.put(`/api/dbhandler?model=product&id=${editId}`, pformData);
       } else {
         await axios.post(`/api/product`, pformData);
       }
-      setUploadStatus("Product saved successfully");
-      toast.success(editId ? "Product updated successfully" : "Product created successfully");
+      toast.success(editId ? "Product updated" : "Product created");
       resetForm();
       fetchProducts();
     } catch (error) {
-      console.error(error);
       toast.error("Failed to save product.");
     }
   };
 
-
-  const handleImageChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile.size > 300 * 1024){
-      toast.warning("File size greater than 300kb. Upload might fail.");
-    }
-    setFile(selectedFile);
-    setPreview(URL.createObjectURL(selectedFile));
-  }
-
-  const handleDelete = async (product : any) => {
+  const handleDelete = async (product: any) => {
     if (!confirm(`Are you sure you want to delete ${product.name}?`)) return;
     try {
-      const res = await axios.delete(`/api/dbhandler?model=product&id=${product.id}`);
-      if (res.status === 200  || res.status === 201) {
-        toast.success('Product deleted successfully.');
-      }
+      await axios.delete(`/api/dbhandler?model=product&id=${product.id}`);
+      toast.success('Product deleted.');
       fetchProducts();
     } catch (err) {
       toast.error('Failed to delete product.');
@@ -162,9 +131,8 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
   const handleEdit = (product: any) => {
     setEditId(product.id);
-    setFile(null);        // 🔑 important
-    setPreview(null);     // 🔑 important
-
+    setFile(null);
+    setPreview(null);
     setFormData({
       name: product.name ?? '',
       description: product.description ?? '',
@@ -175,129 +143,117 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     });
   };
 
-  
-
   return (
-    <div>
-      
-      <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-sm gap-2 justify-center items-center p-3 border-2 border-secondary-foreground rounded-sm m-2'>
-        <h2>Product Form</h2>
+    <div className="w-full">
+      <form onSubmit={handleSubmit} className='flex flex-col w-full gap-4 p-6 border rounded-2xl bg-card shadow-sm'>
+        <h2 className="text-xl font-bold">Product Details</h2>
 
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-name">Product Name</Label>
-          <Input
-            id="product-name"
-            placeholder="Name of product"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          />
+        <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1">
+                <Label htmlFor="product-name">Product Name</Label>
+                <Input
+                    id="product-name"
+                    placeholder="e.g. Premium Item"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                />
+            </div>
+
+            <div className="space-y-1">
+                <Label htmlFor="product-category">Category</Label>
+                <Select 
+                    value={formData.categoryId} 
+                    onValueChange={(v) => setFormData({ ...formData, categoryId: v })}
+                >
+                    <SelectTrigger id="product-category">
+                        <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {categories.map((cat: any) => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
 
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-desc">Product Description</Label>
-          <Input
-            id="product-desc"
-            placeholder="Description of product"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          />
-        </div>
-
-        <div className="w-full space-y-1 text-center flex flex-col items-center">
-          <Label htmlFor="product-category" className='mb-2'>Product Category</Label>
-          <Select 
-            value={formData.categoryId} 
-            onValueChange={(value) => {
-              const selectedCategory = categories.find(cat => cat.id === value);
-              setFormData({ 
-                ...formData, 
-                categoryId: value, 
-                category: selectedCategory ? selectedCategory.name : ''
-              });
-            }}
-          >
-            <SelectTrigger id="product-category" className="w-full">
-              <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.length > 0 ? categories.map((category: any) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              )) : <SelectItem value="none" disabled>No categories</SelectItem>}
-            </SelectContent>
-          </Select>
-        </div>
-
-
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-price">Product Price</Label>
-          <Input
-            id="product-price"
-            placeholder="Price of product"
-            value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-            type="number"
-          />
-        </div>
-
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-cost-price">Product Cost Price</Label>
-          <Input
-            id="product-cost-price"
-            placeholder="Cost price of product"
-            value={formData.costPrice}
-            onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
-            type="number"
-          />
-        </div>
-
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-image">Product Image</Label>
-        {!preview && formData?.images?.length > 0 && (
-          <img
-            src={formData.images[0]}
-            alt="Current product"
-            style={{ maxHeight: '300px', marginTop: '1rem' }}
-          />
-        )}
-        {(preview) && (        //{(preview || formData?.images[0]!=null) && (
-              <div style={{ marginTop: '1rem' }}>
-                <img src={preview} alt="Selected preview" style={{ maxHeight: '300px' }} />
-              </div>
-            )}
+        <div className="space-y-1">
+            <Label htmlFor="product-desc">Description</Label>
             <Input
-              type="file"
-              name='image'
-              id='product-image'
-              placeholder="Product image"
-              onChange={handleImageChange}
+                id="product-desc"
+                placeholder="Briefly describe the product"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
         </div>
-        <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <Button type="button" onClick={resetForm}>Cancel</Button>}
 
+        <div className="grid gap-4 grid-cols-2">
+            <div className="space-y-1">
+                <Label htmlFor="product-price">Selling Price</Label>
+                <Input
+                    id="product-price"
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    required
+                />
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="product-cost">Cost Price</Label>
+                <Input
+                    id="product-cost"
+                    type="number"
+                    value={formData.costPrice}
+                    onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                />
+            </div>
+        </div>
+
+        <div className="space-y-2">
+            <Label>Product Image</Label>
+            <div className="flex flex-col items-center gap-4 border-2 border-dashed rounded-xl p-4 bg-muted/20">
+                {(preview || formData.images?.[0]) && (
+                    <img src={preview || formData.images[0]} alt="Preview" className="h-32 w-32 object-cover rounded-lg border shadow-sm" />
+                )}
+                <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="cursor-pointer"
+                />
+            </div>
+        </div>
+
+        <div className="flex gap-2">
+            <Button type="submit" className="flex-1 bg-accent hover:bg-accent/90">
+                {editId ? 'Update Product' : 'Create Product'}
+            </Button>
+            {editId && <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>}
+        </div>
 
         {!hideList && (
-          <ul className='w-full'>
+          <div className='mt-8 space-y-4'>
+            <h3 className="font-bold border-b pb-2">Recent Products</h3>
             {products.length > 0 ? (
-              products.map((item, index) => (
-                <li key={index} className="flex flex-col justify-center items-center gap-2 my-2 bg-secondary rounded-md w-full p-2">
-                  <div className="flex flex-row gap-2">
-                    <span>{(index + 1)}. Name : </span>
-                    <span>{item.name}</span>
-                  </div>
-                  <p>Price : {item.price || <em>No price tag</em>}</p>
-                  <div className='flex flex-row gap-2 p-1 w-full'>
-                    <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                    <Button type='button' onClick={() => handleDelete(item)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
-                  </div>
-                </li>
-              ))
+              <div className="grid gap-2">
+                {products.map((item: any, index: number) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border group">
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">{index + 1}.</span>
+                            <span className="font-bold text-sm">{item.name}</span>
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="ghost" className="h-8" onClick={() => handleEdit(item)}>Edit</Button>
+                            <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => handleDelete(item)}>Delete</Button>
+                        </div>
+                    </div>
+                ))}
+              </div>
             ) : (
-              <p>No available product.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">No products found in this business.</p>
             )}
-          </ul>
+          </div>
         )}
       </form>
     </div>

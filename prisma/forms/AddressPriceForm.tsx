@@ -83,7 +83,7 @@ export default function AddressPriceForm() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        let payload: any = {
+        const payload: any = {
             price: parseFloat(formData.price),
         };
 

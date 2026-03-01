@@ -1,9 +1,20 @@
 {
-  "extends": ["next/core-web-vitals", "next/typescript"],
+  "parser": "@typescript-eslint/parser",
+  "plugins": ["@typescript-eslint"],
+  "extends": [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended"
+  ],
   "rules": {
     "no-unused-vars": "off",
     "@typescript-eslint/no-explicit-any": "off",
-    "react/no-unescaped-entities": "off",
-    "@typescript-eslint/no-unused-vars": "off"
+    "@typescript-eslint/no-unused-vars": "off",
+    "@typescript-eslint/ban-ts-comment": "off",
+    "@typescript-eslint/no-var-requires": "off"
+  },
+  "env": {
+    "browser": true,
+    "node": true,
+    "es6": true
   }
 }

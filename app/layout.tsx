@@ -11,6 +11,7 @@ import { CartProvider } from "@/hooks/use-cart";
 import { SessionProvider } from "next-auth/react"
 import { usersession } from "@/session";
 import { VisitTracker } from "@/components/utility/VisitTracker";
+import { prisma } from "@/lib/prisma";
 // import {Roboto} from "next/font/google"
 
 // const roboto = Roboto({
@@ -38,15 +39,15 @@ interface Session {
 }
 
 const metadata: Metadata = {
-  title: "V-Builder | Create Your E-Store & Pharmacy",
-  description: "The ultimate website builder to launch your online business in seconds.",
+  title: "VendorPort | The SaaS Platform for E-Store Builders",
+  description: "VendorPort is the ultimate website builder to launch your online business in seconds. create e-stores, pharmacies, and more.",
 };
 
 export const SEO_CONFIG = {
   description: 'Design, launch, and manage your e-store or pharmacy with ease.',
-  fullName: "V-Builder Platform",
-  name: "V-Builder",
-  slogan: "Your Business, Your Way",
+  fullName: "VendorPort Platform",
+  name: "VendorPort",
+  slogan: "Empowering Businesses Digitally",
 };
 
 export const SYSTEM_CONFIG = {
@@ -85,7 +86,11 @@ export default async function RootLayout({
                   <Navbar />
                   {children}
                   <Toaster />
-                  <Footer />
+                  <Footer categories={await prisma.category.findMany({ 
+                    take: 5, 
+                    orderBy: { products: { _count: 'desc' } }, 
+                    select: { id: true, name: true } 
+                  }) as any} />
                 </ThemeProvider>
               </CartProvider>
             </Providers>

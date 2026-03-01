@@ -24,7 +24,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { signIn } from "next-auth/react";
 
 const Login = () => {
-  const { setUser } = useAppContext();
+  const { setUser, currentBusiness } = useAppContext();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -157,7 +157,7 @@ const Login = () => {
               {verificationStep === 'login' && 'Login to '}
               {verificationStep === 'verify' && 'Verify Your Email'}
               {verificationStep === 'setPassword' && 'Set Your Password'}
-              <span className='text-accent'> Lois Food and Spices</span>
+              <span className='text-accent'> {currentBusiness?.name || 'VendorPort'}</span>
             </DrawerTitle>
             <DrawerDescription>
               {verificationStep === 'verify' && 'We need to verify your email address'}

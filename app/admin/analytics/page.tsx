@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useEffect } from "react";
 
-export default function AnalyticsDashboard() {
+export default function AnalyticsDashboard({ businessId }: { businessId?: string }) {
     const [date, setDate] = useState<DateRange | undefined>({
         from: subDays(new Date(), 30),
         to: new Date(),
@@ -27,14 +27,16 @@ export default function AnalyticsDashboard() {
 
     const queryParams = {
         from: date?.from?.toISOString(),
-        to: date?.to?.toISOString()
+        to: date?.to?.toISOString(),
+        businessId: businessId || ""
     };
 
     useEffect(() => {
         if (!queryParams.from || !queryParams.to) return;
         
         setIsLoading(true);
-        fetch(`/api/analytics?from=${queryParams.from}&to=${queryParams.to}`)
+        const url = `/api/analytics?from=${queryParams.from}&to=${queryParams.to}${businessId ? `&businessId=${businessId}` : ""}`;
+        fetch(url)
             .then(res => res.json())
             .then(json => {
                 setData(json);
@@ -44,7 +46,7 @@ export default function AnalyticsDashboard() {
                 console.error("Failed to fetch analytics:", err);
                 setIsLoading(false);
             });
-    }, [queryParams.from, queryParams.to]);
+    }, [queryParams.from, queryParams.to, businessId]);
 
     return (
         <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">

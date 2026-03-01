@@ -175,7 +175,7 @@ export function ProductCard({
                 <DialogHeader>
                   <DialogTitle>Edit Product: {product.name}</DialogTitle>
                 </DialogHeader>
-                <ProductForm initialProduct={product} hideList={true} />
+                <ProductForm initialProduct={product} hideList={true} businessId={product.businessId} />
               </DialogContent>
             </Dialog>
 

@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-01 01:04:29
+Generated: 2026-03-01 02:12:06
 ================================================================================
 
 
@@ -789,7 +789,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar } from "@/components/ui/calendar";
 import { useEffect } from "react";
 
-export default function AnalyticsDashboard() {
+export default function AnalyticsDashboard({ businessId }: { businessId?: string }) {
     const [date, setDate] = useState<DateRange | undefined>({
         from: subDays(new Date(), 30),
         to: new Date(),
@@ -799,14 +799,16 @@ export default function AnalyticsDashboard() {
 
     const queryParams = {
         from: date?.from?.toISOString(),
-        to: date?.to?.toISOString()
+        to: date?.to?.toISOString(),
+        businessId: businessId || ""
     };
 
     useEffect(() => {
         if (!queryParams.from || !queryParams.to) return;
         
         setIsLoading(true);
-        fetch(`/api/analytics?from=${queryParams.from}&to=${queryParams.to}`)
+        const url = `/api/analytics?from=${queryParams.from}&to=${queryParams.to}${businessId ? `&businessId=${businessId}` : ""}`;
+        fetch(url)
             .then(res => res.json())
             .then(json => {
                 setData(json);
@@ -816,7 +818,7 @@ export default function AnalyticsDashboard() {
                 console.error("Failed to fetch analytics:", err);
                 setIsLoading(false);
             });
-    }, [queryParams.from, queryParams.to]);
+    }, [queryParams.from, queryParams.to, businessId]);
 
     return (
         <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -936,8 +938,8 @@ import Link from "next/link";
 function getWeekNumber(d: Date) {
   d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-  var yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  var weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   return weekNo;
 }
 
@@ -1657,15 +1659,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing from or to date" }, { status: 400 });
   }
 
-  const from = new Date(fromStr);
-  const to = new Date(toStr);
+  const bid = searchParams.get("businessId");
 
   try {
+    const whereBase: any = {
+       createdAt: { gte: from, lte: to }
+    };
+    if (bid) whereBase.businessId = bid;
+
     /* ================= PAID CARTS FOR REVENUE & PROFIT ================= */
     const paidCarts = await prisma.cart.findMany({
       where: {
+        ...whereBase,
         status: "paid",
-        createdAt: { gte: from, lte: to },
       },
       include: {
         products: {
@@ -1688,8 +1694,7 @@ export async function GET(req: Request) {
 
     const totalProfit = totalRevenue - totalCost;
 
-    /* ================= REVENUE OVER TIME (For chart) ================= */
-    // Grouping by day manually as Prisma doesn't do it easily for MongoDB
+    /* ================= REVENUE OVER TIME ================= */
     const revenueByDay: Record<string, number> = {};
     paidCarts.forEach(cart => {
       const day = cart.createdAt.toISOString().split("T")[0];
@@ -1701,7 +1706,7 @@ export async function GET(req: Request) {
       revenue
     })).sort((a, b) => a.date.localeCompare(b.date));
 
-    /* ================= PROFIT OVER TIME (For chart) ================= */
+    /* ================= PROFIT OVER TIME ================= */
     const profitByDay: Record<string, { revenue: number; cost: number; profit: number }> = {};
     paidCarts.forEach(cart => {
       const day = cart.createdAt.toISOString().split("T")[0];
@@ -1725,9 +1730,7 @@ export async function GET(req: Request) {
     /* ================= CART STATUS DISTRIBUTION ================= */
     const cartStatusCountsRaw = await prisma.cart.groupBy({
       by: ["status"],
-      where: {
-        createdAt: { gte: from, lte: to },
-      },
+      where: whereBase,
       _count: { status: true },
     });
 
@@ -1741,8 +1744,8 @@ export async function GET(req: Request) {
       by: ["productId"],
       where: {
         cart: {
+          ...whereBase,
           status: "paid",
-          createdAt: { gte: from, lte: to }
         }
       },
       _sum: { quantity: true },
@@ -1767,9 +1770,7 @@ export async function GET(req: Request) {
 
     /* ================= VISITS OVER TIME ================= */
     const visitsRaw = await prisma.visit.findMany({
-      where: {
-        createdAt: { gte: from, lte: to },
-      },
+      where: whereBase,
       select: { createdAt: true }
     });
 
@@ -1787,9 +1788,7 @@ export async function GET(req: Request) {
     /* ================= REFUND REASONS ================= */
     const refundsRaw = await prisma.refund.groupBy({
       by: ["reason"],
-      where: {
-        createdAt: { gte: from, lte: to },
-      },
+      where: whereBase,
       _count: { reason: true },
     });
 
@@ -1802,7 +1801,7 @@ export async function GET(req: Request) {
     const ordersCount = paidCarts.length;
     
     const refundAgg = await prisma.refund.aggregate({
-      where: { createdAt: { gte: from, lte: to } },
+      where: whereBase,
       _sum: { amount: true }
     });
 
@@ -1811,6 +1810,8 @@ export async function GET(req: Request) {
     });
 
     const totalUsers = await prisma.user.count();
+
+    const businessesCount = bid ? 1 : await prisma.business.count();
 
     return NextResponse.json({
       revenue: totalRevenue,
@@ -1826,7 +1827,8 @@ export async function GET(req: Request) {
         totalOrders: ordersCount,
         totalRefunds: refundAgg._sum.amount || 0,
         newUsers,
-        totalUsers
+        totalUsers,
+        businessesCount
       }
     });
   } catch (error) {
@@ -2214,7 +2216,7 @@ async function dbHandler({
           const items = await prismaModel.findMany();
           return { status: 200, data: items };
         }
-      case 'POST':
+      case 'POST': {
         const data = body;
         const newItem = await prismaModel.create({ data });
         if (profileImage && model === 'posts') {
@@ -2230,13 +2232,15 @@ async function dbHandler({
           }
         }
         return { status: 200, data: newItem };
-      case 'PUT':
+      }
+      case 'PUT': {
         const { _id, ...updatedata } = body;
         const updatedItem = await prismaModel.update({
           where: { id : _id },
           data: updatedata,
         });
         return { status: 200, data: updatedItem };
+      }
       case 'DELETE':
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };
@@ -2695,7 +2699,7 @@ async function dbHandler({
           const items = await prismaModel.findMany();
           return { status: 200, data: items };
         }
-      case 'POST':
+      case 'POST': {
         const data = body;
         const newItem = await prismaModel.create({ data });
         if (profileImage && model === 'posts') {
@@ -2711,13 +2715,15 @@ async function dbHandler({
           }
         }
         return { status: 200, data: newItem };
-      case 'PUT':
+      }
+      case 'PUT': {
         const { _id, ...updatedata } = body;
         const updatedItem = await prismaModel.update({
           where: { id : _id },
           data: updatedata,
         });
         return { status: 200, data: updatedItem };
+      }
       case 'DELETE':
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };
@@ -3117,30 +3123,38 @@ export async function GET(req: NextRequest) {
     // PRODUCT SEARCH
     // =====================
     if (model === "product") {
-      const where: any = {};
+      const minPrice = parseFloat(searchParams.get("minPrice") || "0");
+      const maxPrice = parseFloat(searchParams.get("maxPrice") || "999999999");
+      const bid = searchParams.get("businessId");
+
+      const where: any = {
+        price: { gte: minPrice, lte: maxPrice }
+      };
+
+      if (bid) where.businessId = bid;
 
       if (searchQuery || categoryFilter) {
-        where.OR = [];
-
+        where.AND = [];
         if (searchQuery) {
-          where.OR.push({
-            name: { contains: searchQuery, mode: "insensitive" },
+          where.AND.push({
+            OR: [
+              { name: { contains: searchQuery, mode: "insensitive" } },
+              { business: { name: { contains: searchQuery, mode: "insensitive" } } }
+            ]
           });
         }
-
         if (categoryFilter) {
-          where.OR.push({
-            category: {
-              name: { contains: categoryFilter, mode: "insensitive" },
-            },
+          where.AND.push({
+            category: { name: { contains: categoryFilter, mode: "insensitive" } }
           });
         }
       }
 
       const products = await prisma.product.findMany({
         where,
-        include: includeMap.product,
-        take: 50,
+        include: { ...includeMap.product, business: true },
+        take: 100,
+        orderBy: { createdAt: 'desc' }
       });
 
       return NextResponse.json(products);
@@ -3579,7 +3593,7 @@ export async function DELETE(req: NextRequest) {
 LOCATION: app\api\file\cloudinary.ts
 ================================================================================
 
-const cloudinary = require("cloudinary").v2;
+import { v2 as cloudinary } from "cloudinary";
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -3621,7 +3635,7 @@ export async function POST(req , res) {
   const buffer = await file.arrayBuffer()
   const b64 = Buffer.from(buffer).toString("base64");
   // console.log("buffer b64", b64)
-  let dataURI = "data:" + file.type + ";base64," + b64;
+  const dataURI = "data:" + file.type + ";base64," + b64;
   const cldRes = await handleUpload(dataURI);
 
   // const postRes = await axios.post(`${process.env.NEXT_PUBLIC_SITE_URL}/api/dbhandler?model=posts`,
@@ -3692,7 +3706,7 @@ export async function POST(req , res) {
   //   return NextResponse.json({ message: error.message });
   // }
   
-};
+}
 
 
 
@@ -4084,7 +4098,7 @@ async function dbHandler({
           const items = await prismaModel.findMany();
           return { status: 200, data: items };
         }
-      case 'POST':
+      case 'POST': {
         // const data = body;  Spicy, pepperish and groundnut yaji spice blend
         console.log('post product body:', body)
         const newItem = await prismaModel.create({//{ data }
@@ -4115,13 +4129,15 @@ async function dbHandler({
           }
         }
         return { status: 200, data: newItem };
-      case 'PUT':
+      }
+      case 'PUT': {
         const { _id, ...updatedata } = body;
         const updatedItem = await prismaModel.update({
           where: { id : _id },
           data: updatedata,
         });
         return { status: 200, data: updatedItem };
+      }
       case 'DELETE':
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };
@@ -4339,7 +4355,7 @@ export async function POST(req , res) {
   //   return NextResponse.json({ message: error.message });
   // }
   
-};
+}
 
 
 
@@ -4568,7 +4584,7 @@ async function dbHandler({
           return { status: 200, data: items };
         }
 
-      case "POST":
+      case "POST": {
         if (body.price) body.price = parseFloat(body.price);
         if (body.url) body.images = [body.url]; // convert URL to images array
         const newItem = await prismaModel.create({ data: body });
@@ -4582,15 +4598,15 @@ async function dbHandler({
         }
 
         return { status: 200, data: newItem };
-
-      case "PUT":
+      }
+      case "PUT": {
         const { id: _id, ...updatedData } = body;
         const updatedItem = await prismaModel.update({
           where: { id: _id },
           data: updatedData,
         });
         return { status: 200, data: updatedItem };
-
+      }
       case "DELETE":
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };
@@ -5865,6 +5881,7 @@ import { CartProvider } from "@/hooks/use-cart";
 import { SessionProvider } from "next-auth/react"
 import { usersession } from "@/session";
 import { VisitTracker } from "@/components/utility/VisitTracker";
+import { prisma } from "@/lib/prisma";
 // import {Roboto} from "next/font/google"
 
 // const roboto = Roboto({
@@ -5892,15 +5909,15 @@ interface Session {
 }
 
 const metadata: Metadata = {
-  title: "V-Builder | Create Your E-Store & Pharmacy",
-  description: "The ultimate website builder to launch your online business in seconds.",
+  title: "VendorPort | The SaaS Platform for E-Store Builders",
+  description: "VendorPort is the ultimate website builder to launch your online business in seconds. create e-stores, pharmacies, and more.",
 };
 
 export const SEO_CONFIG = {
   description: 'Design, launch, and manage your e-store or pharmacy with ease.',
-  fullName: "V-Builder Platform",
-  name: "V-Builder",
-  slogan: "Your Business, Your Way",
+  fullName: "VendorPort Platform",
+  name: "VendorPort",
+  slogan: "Empowering Businesses Digitally",
 };
 
 export const SYSTEM_CONFIG = {
@@ -5939,7 +5956,11 @@ export default async function RootLayout({
                   <Navbar />
                   {children}
                   <Toaster />
-                  <Footer />
+                  <Footer categories={await prisma.category.findMany({ 
+                    take: 5, 
+                    orderBy: { products: { _count: 'desc' } }, 
+                    select: { id: true, name: true } 
+                  }) as any} />
                 </ThemeProvider>
               </CartProvider>
             </Providers>
@@ -6492,7 +6513,7 @@ export default async function Home() {
         }
       }
     },
-    orderBy: { createdAt: "desc" }
+    orderBy: { ratings: "desc" }
   });
 
   return (
@@ -6591,38 +6612,22 @@ export default Register;
 LOCATION: app\store\page.tsx
 ================================================================================
 
-'use client'
-import { useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
-import Stocks from '@/components/myComponents/subs/stocks';
-import { SearchInput } from '@/components/myComponents/subs/searchcomponent';
-import { FloatingAddButton } from '@/components/myComponents/subs/FloatingAddButton';
+"use client"
+import React from 'react'
+import { PlatformStore } from '@/components/platform/PlatformStore'
+import { motion } from 'framer-motion'
 
-const Store = () => {
-  const searchParams = useSearchParams();
-  const category = searchParams.get('category') || undefined;
-  const id = searchParams.get('id') || undefined;
-  const search = searchParams.get('search') || undefined;
-
+export default function StorePage() {
   return (
-    <motion.section
+    <motion.div
       initial={{ opacity: 0 }}
-      animate={{ opacity: 1, transition: { delay: 0.5, duration: 0.6, ease: "easeIn" } }}
-      className="w-[100vw] overflow-clip p-1"
+      animate={{ opacity: 1 }}
+      className="min-h-screen"
     >
-      <div className="relative w-full h-full flex flex-col justify-center items-center">
-        <div className="flex z-20 md:hidden w-full justify-center items-center">
-          {/* Search Input */}
-          <SearchInput />
-        </div>
-        <Stocks categoryFilter={category} search={search} selectedId={id} />
-      </div>
-      <FloatingAddButton />
-    </motion.section>
-  );
-};
-
-export default Store;
+      <PlatformStore />
+    </motion.div>
+  )
+}
 
 
 
@@ -7187,6 +7192,45 @@ export default function ProductDetailPage() {
 
 
 ================================================================================
+LOCATION: app\[storeName]\analytics\page.tsx
+================================================================================
+
+"use client"
+import React, { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
+import AnalyticsDashboard from '@/app/admin/analytics/page'
+import axios from 'axios'
+
+export default function StoreAnalyticsPage() {
+  const { storeName } = useParams()
+  const [business, setBusiness] = useState<any>(null)
+
+  useEffect(() => {
+    // Fetch business to get ID
+    axios.get('/api/dbhandler?model=business').then(res => {
+       const biz = res.data.find((b: any) => b.name.toLowerCase().replace(/\s+/g, '-') === storeName)
+       setBusiness(biz)
+    })
+  }, [storeName])
+
+  if (!business) return <div className="p-20 text-center font-black animate-pulse">Loading Store Insights...</div>
+
+  return (
+    <div className="min-h-screen bg-background">
+       <div className="bg-accent p-6 text-white text-center">
+          <h1 className="text-2xl font-black uppercase tracking-tighter">{business.name} Analytics</h1>
+          <p className="text-xs opacity-70">Deep dive into your store's performance</p>
+       </div>
+       <div className="p-4 md:p-8">
+          <AnalyticsDashboard businessId={business.id} />
+       </div>
+    </div>
+  )
+}
+
+
+
+================================================================================
 LOCATION: app\[storeName]\page.tsx
 ================================================================================
 
@@ -7194,7 +7238,8 @@ LOCATION: app\[storeName]\page.tsx
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings } from 'lucide-react'
+import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3 } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
@@ -7274,11 +7319,16 @@ const DynamicStorePage = () => {
                <span className="font-bold hidden md:inline">Admin Mode: {business.name}</span>
             </div>
             <div className="flex gap-2">
+               <Link href={`/${storeName}/analytics`}>
+                 <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
+                    <BarChart3 className="h-4 w-4" /> Insights
+                 </Button>
+               </Link>
                <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
                   <PlusCircle className="h-4 w-4" /> Add Page
                </Button>
                <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
-                  <Settings className="h-4 w-4" /> Edit Sections
+                  <Settings className="h-4 w-4" /> Edit Layout
                </Button>
             </div>
          </div>
@@ -11941,17 +11991,20 @@ export const FloatingAddButton = () => {
 LOCATION: components\myComponents\subs\footer.tsx
 ================================================================================
 
+"use client"
 import { Facebook, Github, Instagram, Linkedin, Twitter } from "lucide-react";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
 import linksData from "../../../data/links";
 
 import { SEO_CONFIG } from "../../../app/layout";
 import { cn } from "@/lib/utils"
-// import { Button } from "~/ui/primitives/button";
 import { Button } from "@/components/ui/button";
+import { useParams } from "next/navigation";
 
-export async function Footer({ className }: { className?: string }) {
+export function Footer({ categories, className }: { categories: any[], className?: string }) {
+  const { storeName } = useParams();
+  
+  if (storeName) return null;
   const socialMediaLinks = [
     { href: "#", icon: <Facebook className="h-4 w-4" />, label: "Facebook" },
     { href: "#", icon: <Twitter className="h-4 w-4" />, label: "Twitter" },
@@ -11959,13 +12012,6 @@ export async function Footer({ className }: { className?: string }) {
     //{ href: "#", icon: <Github className="h-4 w-4" />, label: "GitHub" },
     { href: "#", icon: <Linkedin className="h-4 w-4" />, label: "LinkedIn" },
   ];
-  
-  // Fetch categories from DB
-  const categories = await prisma.category.findMany({
-      take: 6,
-      orderBy: { name: 'asc' },
-      select: { id: true, name: true }
-  });
 
   const pageLinks = linksData.Links.map(l => ({
       href: l.path,
@@ -13553,7 +13599,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { signIn } from "next-auth/react";
 
 const Login = () => {
-  const { setUser } = useAppContext();
+  const { setUser, currentBusiness } = useAppContext();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -13686,7 +13732,7 @@ const Login = () => {
               {verificationStep === 'login' && 'Login to '}
               {verificationStep === 'verify' && 'Verify Your Email'}
               {verificationStep === 'setPassword' && 'Set Your Password'}
-              <span className='text-accent'> Lois Food and Spices</span>
+              <span className='text-accent'> {currentBusiness?.name || 'VendorPort'}</span>
             </DrawerTitle>
             <DrawerDescription>
               {verificationStep === 'verify' && 'We need to verify your email address'}
@@ -14396,7 +14442,7 @@ export function ProductCard({
                 <DialogHeader>
                   <DialogTitle>Edit Product: {product.name}</DialogTitle>
                 </DialogHeader>
-                <ProductForm initialProduct={product} hideList={true} />
+                <ProductForm initialProduct={product} hideList={true} businessId={product.businessId} />
               </DialogContent>
             </Dialog>
 
@@ -15028,80 +15074,110 @@ import Link from 'next/link';
 import { AiOutlineSearch } from "react-icons/ai";
 
 export function SearchInput() {
-  const [query, setQuery] = useState("");
-  const [products, setProducts] = useState<any[]>([]);
+  const [results, setResults] = useState<{ products: any[], businesses: any[] }>({ products: [], businesses: [] });
   const [loading, setLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Fetch products from backend
-  const fetchProducts = async (search: string) => {
-    if (search.length < 3) {
-      setProducts([]);
+  const fetchResults = async (search: string) => {
+    if (search.length < 2) {
+      setResults({ products: [], businesses: [] });
       return;
     }
     setLoading(true);
     try {
-      const res = await axios.get(`/api/dbhandler?model=product&search=${encodeURIComponent(search)}`);
-      setProducts(res.data || []);
+      const [prodRes, bizRes] = await Promise.all([
+        axios.get(`/api/dbhandler?model=product&search=${encodeURIComponent(search)}`),
+        axios.get(`/api/dbhandler?model=business&search=${encodeURIComponent(search)}`)
+      ]);
+      setResults({
+        products: prodRes.data || [],
+        businesses: (bizRes.data || []).filter((b: any) => b.name.toLowerCase().includes(search.toLowerCase()))
+      });
     } catch (error) {
       console.error("Search error:", error);
-      setProducts([]);
+      setResults({ products: [], businesses: [] });
     } finally {
       setLoading(false);
     }
   };
 
-  // Debounced search
   useEffect(() => {
     if (!isFocused) return;
-    const timeout = setTimeout(() => fetchProducts(query), 300);
+    const timeout = setTimeout(() => fetchResults(query), 300);
     return () => clearTimeout(timeout);
   }, [query, isFocused]);
 
+  const hasResults = results.products.length > 0 || results.businesses.length > 0;
+
   return (
-    <div className="relative w-full /w-[230px] md:w-[300px] mx-5 flex flex-row bg-background">
+    <div className="relative w-full md:w-[400px] mx-5 flex flex-row bg-background group">
+      <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground z-40 group-focus-within:text-accent transition-colors">
+         <AiOutlineSearch className="text-xl" />
+      </div>
       <Input
-        placeholder="Search products..."
+        placeholder="Search stores, items, categories..."
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setTimeout(() => setIsFocused(false), 200)}
-        className="flex-1 border-0 dark:border-2 bg-accent/10 z-30"
+        className="pl-10 h-12 flex-1 border-2 bg-accent/5 focus:bg-background z-30 rounded-2xl transition-all font-medium"
       />
-      <DropdownMenu open={isFocused} onOpenChange={setIsFocused}>
-        <DropdownMenuTrigger asChild>
-          <Button className="absolute right-0 h-full rounded-sm text-background text-xl">
-            <AiOutlineSearch />
-          </Button>
-        </DropdownMenuTrigger>
+      
+      <DropdownMenu open={isFocused && (hasResults || loading)} onOpenChange={setIsFocused}>
+        <DropdownMenuTrigger asChild><div className="hidden" /></DropdownMenuTrigger>
+        <DropdownMenuContent
+          ref={dropdownRef}
+          className="w-[400px] max-h-[500px] overflow-auto shadow-2xl bg-background border-2 z-50 rounded-3xl p-4 space-y-4"
+        >
+          {loading && <div className="p-4 text-center animate-pulse font-bold text-accent">Searching VendorPort...</div>}
+          
+          {results.businesses.length > 0 && (
+            <div className="space-y-2">
+               <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2">Websites / Stores</h4>
+               <div className="grid gap-1">
+                  {results.businesses.map(biz => (
+                    <Link 
+                      key={biz.id} 
+                      href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`}
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-accent/10 transition-colors group"
+                    >
+                       <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center font-bold text-accent group-hover:bg-accent group-hover:text-white transition-all text-xs">
+                          {biz.name[0]}
+                       </div>
+                       <div className="flex flex-col">
+                          <span className="text-sm font-bold">{biz.name}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase">{biz.template} Template</span>
+                       </div>
+                    </Link>
+                  ))}
+               </div>
+            </div>
+          )}
 
-        {products.length > 0 && (
-          <DropdownMenuContent
-            ref={dropdownRef}
-            className=" w-full max-w-sm max-h-[400px] overflow-auto shadow-lg bg-secondary z-30 rounded-md"
-          >
-            <Table className="w-full text-sm sm:text-base">
-              <TableBody>
-                {products.map((product) => {
-                  const productUrl = `/store?id=${product.id}&category=${product.category?.name || ''}&search=${encodeURIComponent(query)}`;
-                  return (
-                    <TableRow key={product.id} className="hover:bg-accent/20">
-                      <TableCell className="truncate max-w-[400px] sm:max-w-none">
-                        <Link
-                          href={productUrl}
-                          className="font-semibold capitalize hover:text-blue-800 truncate"
-                        >
-                          {product.name} - {product.category?.name || 'General'}
-                        </Link>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </DropdownMenuContent>
-        )}
+          {results.products.length > 0 && (
+            <div className="space-y-2">
+               <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-2">Products & Items</h4>
+               <div className="grid gap-1">
+                  {results.products.map(prod => (
+                    <Link 
+                      key={prod.id} 
+                      href={`/store?search=${encodeURIComponent(prod.name)}`}
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-accent/10 transition-colors group"
+                    >
+                       <div className="h-8 w-8 rounded-lg bg-muted overflow-hidden">
+                          {prod.images?.[0] && <img src={prod.images[0]} alt="" className="h-full w-full object-cover" />}
+                       </div>
+                       <div className="flex flex-col">
+                          <span className="text-sm font-bold">{prod.name}</span>
+                          <span className="text-[10px] text-muted-foreground uppercase">{prod.category?.name || 'Item'}</span>
+                       </div>
+                    </Link>
+                  ))}
+               </div>
+            </div>
+          )}
+        </DropdownMenuContent>
       </DropdownMenu>
     </div>
   );
@@ -15140,12 +15216,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { register } from '@/server/action/signup'
 import axios from 'axios'
+import { useAppContext } from '@/hooks/useAppContext'
 import Login from './login'
 import { FcGoogle } from 'react-icons/fc'
 import { FaFacebook } from "react-icons/fa";
 import { facebookSignIn, googleSignIn } from './googlesignin'
 
 const Signup = () => {
+  const { currentBusiness } = useAppContext();
   // const [details, setDetails] = useState({
   //   userName : "",
   //   email : "",
@@ -15224,7 +15302,7 @@ const Signup = () => {
         <DrawerContent className='flex flex-col justify-center items-center py-10 /bg-red-500 max-w-5xl mx-auto'>
 
           <DrawerHeader>
-            <DrawerTitle className='w-full text-center'>Create an account with <span className='text-accent'>Lois Food and Spices</span></DrawerTitle>
+            <DrawerTitle className='w-full text-center'>Create an account with <span className='text-accent'>{currentBusiness?.name || 'VendorPort'}</span></DrawerTitle>
             <DrawerDescription></DrawerDescription>
           </DrawerHeader>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-10 bg-secondary rounded-xl max-w-xl"> 
@@ -15471,7 +15549,7 @@ const Stocks = ({ categoryFilter, search, selectedId }: StocksProps) => {
   const fetchProducts = async () => {
     try {
       const res = await axios.get("/api/dbhandler?model=product");
-      let fetchedProducts: Product[] = res.data;
+      const fetchedProducts: Product[] = res.data;
 
       // Filter and prioritize
       let prioritized: Product[] = [];
@@ -19431,7 +19509,8 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowRight, PlusCircle, Star, ExternalLink, Shield, Zap, Globe } from 'lucide-react'
+import { ArrowRight, PlusCircle, Star, ExternalLink, Shield, Zap, Globe, User, Sparkles } from 'lucide-react'
+import { AiOutlineRobot } from 'react-icons/ai'
 import { useAppContext } from '@/hooks/useAppContext'
 import Login from '@/components/myComponents/subs/login'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19452,92 +19531,218 @@ interface Business {
 const PlatformHome = ({ businesses }: { businesses: Business[] }) => {
   const { user } = useAppContext();
 
+  // Order by ratings double-check (already done in page.tsx but safety)
+  const sortedBusinesses = [...businesses].sort((a, b) => b.ratings - a.ratings);
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center">
       {/* Hero Section */}
-      <section className="w-full py-20 px-4 flex flex-col items-center text-center bg-gradient-to-b from-accent/10 to-background">
+      <section className="w-full py-24 px-4 flex flex-col items-center text-center bg-gradient-to-b from-accent/15 via-background to-background relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
+           <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent rounded-full blur-[120px]" />
+           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary rounded-full blur-[120px]" />
+        </div>
+
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="max-w-4xl space-y-6"
+          transition={{ duration: 0.8 }}
+          className="max-w-5xl space-y-8 z-10"
         >
-          <div className="inline-flex items-center rounded-full border px-3 py-1 text-sm font-semibold bg-primary/10 text-primary border-primary/20">
-            <Zap className="mr-2 h-4 w-4 fill-primary" /> Create Your Online Presence in Seconds
+          <div className="inline-flex items-center rounded-full border-2 px-4 py-1.5 text-sm font-black bg-primary/10 text-primary border-primary/20 animate-pulse">
+            <Zap className="mr-2 h-4 w-4 fill-primary" /> VendorPort v2.0 is Live
           </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight">
-            The Ultimate <span className="text-accent underline decoration-primary/30">Website Builder</span> for Your Business
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter leading-none">
+            Scale Your Business <br />
+            <span className="text-accent underline decoration-primary/30 italic">Without Boundaries</span>
           </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Design, launch, and manage your e-store or pharmacy with ease. Join thousands of entrepreneurs building their dreams on our platform.
+          <p className="text-2xl text-muted-foreground max-w-3xl mx-auto font-medium leading-relaxed">
+            The world's most dynamic website builder for entrepreneurs. Launch your e-store, pharmacy, or service site in under 60 seconds with full multi-currency and AI-powered shopping.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
+          <div className="flex flex-col sm:flex-row gap-6 justify-center pt-10">
             {user?.email === "nil" ? (
-              <div className="w-full sm:w-auto">
-                <Login />
+              <div className="flex flex-col gap-3">
+                 <Login />
+                 <p className="text-sm text-muted-foreground font-bold uppercase tracking-widest">Register to build your site</p>
               </div>
             ) : (
               <Link href="/create-store">
-                <Button size="lg" className="h-12 px-8 bg-accent hover:bg-accent/90 text-white font-bold w-full sm:w-auto">
-                  Create My E-Store <PlusCircle className="ml-2 h-5 w-5" />
+                <Button size="lg" className="h-16 px-10 bg-accent hover:bg-accent/90 text-white font-black text-xl w-full sm:w-auto rounded-2xl shadow-2xl shadow-accent/30 transition-all hover:scale-105">
+                  Launch My Website <PlusCircle className="ml-3 h-6 w-6" />
                 </Button>
               </Link>
             )}
             
             <Link href="#businesses">
-              <Button size="lg" variant="outline" className="h-12 px-8 font-semibold w-full sm:w-auto">
-                Explore Websites <ArrowRight className="ml-2 h-5 w-5" />
+              <Button size="lg" variant="outline" className="h-16 px-10 font-black text-xl w-full sm:w-auto rounded-2xl border-2 hover:bg-muted/50 transition-all">
+                Explore Best Stores <ArrowRight className="ml-3 h-6 w-6" />
               </Button>
             </Link>
           </div>
         </motion.div>
       </section>
 
+      {/* Stats Section */}
+      <section className="w-full border-y bg-muted/20 py-10">
+         <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 px-6">
+            <div className="text-center group">
+               <h3 className="text-4xl font-black group-hover:text-accent transition-colors">500+</h3>
+               <p className="text-sm font-bold text-muted-foreground uppercase opacity-60">Active Stores</p>
+            </div>
+            <div className="text-center group">
+               <h3 className="text-4xl font-black group-hover:text-accent transition-colors">$2M+</h3>
+               <p className="text-sm font-bold text-muted-foreground uppercase opacity-60">Sales Generated</p>
+            </div>
+            <div className="text-center group">
+               <h3 className="text-4xl font-black group-hover:text-accent transition-colors">150+</h3>
+               <p className="text-sm font-bold text-muted-foreground uppercase opacity-60">Templates</p>
+            </div>
+            <div className="text-center group">
+               <h3 className="text-4xl font-black group-hover:text-accent transition-colors">24/7</h3>
+               <p className="text-sm font-bold text-muted-foreground uppercase opacity-60">Expert Support</p>
+            </div>
+         </div>
+      </section>
+
+      {/* AI Assistant Section */}
+      <section className="w-full py-32 px-6 relative overflow-hidden bg-accent">
+         <div className="absolute inset-0 opacity-10 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-white rounded-full blur-[160px]" />
+         </div>
+         
+         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-20 items-center relative z-10">
+            <motion.div 
+               initial={{ opacity: 0, x: -50 }}
+               whileInView={{ opacity: 1, x: 0 }}
+               viewport={{ once: true }}
+               className="space-y-8"
+            >
+               <div className="inline-flex items-center rounded-full bg-white/20 px-4 py-1.5 text-xs font-black uppercase tracking-widest text-white border border-white/20">
+                  <Sparkles className="mr-2 h-4 w-4" /> Next-Gen Shopping
+               </div>
+               <h2 className="text-5xl md:text-7xl font-black text-white tracking-tighter leading-none">
+                  Your Personal <br />
+                  <span className="text-black/30 underline decoration-white/20 italic">AI Shopper</span>
+               </h2>
+               <p className="text-xl text-white/80 font-medium max-w-xl leading-relaxed">
+                  Can't find what you're looking for? Just upload your shopping list or describe what you need. Our AI scans every store on VendorPort to find you the best deals, quality, and nearest availability in seconds.
+               </p>
+               <ul className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {[
+                    "Cross-Store Price Comparison",
+                    "Snap & Search (Upload Images)",
+                    "Smart Inventory Tracking",
+                    "AI Optimized Checkout"
+                  ].map((item, i) => (
+                    <li key={i} className="flex items-center gap-3 text-white font-black text-sm p-3 rounded-2xl bg-white/10 border border-white/10">
+                       <Zap className="h-4 w-4 fill-white" /> {item}
+                    </li>
+                  ))}
+               </ul>
+               <Link href="/store">
+                  <Button size="lg" className="h-16 px-10 bg-white text-accent hover:bg-white/90 text-xl font-black rounded-2xl shadow-2xl transition-all hover:scale-105">
+                     Try Smart Shopping <ArrowRight className="ml-3 h-6 w-6" />
+                  </Button>
+               </Link>
+            </motion.div>
+            
+            <motion.div 
+               initial={{ opacity: 0, scale: 0.8, rotate: -5 }}
+               whileInView={{ opacity: 1, scale: 1, rotate: 0 }}
+               viewport={{ once: true }}
+               className="relative"
+            >
+               <div className="bg-white/10 backdrop-blur-3xl rounded-[40px] border-4 border-white/20 p-8 shadow-2xl relative z-20 overflow-hidden group">
+                  <div className="space-y-6">
+                     <div className="flex items-center gap-4">
+                        <div className="h-14 w-14 rounded-2xl bg-white flex items-center justify-center text-accent shadow-xl">
+                           <AiOutlineRobot className="h-10 w-10" />
+                        </div>
+                        <div>
+                           <h4 className="text-white font-black text-xl uppercase tracking-tighter">Vendor-AI assistant</h4>
+                           <div className="flex gap-1">
+                              <div className="h-1 w-8 bg-white/40 rounded-full" />
+                              <div className="h-1 w-2 bg-white/40 rounded-full" />
+                           </div>
+                        </div>
+                     </div>
+                     <div className="bg-white/90 rounded-3xl p-6 text-accent font-black text-lg shadow-inner">
+                        "I've found 12 stores selling your requested Nike Air Max. Store 'GemJewels' has the best price at ₦42,000. Should I add it to your bag?"
+                     </div>
+                     <div className="flex justify-between items-center bg-black/20 p-4 rounded-2xl border border-white/10">
+                        <span className="text-white/60 text-xs font-black uppercase tracking-widest">Searching 500+ stores...</span>
+                        <div className="flex -space-x-3">
+                           {[1, 2, 3, 4].map(i => (
+                             <div key={i} className="h-8 w-8 rounded-full border-2 border-accent bg-white/20" />
+                           ))}
+                        </div>
+                     </div>
+                  </div>
+                  <div className="absolute -bottom-10 -right-10 opacity-30 pointer-events-none group-hover:rotate-12 transition-transform duration-1000">
+                     <Sparkles className="h-64 w-64 text-white" />
+                  </div>
+               </div>
+               
+               {/* Decorative dots/lines */}
+               <div className="absolute -top-10 -right-10 h-32 w-32 border-8 border-white/20 rounded-full blur-xl" />
+               <div className="absolute -bottom-10 -left-10 h-24 w-24 bg-black/20 rounded-full blur-xl" />
+            </motion.div>
+         </div>
+      </section>
+
       {/* Featured Businesses */}
-      <section id="businesses" className="w-full max-w-7xl py-20 px-4 space-y-12">
-        <div className="text-center space-y-4">
-          <h2 className="text-3xl md:text-4xl font-bold">Websites Created on Our Platform</h2>
-          <p className="text-muted-foreground">See how others are growing their businesses with us.</p>
+      <section id="businesses" className="w-full max-w-7xl py-24 px-6 space-y-16">
+        <div className="space-y-4 max-w-3xl">
+          <h2 className="text-4xl md:text-5xl font-black tracking-tight">Top Rated Websites <br /><span className="text-accent underline decoration-primary/20">on VendorPort</span></h2>
+          <p className="text-xl text-muted-foreground font-medium">Join the elite businesses using our platform to dominate their local markets.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {businesses.map((biz) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          {sortedBusinesses.map((biz) => (
             <motion.div
               key={biz.id}
-              whileHover={{ y: -5 }}
+              whileHover={{ y: -10 }}
               transition={{ duration: 0.3 }}
             >
-              <Card className="h-full flex flex-col overflow-hidden border-2 hover:border-accent/40 transition-colors shadow-lg">
-                <div className="h-48 bg-muted relative">
-                   <div className="absolute inset-0 flex items-center justify-center bg-accent/5">
-                      <Globe className="h-16 w-16 text-accent/20" />
+              <Card className="h-full flex flex-col overflow-hidden border-2 hover:border-accent transition-all shadow-xl rounded-3xl group">
+                <div className="h-56 bg-muted relative overflow-hidden">
+                   <div className="absolute inset-0 flex items-center justify-center bg-accent/5 group-hover:bg-accent/10 transition-colors">
+                      <Globe className="h-20 w-20 text-accent/10 group-hover:scale-120 transition-transform duration-700" />
                    </div>
-                   <div className="absolute top-4 right-4 bg-white/90 dark:bg-black/90 px-2 py-1 rounded-md flex items-center gap-1 text-sm font-bold shadow-sm">
+                   <div className="absolute top-4 right-4 bg-white/95 dark:bg-black/95 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-sm font-black shadow-lg border-2 border-accent/20">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      {biz.ratings.toFixed(1)} ({biz.numReviews})
+                      {biz.ratings.toFixed(1)} <span className="opacity-40 font-bold">({biz.numReviews})</span>
+                   </div>
+                   <div className="absolute bottom-4 left-4">
+                      <div className="bg-black/80 backdrop-blur-md text-white px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest border border-white/20">
+                         {biz.template}
+                      </div>
                    </div>
                 </div>
                 <CardHeader>
-                  <CardTitle className="text-2xl">{biz.name}</CardTitle>
-                  <CardDescription className="capitalize">{biz.template} Template</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1">
-                   <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+                  <CardTitle className="text-3xl font-black tracking-tight">{biz.name}</CardTitle>
+                  <div className="flex items-center gap-3 pt-2">
+                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border-2 border-primary/5">
                          {biz.owner.image ? (
-                           <img src={biz.owner.image} alt={biz.owner.name || ""} className="h-full w-full rounded-full" />
+                           <img src={biz.owner.image} alt={biz.owner.name || ""} className="h-full w-full rounded-xl object-cover" />
                          ) : (
-                           <span className="text-xs font-bold">{biz.owner.name?.[0] || 'O'}</span>
+                           <User className="h-5 w-5 text-primary" />
                          )}
                       </div>
-                      <span className="text-sm text-muted-foreground">By {biz.owner.name || 'Anonymous User'}</span>
+                      <div className="flex flex-col">
+                         <span className="text-sm font-black">{biz.owner.name || 'Anonymous User'}</span>
+                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Business Owner</span>
+                      </div>
                    </div>
+                </CardHeader>
+                <CardContent className="flex-1">
+                   <p className="text-muted-foreground line-clamp-2 font-medium">The official digital presence for {biz.name}, powered by VendorPort infrastructure.</p>
                 </CardContent>
-                <CardFooter>
+                <CardFooter className="pt-0 pb-8 px-6">
                   <Link href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`} className="w-full">
-                    <Button className="w-full gap-2 border-2" variant="outline">
-                      Visit Website <ExternalLink className="h-4 w-4" />
+                    <Button className="w-full h-14 gap-3 border-2 rounded-2xl group-hover:bg-accent group-hover:text-white transition-all font-black text-lg" variant="outline">
+                      Visit Experience <ArrowRight className="h-5 w-5" />
                     </Button>
                   </Link>
                 </CardFooter>
@@ -19546,39 +19751,371 @@ const PlatformHome = ({ businesses }: { businesses: Business[] }) => {
           ))}
           
           {businesses.length === 0 && (
-            <div className="col-span-full py-20 text-center opacity-50">
-               <Globe className="h-12 w-12 mx-auto mb-4" />
-               <p>No websites have been created yet. Be the first!</p>
+            <div className="col-span-full py-32 text-center rounded-3xl border-4 border-dashed border-muted flex flex-col items-center justify-center space-y-6">
+               <div className="h-24 w-24 bg-muted rounded-full flex items-center justify-center">
+                  <Globe className="h-12 w-12 opacity-20" />
+               </div>
+               <div className="space-y-2">
+                  <h3 className="text-3xl font-black">No Business Websites Yet</h3>
+                  <p className="text-muted-foreground max-w-sm mx-auto">The digital frontier is open. Be the first entrepreneur to launch a top-rated site on VendorPort!</p>
+               </div>
+               <Link href="/create-store">
+                  <Button className="h-14 px-10 bg-accent text-white font-bold rounded-xl shadow-xl">Start Building Today</Button>
+               </Link>
             </div>
           )}
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="w-full bg-secondary/30 py-20 px-4">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-12">
-           <div className="space-y-4 text-center p-6 bg-background rounded-2xl shadow-sm border">
-              <Zap className="h-12 w-12 text-accent mx-auto" />
-              <h3 className="text-xl font-bold">Easy Builder</h3>
-              <p className="text-muted-foreground">Customizable sections, drag and drop layouts, and intuitive controls.</p>
-           </div>
-           <div className="space-y-4 text-center p-6 bg-background rounded-2xl shadow-sm border">
-              <Globe className="h-12 w-12 text-accent mx-auto" />
-              <h3 className="text-xl font-bold">Global Reach</h3>
-              <p className="text-muted-foreground">Sell to anyone, anywhere with multi-currency support and localized settings.</p>
-           </div>
-           <div className="space-y-4 text-center p-6 bg-background rounded-2xl shadow-sm border">
-              <Shield className="h-12 w-12 text-accent mx-auto" />
-              <h3 className="text-xl font-bold">Secure Hosting</h3>
-              <p className="text-muted-foreground">Your store is safe with us. We handle the security so you can focus on sales.</p>
-           </div>
-        </div>
+      {/* CTA Registration Section */}
+      <section className="w-full bg-black text-white py-32 px-6">
+         <div className="max-w-5xl mx-auto flex flex-col items-center text-center space-y-10">
+            <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-tight">Ready to Take Over <br />The Digital World?</h2>
+            <p className="text-xl text-gray-400 max-w-3xl font-medium">Join 500+ entrepreneurs who turned their local business into a global brand in seconds. No coding required. No design skills needed.</p>
+            <div className="flex flex-col md:flex-row gap-6 w-full max-w-md">
+               <div className="flex-1">
+                  {user?.email === "nil" ? <Login /> : (
+                    <Link href="/create-store" className="w-full">
+                       <Button className="w-full h-16 bg-accent text-white font-black text-xl rounded-2xl shadow-2xl hover:scale-105 transition-all">Get Started Now</Button>
+                    </Link>
+                  )}
+               </div>
+            </div>
+            <div className="pt-10 flex flex-wrap justify-center gap-10 opacity-50 grayscale hover:grayscale-0 transition-all">
+               <div className="flex items-center gap-2 font-black text-xl"><Shield className="h-6 w-6" /> Enterprise Secure</div>
+               <div className="flex items-center gap-2 font-black text-xl"><Zap className="h-6 w-6" /> Ultra Fast</div>
+               <div className="flex items-center gap-2 font-black text-xl"><Globe className="h-6 w-6" /> Global CDN</div>
+            </div>
+         </div>
       </section>
     </div>
   )
 }
 
 export default PlatformHome
+
+
+
+================================================================================
+LOCATION: components\platform\PlatformStore.tsx
+================================================================================
+
+"use client"
+import React, { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useSearchParams } from 'next/navigation'
+import axios from 'axios'
+import { 
+  AiOutlineSearch, 
+  AiOutlineFilter, 
+  AiOutlineClear,
+  AiOutlineShoppingCart,
+  AiOutlineStar,
+  AiOutlineArrowRight,
+  AiOutlineRobot
+} from 'react-icons/ai'
+import { 
+  Search, 
+  Filter, 
+  ChevronRight, 
+  Star, 
+  ShoppingBag, 
+  Sparkles, 
+  SlidersHorizontal,
+  LayoutGrid,
+  List,
+  Target,
+  ArrowRight
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select'
+import { 
+  Card, 
+  CardContent, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Slider } from '@/components/ui/slider'
+import { PriceDisplay } from '../utility/PriceDisplay'
+import { ProductCard } from '../myComponents/subs/productCard'
+import { useCart } from '@/hooks/use-cart'
+import { useAppContext } from '@/hooks/useAppContext'
+import { Skeleton } from '@/components/ui/skeleton'
+import { toast } from 'sonner'
+
+export const PlatformStore = () => {
+  const searchParams = useSearchParams()
+  const { addItem } = useCart()
+  const { openDialog } = useAppContext()
+  
+  // States
+  const [products, setProducts] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isFilterOpen, setIsFilterOpen] = useState(false)
+  
+  // Filters
+  const [query, setQuery] = useState(searchParams.get('search') || "")
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || "all")
+  const [priceRange, setPriceRange] = useState([0, 50000])
+  const [sortBy, setSortBy] = useState("newest")
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+
+  // Data fetching
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const catRes = await axios.get('/api/dbhandler?model=category')
+      setCategories(catRes.data || [])
+      
+      const params = new URLSearchParams()
+      params.append('model', 'product')
+      if (query) params.append('search', query)
+      if (selectedCategory !== 'all') params.append('category', selectedCategory)
+      params.append('minPrice', priceRange[0].toString())
+      params.append('maxPrice', priceRange[1].toString())
+      
+      const prodRes = await axios.get(`/api/dbhandler?${params.toString()}`)
+      setProducts(prodRes.data || [])
+    } catch (err) {
+      toast.error("Failed to load store data")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const timeout = setTimeout(fetchData, 300)
+    return () => clearTimeout(timeout)
+  }, [query, selectedCategory, priceRange, sortBy])
+
+  const clearFilters = () => {
+    setQuery("")
+    setSelectedCategory("all")
+    setPriceRange([0, 50000])
+    setSortBy("newest")
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col pt-10">
+      {/* Header / Search Hero */}
+      <section className="w-full bg-accent text-white py-16 px-6 relative overflow-hidden shrink-0">
+         <div className="absolute inset-0 opacity-10 pointer-events-none">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-[100px] -mr-48 -mt-48" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-black rounded-full blur-[80px] -ml-32 -mb-32" />
+         </div>
+         
+         <div className="max-w-7xl mx-auto space-y-10 relative z-10">
+             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div className="space-y-2">
+                   <h1 className="text-4xl md:text-6xl font-black tracking-tighter">Global Store</h1>
+                   <p className="text-white/70 font-medium text-lg max-w-xl">Search items from all VendorPort stores. Compare prices, check ratings, and shop smart with AI.</p>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-1 flex items-center border border-white/20">
+                    <Button 
+                      variant={viewMode === 'grid' ? 'secondary' : 'ghost'} 
+                      size="sm" 
+                      onClick={() => setViewMode('grid')}
+                      className="rounded-xl h-10 w-10 p-0"
+                    >
+                       <LayoutGrid className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant={viewMode === 'list' ? 'secondary' : 'ghost'} 
+                      size="sm" 
+                      onClick={() => setViewMode('list')}
+                      className="rounded-xl h-10 w-10 p-0"
+                    >
+                       <List className="h-4 w-4" />
+                    </Button>
+                </div>
+             </div>
+
+             <div className="relative group max-w-3xl">
+                <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-white/40 h-6 w-6 group-focus-within:text-white transition-colors" />
+                <Input 
+                  placeholder="What are you looking for today? (e.g. Blue Nike Shoes)" 
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="h-16 pl-16 rounded-3xl bg-white/20 border-white/30 text-white placeholder:text-white/40 text-xl font-medium focus:bg-white/30 focus:border-white/50 transition-all outline-none"
+                />
+             </div>
+         </div>
+      </section>
+
+      {/* Main Content Area */}
+      <main className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-8 py-12 px-6">
+         {/* Sidebar Navigation & Filters */}
+         <aside className="w-full md:w-80 flex flex-col gap-8 sticky top-24 h-fit">
+            
+            {/* AI Assistant CTA */}
+            <div className="bg-gradient-to-br from-accent to-primary rounded-3xl p-6 text-white shadow-xl shadow-accent/20 group cursor-pointer relative overflow-hidden" onClick={() => setIsFilterOpen(true)}>
+               <div className="absolute top-0 right-0 p-4 opacity-20 transition-transform group-hover:scale-125 duration-500">
+                  <AiOutlineRobot className="h-20 w-20" />
+               </div>
+               <div className="relative z-10 space-y-4">
+                  <div className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest">Powered by AI</div>
+                  <h3 className="text-xl font-black">Smart Shopping Assistant</h3>
+                  <p className="text-xs text-white/80 font-medium">Upload a list or just tell the AI what you want, and it will find the best items across all stores for you.</p>
+                  <Button className="w-full bg-white text-accent hover:bg-white/90 font-black rounded-xl h-12 gap-2">
+                     Start AI Shop <Sparkles className="h-4 w-4" />
+                  </Button>
+               </div>
+            </div>
+
+            {/* Filter Section */}
+            <Card className="rounded-3xl border-2 overflow-hidden shadow-sm">
+               <CardHeader className="bg-muted/30 pb-4">
+                  <div className="flex justify-between items-center">
+                     <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                        <SlidersHorizontal className="h-4 w-4 text-accent" /> Filter Items
+                     </CardTitle>
+                     <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-[10px] uppercase font-bold text-muted-foreground hover:text-destructive">Reset</Button>
+                  </div>
+               </CardHeader>
+               <CardContent className="space-y-8 pt-6">
+                  {/* Category Filter */}
+                  <div className="space-y-4">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Category</label>
+                     <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger className="h-12 border-2 rounded-xl font-bold bg-muted/5">
+                           <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                           <SelectItem value="all">Global Items (All)</SelectItem>
+                           {categories.map(cat => (
+                             <SelectItem key={cat.id} value={cat.name}>{cat.name}</SelectItem>
+                           ))}
+                        </SelectContent>
+                     </Select>
+                  </div>
+
+                  {/* Price Filter */}
+                  <div className="space-y-4">
+                     <div className="flex justify-between items-center">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Price Range</label>
+                        <span className="text-xs font-black text-accent"><PriceDisplay amount={priceRange[1]} /></span>
+                     </div>
+                     <Slider 
+                        defaultValue={[0, 50000]} 
+                        max={50000} 
+                        step={500} 
+                        value={priceRange}
+                        onValueChange={setPriceRange}
+                        className="py-4"
+                     />
+                     <div className="flex justify-between text-[10px] font-bold opacity-40 uppercase tracking-widest">
+                        <span>Min: <PriceDisplay amount={priceRange[0]} /></span>
+                        <span>Max: <PriceDisplay amount={priceRange[1]} /></span>
+                     </div>
+                  </div>
+
+                  {/* Sort Filter */}
+                  <div className="space-y-4">
+                     <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Sort By</label>
+                     <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="h-12 border-2 rounded-xl font-bold bg-muted/5">
+                           <SelectValue placeholder="Newest Arrivals" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                           <SelectItem value="newest">Newest Arrivals</SelectItem>
+                           <SelectItem value="price-low">Price: Low to High</SelectItem>
+                           <SelectItem value="price-high">Price: High to Low</SelectItem>
+                           <SelectItem value="popular">Most Popular</SelectItem>
+                        </SelectContent>
+                     </Select>
+                  </div>
+               </CardContent>
+            </Card>
+
+            {/* Platform Help */}
+            <div className="p-6 border-2 border-dashed rounded-3xl space-y-3 opacity-60">
+               <h4 className="text-xs font-black uppercase tracking-widest">Need Bulk Orders?</h4>
+               <p className="text-[10px] font-medium leading-relaxed">Contact VendorPort enterprise support for multi-store wholesale inquiries and cross-border logistics.</p>
+               <Button variant="link" className="p-0 h-6 text-xs text-accent font-bold">Contact Support <ArrowRight className="h-3 w-3 ml-1" /></Button>
+            </div>
+         </aside>
+
+         {/* Products Grid */}
+         <div className="flex-1 space-y-10">
+             {/* Info Bar */}
+             <div className="flex justify-between items-center bg-muted/20 p-4 px-6 rounded-2xl border">
+                <div className="flex items-center gap-3">
+                   <Target className="h-5 w-5 text-accent" />
+                   <p className="font-bold text-sm">
+                      {loading ? 'Finding items...' : `Showing ${products.length} matching products`}
+                   </p>
+                </div>
+                {query && (
+                  <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 px-3 py-1 rounded-full">
+                     Query: {query}
+                  </Badge>
+                )}
+             </div>
+
+             {/* Results */}
+             <div className={`grid gap-8 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+                {loading ? (
+                   Array.from({ length: 6 }).map((_, i) => (
+                     <div key={i} className="space-y-4">
+                        <Skeleton className="h-64 w-full rounded-3xl" />
+                        <div className="space-y-2">
+                           <Skeleton className="h-4 w-3/4 rounded-full" />
+                           <Skeleton className="h-6 w-1/2 rounded-full" />
+                        </div>
+                     </div>
+                   ))
+                ) : (
+                  <>
+                    {products.map(prod => (
+                      <ProductCard 
+                        key={prod.id} 
+                        product={{
+                          ...prod,
+                          inStock: true,
+                          rating: prod.ratings || 5
+                        }}
+                        onAddToCart={(p, q) => {
+                           addItem({
+                              ...p,
+                              businessId: prod.businessId
+                           }, q)
+                           toast.success(`Added ${p.name} from ${prod.business?.name || 'store'} to global bag`)
+                        }}
+                        onAddToWishlist={(id) => openDialog(`Added ${id} to global favorites`, "Wishlist")}
+                        className={`hover:border-accent transition-all duration-500 rounded-3xl overflow-hidden border-2 shadow-sm hover:shadow-2xl hover:shadow-accent/5 ${viewMode === 'list' ? 'flex-row' : 'flex-col'}`}
+                      />
+                    ))}
+
+                    {products.length === 0 && (
+                      <div className="col-span-full py-32 text-center rounded-3xl border-4 border-dashed border-muted flex flex-col items-center justify-center space-y-6">
+                         <div className="h-24 w-24 bg-muted rounded-full flex items-center justify-center">
+                            <ShoppingBag className="h-12 w-12 opacity-20" />
+                         </div>
+                         <div className="space-y-2">
+                            <h3 className="text-3xl font-black">No Results Found</h3>
+                            <p className="text-muted-foreground max-w-sm mx-auto">Try adjusting your filters, searching for a different item, or using our Smart Assistant.</p>
+                         </div>
+                         <Button onClick={clearFilters} className="h-14 px-10 bg-accent text-white font-bold rounded-xl shadow-xl">Clear All Filters</Button>
+                      </div>
+                    )}
+                  </>
+                )}
+             </div>
+         </div>
+      </main>
+    </div>
+  )
+}
 
 
 
@@ -19594,6 +20131,7 @@ import axios from 'axios'
 import { toast } from 'sonner'
 import { useAppContext } from '@/hooks/useAppContext'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import {
   Dialog,
@@ -19907,15 +20445,16 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: Section, onUpdate
 
 const StoreNavbar = ({ business }: { business: Business }) => {
    const { storeName } = useParams();
+   const isAdmin = useIsBusinessAdmin();
    const pages = business.settings?.pages || [];
 
    return (
-     <nav className="w-full bg-background border-b sticky top-0 z-[50] py-4 px-6 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
+     <nav className="w-full border-b sticky top-0 z-[50] py-4 px-6 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
         <Link href={`/${storeName}`} className="text-2xl font-black tracking-tighter text-accent flex items-center gap-2">
            <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg">
               {business.name.charAt(0)}
            </div>
-           {business.name}
+           <span className="truncate max-w-[150px] md:max-w-none">{business.name}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
            {pages.map(page => (
@@ -19929,9 +20468,16 @@ const StoreNavbar = ({ business }: { business: Business }) => {
            ))}
         </div>
         <div className="flex items-center gap-4">
+           {isAdmin && (
+              <Link href={`/${storeName}/analytics`}>
+                <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2">
+                   ADMIN <Layout className="h-3 w-3 ml-1" />
+                </Badge>
+              </Link>
+           )}
            <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
            <GlobalCart />
-           <Button variant="outline" className="rounded-full font-bold md:flex hidden">Get Started</Button>
+           <Button variant="outline" className="rounded-full font-bold md:flex hidden">Join Platform</Button>
            <Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-5 w-5" /></Button>
         </div>
      </nav>
@@ -21706,7 +22252,7 @@ const Command = React.forwardRef<
 ))
 Command.displayName = CommandPrimitive.displayName
 
-interface CommandDialogProps extends DialogProps {}
+type CommandDialogProps = DialogProps;
 
 const CommandDialog = ({ children, ...props }: CommandDialogProps) => {
   return (
@@ -22854,8 +23400,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {}
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>;
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {
@@ -25135,8 +25680,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-export interface TextareaProps
-  extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {}
+export type TextareaProps = React.TextareaHTMLAttributes<HTMLTextAreaElement>;
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, ...props }, ref) => {
@@ -25898,13 +26442,26 @@ const CartBadge = () => {
 
 const InnerCartContent = ({ close }: { close: () => void }) => {
   const { currentBusiness } = useAppContext();
-  const { items, removeItem, updateQuantity, subtotal, clearCart, addItem } = useCart();
+  const { items, removeItem, updateQuantity, subtotal, clearCart, addItem, allCarts, clearAllCarts } = useCart();
+  const [businesses, setBusinesses] = React.useState<any[]>([]);
+
+  // Fetch all business names for global cart labeling
+  React.useEffect(() => {
+    if (!currentBusiness) {
+       axios.get('/api/dbhandler?model=business').then(res => setBusinesses(res.data)).catch(() => {});
+    }
+  }, [currentBusiness]);
+
+  const getBusinessName = (bid: string) => {
+     if (bid === 'global') return 'VendorPort Global';
+     return businesses.find(b => b.id === bid)?.name || `Store ${bid.slice(-4)}`;
+  };
   
   // AI State
   const [isAiMode, setIsAiMode] = React.useState(false);
   const [aiInput, setAiInput] = React.useState("");
   const [isProcessing, setIsProcessing] = React.useState(false);
-  const [aiResults, setAiResults] = React.useState<any[]>([]); // Step 2 results
+  const [aiResults, setAiResults] = React.useState<any[]>([]);
   const [selectedOptions, setSelectedOptions] = React.useState<Record<number, string[]>>({});
   const [strategy, setStrategy] = React.useState<'manual' | 'cheapest' | 'moderate' | 'expensive'>('manual');
 
@@ -25914,38 +26471,32 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
     try {
       const res = await axios.post('/api/ai/shop', { 
          query: aiInput,
-         businessId: currentBusiness?.id
+         businessId: currentBusiness?.id // Could be null for global platform search
       });
       
       const results = res.data.results || [];
       if (results.length > 0) {
         setAiResults(results);
-        
-        // Auto-selection logic based on strategy
         const newSelection: Record<number, string[]> = {};
         results.forEach((item: any, idx: number) => {
            if (item.options.length === 0) return;
-           
            if (strategy === 'manual' && item.options.length === 1) {
               newSelection[idx] = [item.options[0].id];
            } else if (strategy !== 'manual') {
-              // Sort options by price
               const sorted = [...item.options].sort((a, b) => a.price - b.price);
               let selected;
               if (strategy === 'cheapest') selected = sorted[0];
               else if (strategy === 'expensive') selected = sorted[sorted.length - 1];
-              else selected = sorted[Math.floor(sorted.length / 2)]; // Moderate
-              
+              else selected = sorted[Math.floor(sorted.length / 2)];
               newSelection[idx] = [selected.id];
            } else {
               newSelection[idx] = [];
            }
         });
         setSelectedOptions(newSelection);
-        
-        toast.success(`AI identified ${results.length} items. Review selections below.`);
+        toast.success(`AI identified ${results.length} items.`);
       } else {
-        toast.info("AI couldn't find items. Try being more specific.");
+        toast.info("AI couldn't find items.");
       }
     } catch (err) {
       toast.error("AI Shopping failed.");
@@ -25957,9 +26508,7 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
   const toggleOption = (itemIdx: number, optionId: string) => {
     setSelectedOptions(prev => {
       const current = prev[itemIdx] || [];
-      const updated = current.includes(optionId) 
-        ? current.filter(id => id !== optionId)
-        : [...current, optionId];
+      const updated = current.includes(optionId) ? current.filter(id => id !== optionId) : [...current, optionId];
       return { ...prev, [itemIdx]: updated };
     });
   };
@@ -25976,38 +26525,38 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
             name: option.name,
             price: option.price,
             images: option.images || [option.image],
-            category: option.category?.name || "AI Multi"
+            category: option.category?.name || "AI Multi",
+            businessId: option.businessId // Crucial for global cart identification
           }, option.requestedQuantity || 1);
           count++;
         }
       });
     });
     if (count > 0) {
-      toast.success(`Added ${count} items to your bag!`);
+      toast.success(`Added ${count} items!`);
       setIsAiMode(false);
       setAiResults([]);
-    } else {
-      toast.error("Please select at least one option.");
     }
   };
+
+  const isPlatformView = !currentBusiness;
+  const cartEntries = isPlatformView 
+    ? Object.entries(allCarts).filter(([_, cart]) => cart.length > 0)
+    : [[currentBusiness.id, items]];
+
+  const totalGlobalAmount = isPlatformView
+    ? cartEntries.reduce((acc, [_, cart]) => acc + cart.reduce((t, i) => t + (i.price * i.quantity), 0), 0)
+    : subtotal;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-6 border-b flex justify-between items-center bg-background shrink-0">
         <h2 className="text-xl font-black flex items-center gap-2">
            <ShoppingCart className="h-5 w-5 text-accent" />
-           {isAiMode ? "AI Shopping" : "Your Bag"}
+           {isAiMode ? "AI Shopping" : (isPlatformView ? "Global Bag" : "Store Bag")}
         </h2>
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => {
-            setIsAiMode(!isAiMode);
-            setAiResults([]);
-          }} 
-          className="gap-2 text-accent font-bold bg-accent/5 hover:bg-accent/10 rounded-full"
-        >
-           <Sparkles className="h-4 w-4" /> {isAiMode ? "Exit AI" : "AI Assistant"}
+        <Button variant="ghost" size="sm" onClick={() => { setIsAiMode(!isAiMode); setAiResults([]); }} className="gap-2 text-accent font-bold bg-accent/5 hover:bg-accent/10 rounded-full">
+           <Sparkles className="h-4 w-4" /> {isAiMode ? "Exit AI" : "Smart Search"}
         </Button>
       </div>
 
@@ -26015,136 +26564,108 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
         <div className="p-6">
           {isAiMode ? (
             <div className="space-y-6">
-              {aiResults.length === 0 ? (
-                /* Step 1: Input */
-                <div className="bg-accent/5 p-5 rounded-3xl border border-accent/20 space-y-4">
-                   <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-accent/10 flex items-center justify-center text-accent">
-                         <Sparkles className="h-5 w-5" />
-                      </div>
-                      <div>
-                         <h4 className="font-black text-sm">AI Smart Search</h4>
-                         <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Two-step intelligent shopping</p>
-                      </div>
-                   </div>
-                   
-                   <div className="flex flex-wrap gap-2 pt-2">
-                      {(['manual', 'cheapest', 'moderate', 'expensive'] as const).map((s) => (
-                        <Button 
-                          key={s}
-                          variant={strategy === s ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setStrategy(s)}
-                          className={`rounded-full text-[10px] uppercase font-bold h-7 ${strategy === s ? 'bg-accent' : ''}`}
-                        >
-                          {s === 'manual' ? 'Let me choose' : `${s} price`}
-                        </Button>
-                      ))}
-                   </div>
-
-                   <textarea 
-                     className="w-full h-40 p-4 rounded-2xl border bg-white focus:outline-none focus:ring-2 focus:ring-accent/50 text-sm resize-none"
-                     placeholder="e.g. 5 pieces of Jollof Rice, 2 Cold Stone, and a bottle of water..."
-                     value={aiInput}
-                     onChange={(e) => setAiInput(e.target.value)}
-                   />
-                   <div className="flex gap-2">
-                      <Button variant="outline" className="flex-1 gap-2 border-dashed h-12 rounded-xl">
-                         <Upload className="h-4 w-4" /> Snap List
-                      </Button>
-                      <Button 
-                        className="flex-1 gap-2 h-12 bg-accent rounded-xl" 
-                        onClick={handleAiShop}
-                        disabled={isProcessing}
-                      >
-                         {isProcessing ? "Analyzing..." : <><Send className="h-4 w-4" /> Search Items</>}
-                      </Button>
-                   </div>
-                </div>
-              ) : (
-                /* Step 2: Review Results */
-                <div className="space-y-8 animate-in slide-in-from-bottom-5">
-                   <div className="flex items-center justify-between">
-                      <h3 className="font-black text-lg">Match Results</h3>
-                      <Button variant="ghost" size="sm" onClick={() => setAiResults([])} className="text-xs">Reset Search</Button>
-                   </div>
-
-                   {aiResults.map((item, idx) => (
-                      <div key={idx} className="space-y-3">
-                        <div className="flex items-center justify-between px-1">
-                           <h4 className="font-bold text-sm flex items-center gap-2">
-                              <span className="h-5 w-5 rounded bg-accent/10 text-accent flex items-center justify-center text-[10px]">{idx + 1}</span>
-                              {item.identifiedItem.name} 
-                              <span className="text-muted-foreground text-[10px]">x{item.identifiedItem.quantity}</span>
-                           </h4>
-                        </div>
-                        
-                        <div className="grid gap-2">
-                           {item.options.length > 0 ? (
-                             item.options.map((opt: any) => (
-                               <div 
-                                 key={opt.id}
-                                 onClick={() => toggleOption(idx, opt.id)}
-                                 className={`p-3 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
-                                    selectedOptions[idx]?.includes(opt.id) 
-                                    ? 'border-accent bg-accent/5' 
-                                    : 'border-transparent bg-muted/30 hover:bg-muted/50'
-                                 }`}
-                               >
-                                  <div className="flex items-center gap-3">
-                                     <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${selectedOptions[idx]?.includes(opt.id) ? 'border-accent bg-accent' : 'border-muted-foreground/30'}`}>
-                                        {selectedOptions[idx]?.includes(opt.id) && <div className="h-1.5 w-1.5 rounded-full bg-white" />}
-                                     </div>
-                                     <div className="min-w-0">
-                                        <p className="text-xs font-black truncate">{opt.name}</p>
-                                        <p className="text-[10px] text-muted-foreground">{opt.category?.name || 'General'}</p>
-                                     </div>
+               {/* Search AI UI (Existing) */}
+               {aiResults.length === 0 ? (
+                 <div className="bg-accent/5 p-5 rounded-3xl border border-accent/20 space-y-4">
+                    <div className="relative">
+                       <textarea 
+                         className="w-full h-40 p-4 rounded-2xl border bg-white text-sm resize-none focus:ring-2 ring-accent/50 outline-none transition-all"
+                         placeholder="List what you need from all our stores... (e.g. 2 Paracetamol, 1 Nike Shoe, Blue Shirt)"
+                         value={aiInput}
+                         onChange={(e) => setAiInput(e.target.value)}
+                       />
+                       <div className="absolute bottom-4 right-4 flex gap-2">
+                          <input 
+                             type="file" 
+                             id="ai-upload" 
+                             className="hidden" 
+                             accept="image/*,.pdf,.txt"
+                             onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) toast.success(`Attached ${file.name}. AI will analyze it.`);
+                             }}
+                          />
+                          <Button 
+                             size="icon" 
+                             variant="secondary" 
+                             className="h-10 w-10 rounded-xl"
+                             onClick={() => document.getElementById('ai-upload')?.click()}
+                          >
+                             <Upload className="h-4 w-4" />
+                          </Button>
+                       </div>
+                    </div>
+                    <Button className="w-full h-14 bg-accent rounded-2xl font-black text-lg shadow-lg shadow-accent/20 group" onClick={handleAiShop} disabled={isProcessing}>
+                       {isProcessing ? (
+                         <div className="flex items-center gap-2">
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            AI is Shopping...
+                         </div>
+                       ) : (
+                         <div className="flex items-center gap-2">
+                            <Send className="h-5 w-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
+                            Start Smart Shopping
+                         </div>
+                       )}
+                    </Button>
+                    <p className="text-[10px] text-center text-muted-foreground font-medium uppercase tracking-widest opacity-60">AI will scan 500+ stores for the best match</p>
+                 </div>
+               ) : (
+                 <div className="space-y-8">
+                    {aiResults.map((item, idx) => (
+                       <div key={idx} className="space-y-3">
+                          <h4 className="font-bold text-sm">{item.identifiedItem.name}</h4>
+                          <div className="grid gap-2">
+                             {item.options.map((opt: any) => (
+                               <div key={opt.id} onClick={() => toggleOption(idx, opt.id)} className={`p-3 rounded-2xl border-2 cursor-pointer flex justify-between ${selectedOptions[idx]?.includes(opt.id) ? 'border-accent bg-accent/5' : 'bg-muted/30'}`}>
+                                  <div className="min-w-0">
+                                     <p className="text-xs font-black truncate">{opt.name}</p>
+                                     <p className="text-[10px] text-muted-foreground">{getBusinessName(opt.businessId)}</p>
                                   </div>
-                                  <div className="text-right">
-                                     <PriceDisplay amount={opt.price} className="text-xs font-bold text-accent" />
-                                  </div>
+                                  <PriceDisplay amount={opt.price} className="text-xs font-bold text-accent" />
                                </div>
-                             ))
-                           ) : (
-                             <div className="p-4 rounded-2xl border-2 border-dashed border-muted-foreground/10 text-center text-xs text-muted-foreground italic">
-                                No direct matches found in this store.
-                             </div>
-                           )}
-                        </div>
-                      </div>
-                   ))}
-
-                   <Button className="w-full h-14 rounded-2xl bg-accent font-black shadow-lg" onClick={addAllSelectedToCart}>
-                      Add Selected to Bag
-                   </Button>
-                </div>
-              )}
+                             ))}
+                          </div>
+                       </div>
+                    ))}
+                    <Button className="w-full h-14 rounded-2xl bg-accent font-black" onClick={addAllSelectedToCart}>Add Selected</Button>
+                 </div>
+               )}
             </div>
           ) : (
-            <div className="space-y-6">
-              {items.length === 0 ? (
-                <div className="h-[50vh] flex flex-col items-center justify-center text-center space-y-4 opacity-40">
-                  <Package className="h-16 w-16" />
-                  <p className="font-medium">Your bag is empty.</p>
-                </div>
+            <div className="space-y-8">
+              {cartEntries.length === 0 ? (
+                <div className="h-[50vh] flex flex-col items-center justify-center opacity-40"><Package className="h-16 w-16" /><p>Bag is empty.</p></div>
               ) : (
-                items.map((item) => (
-                  <div key={item.id} className="flex gap-4 group">
-                    <div className="h-20 w-20 bg-muted rounded-2xl overflow-hidden shadow-sm shrink-0 border">
-                      <img src={item.images?.[0] || item.image || '/placeholder.png'} alt={item.name} className="h-full w-full object-cover" />
-                    </div>
-                    <div className="flex-1 space-y-1 min-w-0">
-                      <h4 className="font-black text-sm truncate">{item.name}</h4>
-                      <PriceDisplay amount={item.price} className="text-sm font-bold text-accent" />
-                      <div className="flex items-center gap-3 pt-2">
-                        <div className="flex items-center border rounded-full px-2 py-1 gap-4 bg-muted/20">
-                          <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="hover:text-accent p-1"><Minus className="h-3 w-3" /></button>
-                          <span className="text-xs font-black min-w-4 text-center">{item.quantity}</span>
-                          <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="hover:text-accent p-1"><Plus className="h-3 w-3" /></button>
-                        </div>
-                        <button onClick={() => removeItem(item.id)} className="text-muted-foreground hover:text-destructive transition-colors ml-auto p-1"><Trash2 className="h-4 w-4" /></button>
-                      </div>
-                    </div>
+                cartEntries.map(([bid, bizItems]) => (
+                  <div key={bid} className="space-y-4">
+                     {isPlatformView && (
+                       <div className="flex justify-between items-center bg-muted/20 p-2 px-3 rounded-lg border">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-accent">{getBusinessName(bid)}</span>
+                          <PriceDisplay amount={bizItems.reduce((acc, i) => acc + (i.price * i.quantity), 0)} className="text-xs font-bold" />
+                       </div>
+                     )}
+                     <div className="space-y-4">
+                       {bizItems.map((item) => (
+                         <div key={item.id} className="flex gap-4">
+                           <div className="h-16 w-16 bg-muted rounded-xl overflow-hidden border shrink-0">
+                             <img src={item.images?.[0] || item.image || '/placeholder.png'} alt={item.name} className="h-full w-full object-cover" />
+                           </div>
+                           <div className="flex-1 space-y-1 min-w-0">
+                             <h4 className="font-black text-xs truncate">{item.name}</h4>
+                             <PriceDisplay amount={item.price} className="text-xs font-bold text-accent" />
+                             <div className="flex items-center gap-3 pt-1">
+                               <div className="flex items-center border rounded-full px-2 py-0.5 gap-3 bg-muted/10">
+                                 <button onClick={() => updateQuantity(item.id, item.quantity - 1, bid)} className="p-1"><Minus className="h-2 w-2" /></button>
+                                 <span className="text-[10px] font-black">{item.quantity}</span>
+                                 <button onClick={() => updateQuantity(item.id, item.quantity + 1, bid)} className="p-1"><Plus className="h-2 w-2" /></button>
+                               </div>
+                               <button onClick={() => removeItem(item.id, bid)} className="hover:text-destructive ml-auto"><Trash2 className="h-3 w-3" /></button>
+                             </div>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
                   </div>
                 ))
               )}
@@ -26155,21 +26676,17 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
 
       <div className="p-6 border-t bg-background shrink-0 space-y-4">
         <div className="space-y-2">
-          <div className="flex justify-between items-center text-muted-foreground text-sm font-medium">
-            <span>Subtotal</span>
-            <PriceDisplay amount={subtotal} />
-          </div>
           <div className="flex justify-between items-center font-black text-2xl">
             <span>Total</span>
-            <PriceDisplay amount={subtotal} />
+            <PriceDisplay amount={totalGlobalAmount} />
           </div>
         </div>
-        <Button className="w-full h-14 rounded-2xl text-lg font-black bg-accent hover:bg-accent/90 shadow-xl shadow-accent/20 transition-all active:scale-95" onClick={close}>
-          Checkout Now
+        <Button className="w-full h-14 rounded-2xl text-lg font-black bg-accent shadow-xl active:scale-95" onClick={close}>
+          {isPlatformView ? "Proceed to Multi-Shop" : "Checkout Now"}
         </Button>
-        {items.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={clearCart} className="w-full text-muted-foreground hover:text-destructive font-bold text-xs">
-             CLEAR ENTIRE BAG
+        {cartEntries.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={isPlatformView ? clearAllCarts : clearCart} className="w-full text-muted-foreground hover:text-destructive font-bold text-xs uppercase tracking-tighter">
+             EMPTY {isPlatformView ? 'ALL BAGS' : 'THIS BAG'}
           </Button>
         )}
       </div>
@@ -26449,13 +26966,25 @@ import {
   TooltipProvider,
 } from "@/components/ui/tooltip";
 
+import { BarChart, LayoutDashboard } from "lucide-react";
+import { useAppContext } from "@/hooks/useAppContext";
+
 const Nav = () => {
   const pathname = usePathname();
+  const { user } = useAppContext();
+
+  const baseLinks = [...Links.Links];
+  if (user?.role === "admin") {
+     baseLinks.push(
+        { path: "/admin", name: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+        { path: "/admin/analytics", name: "Analytics", icon: <BarChart className="h-5 w-5" /> }
+     );
+  }
 
   return (
     <TooltipProvider>
       <nav className="flex gap-8 text-xl">
-        {Links.Links.map((link, index) => {
+        {baseLinks.map((link: any, index: number) => {
           const isActive = link.path === pathname;
 
           return (
@@ -26465,8 +26994,8 @@ const Nav = () => {
                   href={link.path}
                   className={`${
                     isActive &&
-                    "text-accent border-b-2 border-accent border-none outline-none"
-                  } capitalize font-medium hover:text-accent transition-all`}
+                    "text-accent border-b-2 border-accent"
+                  } capitalize font-medium hover:text-accent transition-all flex items-center h-full`}
                 >
                   {link.icon} 
                 </Link>
@@ -26495,17 +27024,13 @@ LOCATION: components\utility\navbar.tsx
 
 "use client"
 
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import Nav from './nav';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import Sidenav from './sidenav';
 import { ModeToggle } from '@/components/ui/mode-toggle';
-import { Suspense, useEffect } from "react"
-import { AiOutlineSearch } from "react-icons/ai"
 import { Advert } from "@/components/myComponents/subs"
-import loyzspiceslogo from "@/public/logo.png"
-import Image from "next/image";
 import { GlobalCart } from '../utility/GlobalCart';
 import { SearchInput } from '../myComponents/subs/searchcomponent';
 import { useSession } from "next-auth/react";
@@ -26517,10 +27042,17 @@ import {
   TooltipContent
 } from "@/components/ui/tooltip";
 import { GlobalDialog } from '../ui/GlobalDialog';
+import Login from '../myComponents/subs/login';
+import { usePathname, useParams } from 'next/navigation';
 
-const Navbar = (): JSX.Element => {
+const Navbar = (): JSX.Element | null => {
   const { setUser, user } = useAppContext();
   const { data: session, status } = useSession();
+  const pathname = usePathname();
+  const { storeName } = useParams();
+
+  // Hide platform navbar if we're in a specific store route
+  if (storeName) return null;
 
   useEffect(() => {
     if (status === "authenticated" && user.email === "nil") {
@@ -26532,9 +27064,9 @@ const Navbar = (): JSX.Element => {
 
   return (
     <TooltipProvider>
-      <div className="sticky top-0 z-30 w-[100vw] overflow-clip flex flex-col m-0 p-0">
-        <header className="w-[100%] justify-center items-center py-1 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
-          <div className="container mx-auto flex justify-between items-center gap-2 h-[60px] /md:h-[50px] overflow-clip">
+      <div className="sticky top-0 z-30 w-full overflow-clip flex flex-col m-0 p-0">
+        <header className="w-full justify-center items-center py-1 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
+          <div className="container mx-auto flex justify-between items-center gap-2 h-[60px] overflow-clip">
 
             {/* Sidenav Mobile */}
             <Tooltip>
@@ -26551,78 +27083,46 @@ const Navbar = (): JSX.Element => {
             {/* Logo */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link href={"/"} className="flex dark:hidden flex-1 md:flex-none h-full max-h-[200px] md:max-h-[50px] /bg-red-500 overflow-clip justify-center items-center">
-                  <Image src={loyzspiceslogo} alt="Home" className="h-8 w-20" />
+                <Link href={"/"} className="flex flex-1 md:flex-none h-full items-center">
+                   <div className="flex items-center gap-2">
+                      <div className="bg-accent h-8 w-8 rounded-lg flex items-center justify-center text-white font-black text-xl shadow-lg">V</div>
+                      <span className="text-2xl font-black tracking-tighter hidden sm:block">VendorPort</span>
+                   </div>
                 </Link>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Go Home</p>
+                <p>VendorPort Home</p>
               </TooltipContent>
             </Tooltip>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href={"/"} className="hidden dark:flex flex-1 md:flex-none max-h-[43px] md:max-h-[50px] overflow-clip justify-center items-center py-5">
-                  <Image src={loyzspiceslogo} alt="Home" className="w-[100px] h-auto" />
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Go Home</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Mobile Search Button */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div
-                  className="lg:hidden relative flex justify-center items-center text-accent text-xl gap-1"
-                >
-                  {/* <Button 
-                    variant='outline'
-                    className="justify-center items-center rounded-full w-[35px] h-[35px] overflow-clip text-accent text-xl"
-                  >
-                    <AiOutlineSearch />
-                  </Button> */}
-
-                  <GlobalCart />
-
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Cart</p>
-              </TooltipContent>
-            </Tooltip>
+            {/* Mobile Search/Cart */}
+            <div className="lg:hidden relative flex items-center gap-2">
+               <GlobalCart />
+               {user?.email === "nil" ? <Login /> : (
+                 <Link href="/create-store">
+                   <Button size="sm" className="bg-accent font-bold">Build</Button>
+                 </Link>
+               )}
+            </div>
 
             <div className="md:flex hidden">
-              {/* Search Input */}
               <SearchInput />
             </div>
 
             {/* Desktop Navigation */}
             <div className="hidden lg:flex items-center gap-8">
-
               <Nav />
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <GlobalCart />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>View Cart</p>
-                </TooltipContent>
-              </Tooltip>
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <ModeToggle />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Toggle Theme</p>
-                </TooltipContent>
-              </Tooltip>
-
+              <GlobalCart />
+              <ModeToggle />
+              {user?.email === "nil" ? (
+                <div className="flex gap-2">
+                   <Login />
+                </div>
+              ) : (
+                <Link href="/create-store">
+                   <Button className="bg-accent hover:bg-accent/90 text-white font-bold">Create My Store</Button>
+                </Link>
+              )}
             </div>
           </div>
         </header>
@@ -26653,7 +27153,7 @@ interface PriceDisplayProps {
 export const PriceDisplay = ({ amount, className = "" }: PriceDisplayProps) => {
   const { currentBusiness } = useAppContext();
   
-  const currency = currentBusiness?.settings?.currency || "USD";
+  const currency = currentBusiness?.settings?.currency || "NGN";
   const exchangeRate = currentBusiness?.settings?.exchangeRate || 1.0;
   
   const convertedAmount = amount * exchangeRate;
@@ -26692,9 +27192,20 @@ import dynamic from 'next/dynamic'
 const Login = dynamic(() => import('@/components/myComponents/subs').then((e) => e.Login), { ssr: false, })
 import { Signup } from "@/components/myComponents/subs"
 
+import { BarChart, LayoutDashboard } from "lucide-react";
+
 const Sidenav = () => {
     const pathname = usePathname();
     const { user, setUser } = useAppContext();
+
+    const baseLinks = [...Links.Links];
+    if (user?.role === "admin") {
+        baseLinks.push(
+            { path: "/admin", name: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
+            { path: "/admin/analytics", name: "Analytics", icon: <BarChart className="h-5 w-5" /> }
+        );
+    }
+
     return (
         <Sheet>
             <SheetTrigger className="flex justify-center items-center text-[32px] text-accent">
@@ -26702,9 +27213,9 @@ const Sidenav = () => {
             </SheetTrigger>
             <SheetHeader></SheetHeader>
             <SheetTitle></SheetTitle>
-            <SheetContent className="flex flex-col justify-between items-center">
-                <nav className="flex flex-col justify-center items-center gap-8 text-xl">
-                    {Links.Links.map((link, index) => {
+            <SheetContent className="flex flex-col justify-between items-center overflow-y-auto">
+                <nav className="flex flex-col justify-center items-center gap-8 text-xl py-10">
+                    {baseLinks.map((link: any, index: number) => {
                         return (
                             <Link href={link.path} key={index} className={`${link.path === pathname && "text-accent border-b-2 border-accent"} capitalize font-medium hover:text-accent transition-all flex items-center gap-2`}>
                                 {link.icon}
@@ -28083,16 +28594,20 @@ export interface CheckoutData {
 }
 
 export interface CartContextType {
-  // Cart
-  addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
+  // Cart (Scoped to current business)
+  addItem: (item: Omit<CartItem, "quantity"> & { businessId?: string }, quantity?: number) => void;
   clearCart: () => void;
   itemCount: number;
   items: CartItem[];
-  removeItem: (id: string) => void;
+  removeItem: (id: string, businessId?: string) => void;
   subtotal: number;
-  updateQuantity: (id: string, quantity: number) => void;
+  updateQuantity: (id: string, quantity: number, businessId?: string) => void;
 
-  // Checkout (Namespace this too if needed, but let's stick to cart first)
+  // Global Cart (Platform view)
+  allCarts: MultiCartData;
+  clearAllCarts: () => void;
+
+  // Checkout
   checkoutData: CheckoutData | null;
   setCheckoutData: (data: CheckoutData | null) => void;
   clearCheckoutData: () => void;
@@ -28191,10 +28706,11 @@ export function CartProvider({ children }: React.PropsWithChildren) {
 
   /* ----------------------------- Cart Actions ---------------------------- */
   const addItem = React.useCallback(
-    (newItem: Omit<CartItem, "quantity">, qty = 1) => {
+    (newItem: Omit<CartItem, "quantity"> & { businessId?: string }, qty = 1) => {
       if (qty <= 0) return;
+      const targetId = newItem.businessId || businessId;
       setAllCarts((prev) => {
-        const currentItems = prev[businessId] || [];
+        const currentItems = prev[targetId] || [];
         const existing = currentItems.find((i) => i.id === newItem.id);
         
         let nextItems;
@@ -28206,7 +28722,7 @@ export function CartProvider({ children }: React.PropsWithChildren) {
           nextItems = [...currentItems, { ...newItem, quantity: qty }];
         }
         
-        return { ...prev, [businessId]: nextItems };
+        return { ...prev, [targetId]: nextItems };
       });
       clearCheckoutData();
     },
@@ -28214,11 +28730,12 @@ export function CartProvider({ children }: React.PropsWithChildren) {
   );
 
   const removeItem = React.useCallback(
-    (id: string) => {
+    (id: string, bizId?: string) => {
+      const targetId = bizId || businessId;
       setAllCarts((prev) => {
-        const currentItems = prev[businessId] || [];
+        const currentItems = prev[targetId] || [];
         const nextItems = currentItems.filter((i) => i.id !== id);
-        return { ...prev, [businessId]: nextItems };
+        return { ...prev, [targetId]: nextItems };
       });
       clearCheckoutData();
     },
@@ -28226,15 +28743,16 @@ export function CartProvider({ children }: React.PropsWithChildren) {
   );
 
   const updateQuantity = React.useCallback(
-    (id: string, qty: number) => {
+    (id: string, qty: number, bizId?: string) => {
+      const targetId = bizId || businessId;
       setAllCarts((prev) => {
-        const currentItems = prev[businessId] || [];
+        const currentItems = prev[targetId] || [];
         const nextItems = currentItems.flatMap((i) => {
           if (i.id !== id) return i;
           if (qty <= 0) return [];
           return { ...i, quantity: qty };
         });
-        return { ...prev, [businessId]: nextItems };
+        return { ...prev, [targetId]: nextItems };
       });
       clearCheckoutData();
     },
@@ -28245,6 +28763,11 @@ export function CartProvider({ children }: React.PropsWithChildren) {
     setAllCarts((prev) => ({ ...prev, [businessId]: [] }));
     clearCheckoutData();
   }, [businessId, clearCheckoutData]);
+
+  const clearAllCarts = React.useCallback(() => {
+    setAllCarts({});
+    clearCheckoutData();
+  }, [clearCheckoutData]);
 
   /* --------------------------- Derived data ------------------------------ */
   const itemCount = React.useMemo(
@@ -28266,6 +28789,8 @@ export function CartProvider({ children }: React.PropsWithChildren) {
       itemCount,
       items,
       subtotal,
+      allCarts,
+      clearAllCarts,
       checkoutData,
       setCheckoutData,
       clearCheckoutData,
@@ -28278,6 +28803,8 @@ export function CartProvider({ children }: React.PropsWithChildren) {
       itemCount,
       items,
       subtotal,
+      allCarts,
+      clearAllCarts,
       checkoutData,
       setCheckoutData,
       clearCheckoutData,
@@ -29398,7 +29925,7 @@ export default function AddressPriceForm() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        let payload: any = {
+        const payload: any = {
             price: parseFloat(formData.price),
         };
 
@@ -31209,7 +31736,7 @@ export default function PostForm() {
 LOCATION: prisma\forms\ProductForm.tsx
 ================================================================================
 
-// components/BookForm.tsx
+"use client";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
@@ -31218,29 +31745,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 
-// interface Product {
-//   id: string;
-//   //ministryId: string;
-//   title: string;
-//   author?: string;
-//   @id @default(auto()) @map("_id") @db.ObjectId
-//   name     String
-//   description String?
-//   category     Category     @relation(fields: [categoryId], references: [id])
-//   categoryId    String    @db.ObjectId
-//   price    Float
-//   stock: any;
-//   reviews  Review[]
-//   cartItems: any;
-//   Featured : any;
-//   images: any;
-//   createdAt?: Date;
-//   updatedAt?: Date; 
-// }
-
-export default function ProductForm({ initialProduct, hideList = false }: { initialProduct?: any, hideList?: boolean }) {
+export default function ProductForm({ initialProduct, hideList = false, businessId }: { initialProduct?: any, hideList?: boolean, businessId?: string }) {
   const [products, setProducts] = useState<any>([]);
-  const [formData, setFormData] = useState<any>({ //useState<Omit<any, 'id' | 'createdAt' | 'updatedAt'>>({
+  const [formData, setFormData] = useState<any>({ 
     name: initialProduct?.name || '',
     description: initialProduct?.description || '',
     categoryId: initialProduct?.categoryId || '',
@@ -31248,18 +31755,16 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     costPrice: initialProduct?.costPrice || 0,
     images: initialProduct?.images || null,
   });
-  const [file, setFile] = useState(null);
-  const [categories, setCategories] = useState([]);//categories to be mapped to the select input
-  const [preview, setPreview] = useState(null);
-  const [uploadStatus , setUploadStatus] = useState("");
-
-  const [productImage, setProductImage] = useState(null);
+  
+  const [file, setFile] = useState<any>(null);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [preview, setPreview] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(initialProduct?.id || null);
 
   useEffect(() => {
     if (!hideList) fetchProducts();
     fetchCategories();
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     if (initialProduct) {
@@ -31275,10 +31780,10 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     }
   }, [initialProduct]);
 
-
   const fetchProducts = async () => {
     try {
-      const res = await axios.get('/api/dbhandler?model=product');
+      const url = `/api/dbhandler?model=product${businessId ? `&businessId=${businessId}` : ''}`;
+      const res = await axios.get(url);
       setProducts(res.data);
     } catch (err) {
       console.error('Failed to fetch products', err);
@@ -31286,14 +31791,17 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   };
 
   const fetchCategories = async () => {
-    const res = await axios.get('/api/dbhandler?model=category');
-    setCategories(res.data);
-    if (res.data.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        categoryId: res.data[0].id,
-        category: res.data[0].name
-      }));
+    try {
+      const res = await axios.get('/api/dbhandler?model=category');
+      setCategories(res.data);
+      if (!formData.categoryId && res.data.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          categoryId: res.data[0].id,
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch categories', err);
     }
   };
 
@@ -31302,7 +31810,6 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       name: '',
       description: '',
       categoryId: categories.length > 0 ? categories[0].id : '',
-      category: categories.length > 0 ? categories[0].name : '',
       price: 0,
       costPrice: 0,
       images: null,
@@ -31312,59 +31819,48 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     setPreview(null);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleImageChange = (e: any) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile) {
+        if (selectedFile.size > 1000 * 1024) {
+            toast.warning("File size greater than 1MB. Upload might be slow.");
+        }
+        setFile(selectedFile);
+        setPreview(URL.createObjectURL(selectedFile));
+    }
+  };
 
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
     const pformData = new FormData();
 
-    if (file) {
-      pformData.append("file", file);
-    }
-
+    if (file) pformData.append("file", file);
     pformData.append("name", formData.name);
     pformData.append("description", formData.description);
     pformData.append("categoryId", formData.categoryId);
     pformData.append("price", String(formData.price));
-    if (formData.costPrice) {
-      pformData.append("costPrice", String(formData.costPrice));
-    }
+    if (formData.costPrice) pformData.append("costPrice", String(formData.costPrice));
+    if (businessId) pformData.append("businessId", businessId);
 
     try {
       if (editId) {
-        await axios.put(
-          `/api/dbhandler?model=product&id=${editId}`,
-          pformData
-        );
+        await axios.put(`/api/dbhandler?model=product&id=${editId}`, pformData);
       } else {
         await axios.post(`/api/product`, pformData);
       }
-      setUploadStatus("Product saved successfully");
-      toast.success(editId ? "Product updated successfully" : "Product created successfully");
+      toast.success(editId ? "Product updated" : "Product created");
       resetForm();
       fetchProducts();
     } catch (error) {
-      console.error(error);
       toast.error("Failed to save product.");
     }
   };
 
-
-  const handleImageChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile.size > 300 * 1024){
-      toast.warning("File size greater than 300kb. Upload might fail.");
-    }
-    setFile(selectedFile);
-    setPreview(URL.createObjectURL(selectedFile));
-  }
-
-  const handleDelete = async (product : any) => {
+  const handleDelete = async (product: any) => {
     if (!confirm(`Are you sure you want to delete ${product.name}?`)) return;
     try {
-      const res = await axios.delete(`/api/dbhandler?model=product&id=${product.id}`);
-      if (res.status === 200  || res.status === 201) {
-        toast.success('Product deleted successfully.');
-      }
+      await axios.delete(`/api/dbhandler?model=product&id=${product.id}`);
+      toast.success('Product deleted.');
       fetchProducts();
     } catch (err) {
       toast.error('Failed to delete product.');
@@ -31373,9 +31869,8 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
   const handleEdit = (product: any) => {
     setEditId(product.id);
-    setFile(null);        // 🔑 important
-    setPreview(null);     // 🔑 important
-
+    setFile(null);
+    setPreview(null);
     setFormData({
       name: product.name ?? '',
       description: product.description ?? '',
@@ -31386,129 +31881,117 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     });
   };
 
-  
-
   return (
-    <div>
-      
-      <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-sm gap-2 justify-center items-center p-3 border-2 border-secondary-foreground rounded-sm m-2'>
-        <h2>Product Form</h2>
+    <div className="w-full">
+      <form onSubmit={handleSubmit} className='flex flex-col w-full gap-4 p-6 border rounded-2xl bg-card shadow-sm'>
+        <h2 className="text-xl font-bold">Product Details</h2>
 
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-name">Product Name</Label>
-          <Input
-            id="product-name"
-            placeholder="Name of product"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          />
+        <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1">
+                <Label htmlFor="product-name">Product Name</Label>
+                <Input
+                    id="product-name"
+                    placeholder="e.g. Premium Item"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    required
+                />
+            </div>
+
+            <div className="space-y-1">
+                <Label htmlFor="product-category">Category</Label>
+                <Select 
+                    value={formData.categoryId} 
+                    onValueChange={(v) => setFormData({ ...formData, categoryId: v })}
+                >
+                    <SelectTrigger id="product-category">
+                        <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {categories.map((cat: any) => (
+                            <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
 
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-desc">Product Description</Label>
-          <Input
-            id="product-desc"
-            placeholder="Description of product"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          />
-        </div>
-
-        <div className="w-full space-y-1 text-center flex flex-col items-center">
-          <Label htmlFor="product-category" className='mb-2'>Product Category</Label>
-          <Select 
-            value={formData.categoryId} 
-            onValueChange={(value) => {
-              const selectedCategory = categories.find(cat => cat.id === value);
-              setFormData({ 
-                ...formData, 
-                categoryId: value, 
-                category: selectedCategory ? selectedCategory.name : ''
-              });
-            }}
-          >
-            <SelectTrigger id="product-category" className="w-full">
-              <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.length > 0 ? categories.map((category: any) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              )) : <SelectItem value="none" disabled>No categories</SelectItem>}
-            </SelectContent>
-          </Select>
-        </div>
-
-
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-price">Product Price</Label>
-          <Input
-            id="product-price"
-            placeholder="Price of product"
-            value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-            type="number"
-          />
-        </div>
-
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-cost-price">Product Cost Price</Label>
-          <Input
-            id="product-cost-price"
-            placeholder="Cost price of product"
-            value={formData.costPrice}
-            onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
-            type="number"
-          />
-        </div>
-
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-image">Product Image</Label>
-        {!preview && formData?.images?.length > 0 && (
-          <img
-            src={formData.images[0]}
-            alt="Current product"
-            style={{ maxHeight: '300px', marginTop: '1rem' }}
-          />
-        )}
-        {(preview) && (        //{(preview || formData?.images[0]!=null) && (
-              <div style={{ marginTop: '1rem' }}>
-                <img src={preview} alt="Selected preview" style={{ maxHeight: '300px' }} />
-              </div>
-            )}
+        <div className="space-y-1">
+            <Label htmlFor="product-desc">Description</Label>
             <Input
-              type="file"
-              name='image'
-              id='product-image'
-              placeholder="Product image"
-              onChange={handleImageChange}
+                id="product-desc"
+                placeholder="Briefly describe the product"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
         </div>
-        <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <Button type="button" onClick={resetForm}>Cancel</Button>}
 
+        <div className="grid gap-4 grid-cols-2">
+            <div className="space-y-1">
+                <Label htmlFor="product-price">Selling Price</Label>
+                <Input
+                    id="product-price"
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    required
+                />
+            </div>
+            <div className="space-y-1">
+                <Label htmlFor="product-cost">Cost Price</Label>
+                <Input
+                    id="product-cost"
+                    type="number"
+                    value={formData.costPrice}
+                    onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                />
+            </div>
+        </div>
+
+        <div className="space-y-2">
+            <Label>Product Image</Label>
+            <div className="flex flex-col items-center gap-4 border-2 border-dashed rounded-xl p-4 bg-muted/20">
+                {(preview || formData.images?.[0]) && (
+                    <img src={preview || formData.images[0]} alt="Preview" className="h-32 w-32 object-cover rounded-lg border shadow-sm" />
+                )}
+                <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="cursor-pointer"
+                />
+            </div>
+        </div>
+
+        <div className="flex gap-2">
+            <Button type="submit" className="flex-1 bg-accent hover:bg-accent/90">
+                {editId ? 'Update Product' : 'Create Product'}
+            </Button>
+            {editId && <Button type="button" variant="outline" onClick={resetForm}>Cancel</Button>}
+        </div>
 
         {!hideList && (
-          <ul className='w-full'>
+          <div className='mt-8 space-y-4'>
+            <h3 className="font-bold border-b pb-2">Recent Products</h3>
             {products.length > 0 ? (
-              products.map((item, index) => (
-                <li key={index} className="flex flex-col justify-center items-center gap-2 my-2 bg-secondary rounded-md w-full p-2">
-                  <div className="flex flex-row gap-2">
-                    <span>{(index + 1)}. Name : </span>
-                    <span>{item.name}</span>
-                  </div>
-                  <p>Price : {item.price || <em>No price tag</em>}</p>
-                  <div className='flex flex-row gap-2 p-1 w-full'>
-                    <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                    <Button type='button' onClick={() => handleDelete(item)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
-                  </div>
-                </li>
-              ))
+              <div className="grid gap-2">
+                {products.map((item: any, index: number) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border group">
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">{index + 1}.</span>
+                            <span className="font-bold text-sm">{item.name}</span>
+                        </div>
+                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button size="sm" variant="ghost" className="h-8" onClick={() => handleEdit(item)}>Edit</Button>
+                            <Button size="sm" variant="ghost" className="h-8 text-destructive" onClick={() => handleDelete(item)}>Delete</Button>
+                        </div>
+                    </div>
+                ))}
+              </div>
             ) : (
-              <p>No available product.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">No products found in this business.</p>
             )}
-          </ul>
+          </div>
         )}
       </form>
     </div>
@@ -32880,17 +33363,31 @@ model User {
 }
 
 model Business {
-  id         String           @id @default(auto()) @map("_id") @db.ObjectId
-  name       String           @unique // this will be the storeName for the slug /(storeName)
-  ownerId    String           @db.ObjectId
-  owner      User             @relation("UserBusinesses", fields: [ownerId], references: [id])
-  template   String           @default("estore") // estore, pharmacy, etc.
-  ratings    Float            @default(0)
-  numReviews Int              @default(0)
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-  settings   ProjectSettings?
-  // You might want to link other models like Products, Orders etc to a Business in the future
+  id               String            @id @default(auto()) @map("_id") @db.ObjectId
+  name             String            @unique // this will be the storeName for the slug /(storeName)
+  ownerId          String            @db.ObjectId
+  owner            User              @relation("UserBusinesses", fields: [ownerId], references: [id])
+  template         String            @default("estore") // estore, pharmacy, etc.
+  ratings          Float             @default(0)
+  numReviews       Int               @default(0)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  settings         ProjectSettings?
+  products         Product[]
+  categories       Category[]
+  carts            Cart[]
+  coupons          Coupon[]
+  deliveryFees     DeliveryFee[]
+  messages         Message[]
+  notifications    Notification[]
+  posts            Post[]
+  visits           Visit[]
+  reviews          Review[]
+  featuredProducts FeaturedProduct[]
+  wishlists        Wishlist[]
+  lunches          Lunch[]
+  payments         Payment[]
+  refunds          Refund[]
 }
 
 model ProjectSettings {
@@ -32999,42 +33496,50 @@ model EmailVerificationCode {
 // }
 
 model Post {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
   title       String?
   description String?
   contentUrl  String?
-  author      User     @relation(fields: [authorId], references: [id])
-  authorId    String   @db.ObjectId
+  author      User      @relation(fields: [authorId], references: [id])
+  authorId    String    @db.ObjectId
   // product    Product?     @relation(fields: [productId], references: [id])
   // productId   String?  @db.ObjectId
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  businessId  String?   @db.ObjectId
+  business    Business? @relation(fields: [businessId], references: [id])
 }
 
 model Notification {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  username  String?
-  user      User?    @relation(fields: [userId], references: [id])
-  userId    String?  @db.ObjectId
-  email     String?
-  message   String
-  category  String?
-  to        String?  @default("admin")
-  from      String?  @default("admin")
-  file      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  username   String?
+  user       User?     @relation(fields: [userId], references: [id])
+  userId     String?   @db.ObjectId
+  email      String?
+  message    String
+  category   String?
+  to         String?   @default("admin")
+  from       String?   @default("admin")
+  file       String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  business   Business? @relation(fields: [businessId], references: [id])
+  businessId String?   @db.ObjectId
 }
 
 model Category {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  name        String    @unique
+  name        String // removed unique to allow same name in different businesses
   description String?
   image       String?
   //slug     String   @unique
   products    Product[]
+  businessId  String?   @db.ObjectId
+  business    Business? @relation(fields: [businessId], references: [id])
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
+
+  @@unique([name, businessId])
 }
 
 model Product {
@@ -33059,6 +33564,8 @@ model Product {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   wishlist          Wishlist[]
+  businessId        String?          @db.ObjectId
+  business          Business?        @relation(fields: [businessId], references: [id])
 
   // add product features like dosage form, strength, manufacturer, etc
 }
@@ -33094,6 +33601,8 @@ model Cart {
   deliveryDate DateTime?
   lunchId      String?    @db.ObjectId
   lunch        Lunch?     @relation(fields: [lunchId], references: [id], onDelete: SetNull)
+  businessId   String?    @db.ObjectId
+  business     Business?  @relation(fields: [businessId], references: [id])
 }
 
 model CartItem {
@@ -33108,26 +33617,32 @@ model CartItem {
 }
 
 model Payment {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  cart       Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  cartId     String   @unique @db.ObjectId
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  cart       Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId     String    @unique @db.ObjectId
   //method must be converted to an enum
-  tx_ref     String?  @unique
+  tx_ref     String?   @unique
   method     String
   amount     Float
   payeeName  String?
   receiptUrl String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  businessId String?   @db.ObjectId
+  business   Business? @relation(fields: [businessId], references: [id])
 }
 
 model Coupon {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  code      String    @unique
-  discount  Float?
-  expiresAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  code       String
+  discount   Float?
+  expiresAt  DateTime?
+  businessId String?   @db.ObjectId
+  business   Business? @relation(fields: [businessId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([code, businessId])
 }
 
 model ShippingAddress {
@@ -33145,105 +33660,121 @@ model ShippingAddress {
 }
 
 model DeliveryFee {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  country   String?
-  state     String?
-  city      String?
-  region    String?
-  price     Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  country    String?
+  state      String?
+  city       String?
+  region     String?
+  price      Float
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  businessId String?   @db.ObjectId
+  business   Business? @relation(fields: [businessId], references: [id])
 
-  @@unique([country, state, city, region])
+  @@unique([country, state, city, region, businessId])
 }
 
 model Visit {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
   fingerprint String // Browser fingerprint from localStorage
-  visitDate   DateTime @default(now())
+  visitDate   DateTime  @default(now())
   userAgent   String?
   ipAddress   String?
-  createdAt   DateTime @default(now())
+  businessId  String?   @db.ObjectId
+  business    Business? @relation(fields: [businessId], references: [id])
+  createdAt   DateTime  @default(now())
 
-  @@unique([fingerprint, visitDate])
+  @@unique([fingerprint, visitDate, businessId])
   @@index([visitDate])
 }
 
 //one to one relation with cart, not d unique to avoid error
 model Refund {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  cartId    String   @unique @db.ObjectId
-  amount    Float
-  reason    String?
-  status    String   @default("pending")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  cart       Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId     String    @unique @db.ObjectId
+  amount     Float
+  reason     String?
+  status     String    @default("pending")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  business   Business? @relation(fields: [businessId], references: [id])
+  businessId String?   @db.ObjectId
 }
 
 model Message {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String   @db.ObjectId
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String    @db.ObjectId
   senderName    String
   senderEmail   String
   subject       String
   message       String
   adminResponse String?
-  isSeen        Boolean  @default(false)
-  isResolved    Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  isSeen        Boolean   @default(false)
+  isResolved    Boolean   @default(false)
+  businessId    String?   @db.ObjectId
+  business      Business? @relation(fields: [businessId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model FeaturedProduct {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId String   @unique @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String    @unique @db.ObjectId
+  businessId String?   @db.ObjectId
+  business   Business? @relation(fields: [businessId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Review {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId     String   @db.ObjectId
-  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId  String   @db.ObjectId
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String    @db.ObjectId
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String    @db.ObjectId
   rating     Int
   comment    String?
-  isArchived Boolean  @default(false)
-  reply      Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  isArchived Boolean   @default(false)
+  reply      Boolean   @default(false)
+  businessId String?   @db.ObjectId
+  business   Business? @relation(fields: [businessId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Lunch {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId     String   @db.ObjectId
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId     String    @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name       String?
-  frequency  String   @default("once") // once, daily, weekly, monthly
+  frequency  String    @default("once") // once, daily, weekly, monthly
   daysOfWeek String[] // ["monday", "wednesday"]
   timesInDay String[] // ["12:00", "15:00"]
   startDate  DateTime
   endDate    DateTime
-  status     String   @default("active") // active, completed, cancelled
+  status     String    @default("active") // active, completed, cancelled
   carts      Cart[]
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  businessId String?   @db.ObjectId
+  business   Business? @relation(fields: [businessId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model Wishlist {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String   @db.ObjectId
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId String   @db.ObjectId
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId     String    @db.ObjectId
+  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String    @db.ObjectId
+  businessId String?   @db.ObjectId
+  business   Business? @relation(fields: [businessId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  @@unique([userId, productId])
+  @@unique([userId, productId, businessId])
 }
 
 // model Comment {
@@ -38629,5 +39160,5 @@ export const normalizeDateTime = (dateTime?: string): string => {
 
 
 ================================================================================
-TOTAL FILES CONSOLIDATED: 334
+TOTAL FILES CONSOLIDATED: 336
 ================================================================================

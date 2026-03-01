@@ -25,12 +25,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { register } from '@/server/action/signup'
 import axios from 'axios'
+import { useAppContext } from '@/hooks/useAppContext'
 import Login from './login'
 import { FcGoogle } from 'react-icons/fc'
 import { FaFacebook } from "react-icons/fa";
 import { facebookSignIn, googleSignIn } from './googlesignin'
 
 const Signup = () => {
+  const { currentBusiness } = useAppContext();
   // const [details, setDetails] = useState({
   //   userName : "",
   //   email : "",
@@ -109,7 +111,7 @@ const Signup = () => {
         <DrawerContent className='flex flex-col justify-center items-center py-10 /bg-red-500 max-w-5xl mx-auto'>
 
           <DrawerHeader>
-            <DrawerTitle className='w-full text-center'>Create an account with <span className='text-accent'>Lois Food and Spices</span></DrawerTitle>
+            <DrawerTitle className='w-full text-center'>Create an account with <span className='text-accent'>{currentBusiness?.name || 'VendorPort'}</span></DrawerTitle>
             <DrawerDescription></DrawerDescription>
           </DrawerHeader>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-10 bg-secondary rounded-xl max-w-xl"> 
