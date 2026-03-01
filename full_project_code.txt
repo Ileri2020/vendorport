@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-01 02:12:06
+Generated: 2026-03-01 02:25:34
 ================================================================================
 
 
@@ -450,12 +450,10 @@ export async function toggleWishlist(productId: string) {
 
     const userId = session.user.id;
 
-    const existing = await prisma.wishlist.findUnique({
+    const existing = await prisma.wishlist.findFirst({
         where: {
-            userId_productId: {
-                userId,
-                productId,
-            },
+            userId,
+            productId,
         },
     });
 
@@ -485,12 +483,10 @@ export async function checkWishlisStatus(productId: string) {
         return false;
     }
     const userId = session.user.id;
-    const existing = await prisma.wishlist.findUnique({
+    const existing = await prisma.wishlist.findFirst({
         where: {
-            userId_productId: {
-                userId,
-                productId,
-            },
+            userId,
+            productId,
         },
     });
     return !!existing;
@@ -1658,6 +1654,9 @@ export async function GET(req: Request) {
   if (!fromStr || !toStr) {
     return NextResponse.json({ error: "Missing from or to date" }, { status: 400 });
   }
+
+  const from = new Date(fromStr);
+  const to = new Date(toStr);
 
   const bid = searchParams.get("businessId");
 
@@ -15077,6 +15076,7 @@ export function SearchInput() {
   const [results, setResults] = useState<{ products: any[], businesses: any[] }>({ products: [], businesses: [] });
   const [loading, setLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [query, setQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchResults = async (search: string) => {
@@ -20084,11 +20084,11 @@ export const PlatformStore = () => {
                           inStock: true,
                           rating: prod.ratings || 5
                         }}
-                        onAddToCart={(p, q) => {
+                        onAddToCart={(p) => {
                            addItem({
                               ...p,
                               businessId: prod.businessId
-                           }, q)
+                           }, 1)
                            toast.success(`Added ${p.name} from ${prod.business?.name || 'store'} to global bag`)
                         }}
                         onAddToWishlist={(id) => openDialog(`Added ${id} to global favorites`, "Wishlist")}

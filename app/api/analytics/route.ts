@@ -10,6 +10,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing from or to date" }, { status: 400 });
   }
 
+  const from = new Date(fromStr);
+  const to = new Date(toStr);
+
   const bid = searchParams.get("businessId");
 
   try {

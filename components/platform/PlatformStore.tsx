@@ -282,11 +282,11 @@ export const PlatformStore = () => {
                           inStock: true,
                           rating: prod.ratings || 5
                         }}
-                        onAddToCart={(p, q) => {
+                        onAddToCart={(p) => {
                            addItem({
                               ...p,
                               businessId: prod.businessId
-                           }, q)
+                           }, 1)
                            toast.success(`Added ${p.name} from ${prod.business?.name || 'store'} to global bag`)
                         }}
                         onAddToWishlist={(id) => openDialog(`Added ${id} to global favorites`, "Wishlist")}

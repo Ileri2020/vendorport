@@ -12,6 +12,7 @@ export function SearchInput() {
   const [results, setResults] = useState<{ products: any[], businesses: any[] }>({ products: [], businesses: [] });
   const [loading, setLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [query, setQuery] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const fetchResults = async (search: string) => {

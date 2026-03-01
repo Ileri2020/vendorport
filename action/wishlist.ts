@@ -14,12 +14,10 @@ export async function toggleWishlist(productId: string) {
 
     const userId = session.user.id;
 
-    const existing = await prisma.wishlist.findUnique({
+    const existing = await prisma.wishlist.findFirst({
         where: {
-            userId_productId: {
-                userId,
-                productId,
-            },
+            userId,
+            productId,
         },
     });
 
@@ -49,12 +47,10 @@ export async function checkWishlisStatus(productId: string) {
         return false;
     }
     const userId = session.user.id;
-    const existing = await prisma.wishlist.findUnique({
+    const existing = await prisma.wishlist.findFirst({
         where: {
-            userId_productId: {
-                userId,
-                productId,
-            },
+            userId,
+            productId,
         },
     });
     return !!existing;
