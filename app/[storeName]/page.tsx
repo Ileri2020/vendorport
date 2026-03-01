@@ -1,0 +1,105 @@
+"use client"
+import React, { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import axios from 'axios'
+import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { motion } from 'framer-motion'
+import { useAppContext } from '@/hooks/useAppContext'
+import StoreHome from '@/components/platform/StoreHome'
+
+const DynamicStorePage = () => {
+  const { storeName } = useParams();
+  const router = useRouter();
+  const { user } = useAppContext();
+  const [business, setBusiness] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchBusiness = async () => {
+      try {
+        const res = await axios.get(`/api/dbhandler?model=business`);
+        const businesses = res.data;
+        
+        // Find by slug-ified name
+        const biz = businesses.find((b: any) => 
+          b.name.toLowerCase().replace(/\s+/g, '-') === storeName
+        );
+
+        if (!biz) {
+          setError("Store not found");
+          setIsLoading(false);
+          return;
+        }
+
+        setBusiness(biz);
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Error fetching business:", err);
+        setError("Failed to load store");
+        setIsLoading(false);
+      }
+    };
+
+    if (storeName) {
+      fetchBusiness();
+    }
+  }, [storeName]);
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-accent" />
+        <p className="text-xl font-bold animate-pulse text-muted-foreground uppercase tracking-widest">Entering {storeName}...</p>
+      </div>
+    );
+  }
+
+  if (error || !business) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6 text-center px-4">
+        <AlertCircle className="h-20 w-20 text-destructive" />
+        <div className="space-y-2">
+           <h1 className="text-4xl font-extrabold tracking-tight">Oops! That store doesn't exist.</h1>
+           <p className="text-xl text-muted-foreground">It seems you've followed a broken link or the store has been renamed.</p>
+        </div>
+        <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
+           Back to Platform Home
+        </Button>
+      </div>
+    );
+  }
+
+  // Redirect to StoreHome component or render it here
+  return (
+    <div className="min-h-screen bg-background relative">
+       {/* Admin Toolbar (only if owner/staff) */}
+       {(user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
+         <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+               <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>
+               <span className="font-bold hidden md:inline">Admin Mode: {business.name}</span>
+            </div>
+            <div className="flex gap-2">
+               <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
+                  <PlusCircle className="h-4 w-4" /> Add Page
+               </Button>
+               <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
+                  <Settings className="h-4 w-4" /> Edit Sections
+               </Button>
+            </div>
+         </div>
+       )}
+
+       <StoreHome business={business} />
+    </div>
+  );
+}
+
+// Inline helper for PlusCircle since I missed importing it
+const PlusCircle = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+)
+
+export default DynamicStorePage
