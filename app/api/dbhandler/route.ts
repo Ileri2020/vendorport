@@ -59,7 +59,9 @@ async function handleUpload(file: File | string) {
     dataURI = `data:${file.type};base64,${b64}`;
   }
 
-  const res = await cloudinary.v2.uploader.upload(dataURI, { resource_type: "auto" });
+  const res = await cloudinary.v2.uploader.upload(dataURI, {
+    resource_type: "auto",
+  });
   return res;
 }
 
@@ -68,7 +70,6 @@ function parseId(id: string | null, model: string) {
   // return ["user", "category", "product"].includes(model) ? id : Number(id);
   return id;
 }
-
 
 const DELIVERY_FEES_BY_STATE: Record<string, number> = {
   Kwara: 1000,
@@ -120,7 +121,6 @@ const normalizeState = (state?: string | null): string | null => {
   if (!state) return null;
   return state.replace(/state/i, "").replace(/[-\s]/g, "_").trim();
 };
-
 
 // ==================== GET ====================
 export async function GET(req: NextRequest) {
@@ -179,24 +179,24 @@ export async function GET(req: NextRequest) {
       settings: {
         include: {
           pages: {
-            include: { sections: true }
-          }
-        }
-      }
+            include: { sections: true },
+          },
+        },
+      },
     },
     projectSettings: {
       business: true,
       pages: {
-        include: { sections: true }
-      }
+        include: { sections: true },
+      },
     },
     page: {
       projectSettings: true,
-      sections: true
+      sections: true,
     },
     section: {
-      page: true
-    }
+      page: true,
+    },
   };
 
   try {
@@ -220,7 +220,7 @@ export async function GET(req: NextRequest) {
       if (!item) {
         return NextResponse.json(
           { error: "Document not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -239,25 +239,25 @@ export async function GET(req: NextRequest) {
       if (statusParam) {
         const statuses = statusParam
           .split(",")
-          .map(s => s.trim().toLowerCase());
+          .map((s) => s.trim().toLowerCase());
 
         where.status = { in: statuses };
       }
 
       if (searchQuery) {
-          where.OR = [
-              { name: { contains: searchQuery, mode: 'insensitive' } },
-              { user: { name: { contains: searchQuery, mode: 'insensitive' } } },
-              { user: { email: { contains: searchQuery, mode: 'insensitive' } } },
-              { user: { contact: { contains: searchQuery, mode: 'insensitive' } } },
-              // Check id too just in case
-              { id: { contains: searchQuery, mode: 'insensitive' } }
-          ];
+        where.OR = [
+          { name: { contains: searchQuery, mode: "insensitive" } },
+          { user: { name: { contains: searchQuery, mode: "insensitive" } } },
+          { user: { email: { contains: searchQuery, mode: "insensitive" } } },
+          { user: { contact: { contains: searchQuery, mode: "insensitive" } } },
+          // Check id too just in case
+          { id: { contains: searchQuery, mode: "insensitive" } },
+        ];
       }
 
       // If userId is passed via searchParam (often unrelated to text search)
-      if (searchParams.get('userId')) {
-         where.userId = searchParams.get('userId');
+      if (searchParams.get("userId")) {
+        where.userId = searchParams.get("userId");
       }
 
       const carts = await prisma.cart.findMany({
@@ -278,7 +278,7 @@ export async function GET(req: NextRequest) {
       const bid = searchParams.get("businessId");
 
       const where: any = {
-        price: { gte: minPrice, lte: maxPrice }
+        price: { gte: minPrice, lte: maxPrice },
       };
 
       if (bid) where.businessId = bid;
@@ -289,13 +289,19 @@ export async function GET(req: NextRequest) {
           where.AND.push({
             OR: [
               { name: { contains: searchQuery, mode: "insensitive" } },
-              { business: { name: { contains: searchQuery, mode: "insensitive" } } }
-            ]
+              {
+                business: {
+                  name: { contains: searchQuery, mode: "insensitive" },
+                },
+              },
+            ],
           });
         }
         if (categoryFilter) {
           where.AND.push({
-            category: { name: { contains: categoryFilter, mode: "insensitive" } }
+            category: {
+              name: { contains: categoryFilter, mode: "insensitive" },
+            },
           });
         }
       }
@@ -304,30 +310,82 @@ export async function GET(req: NextRequest) {
         where,
         include: { ...includeMap.product, business: true },
         take: 100,
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: "desc" },
       });
 
       return NextResponse.json(products);
     }
 
     // =====================
-    // DEFAULT FETCH ALL
+    // DEFAULT FETCH ALL (with businessId filtering)
     // =====================
-    const items = await prismaModel.findMany({
-      include: includeMap[model],
-      orderBy: { createdAt: "desc" },
-    });
+    const bid = searchParams.get("businessId");
+    const where: any = {};
+    if (bid) {
+      if (
+        model === "projectSettings" ||
+        model === "category" ||
+        model === "product" ||
+        model === "coupon" ||
+        model === "deliveryFee" ||
+        model === "visit" ||
+        model === "message" ||
+        model === "featuredProduct" ||
+        model === "review" ||
+        model === "notification" ||
+        model === "post" ||
+        model === "lunch" ||
+        model === "wishlist"
+      ) {
+        where.businessId = bid;
+      }
+    }
 
+    // Determine if we can sort by createdAt
+    const modelsWithCreatedAt = [
+      "user",
+      "business",
+      "session",
+      "emailVerificationCode",
+      "post",
+      "notification",
+      "category",
+      "product",
+      "stock",
+      "cart",
+      "cartItem",
+      "payment",
+      "coupon",
+      "shippingAddress",
+      "deliveryFee",
+      "visit",
+      "refund",
+      "message",
+      "featuredProduct",
+      "review",
+      "lunch",
+      "wishlist",
+    ];
+
+    const findOptions: any = {
+      where,
+      include: includeMap[model],
+    };
+
+    if (modelsWithCreatedAt.includes(model)) {
+      findOptions.orderBy = { createdAt: "desc" };
+    }
+
+    const items = await prismaModel.findMany(findOptions);
     return NextResponse.json(items);
   } catch (error) {
     console.error("Database GET error:", error);
     return NextResponse.json(
       { error: "Failed to fetch items" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
 
 // ==================== POST ====================
 export async function POST(req: NextRequest) {
@@ -373,14 +431,12 @@ export async function POST(req: NextRequest) {
         if (key === "file") return;
         body[key] = value;
       });
-    }
-    else if (contentType.includes("application/json")) {
+    } else if (contentType.includes("application/json")) {
       body = await parseJson(req);
-    }
-    else {
+    } else {
       return NextResponse.json(
         { error: "Unsupported Content-Type" },
-        { status: 415 }
+        { status: 415 },
       );
     }
 
@@ -395,7 +451,7 @@ export async function POST(req: NextRequest) {
       if (!userId || !items?.length || !deliveryAddressId) {
         return NextResponse.json(
           { error: "Missing checkout data" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -407,7 +463,7 @@ export async function POST(req: NextRequest) {
 
       let subtotal = 0;
       for (const item of items) {
-        const product = dbProducts.find(p => p.id === item.productId);
+        const product = dbProducts.find((p) => p.id === item.productId);
         if (!product) continue;
         subtotal += product.price * item.quantity;
       }
@@ -422,7 +478,11 @@ export async function POST(req: NextRequest) {
       if (address) {
         // 1. Try City specific
         const feeCity = await prisma.deliveryFee.findFirst({
-          where: { country: address.country, state: address.state, city: address.city },
+          where: {
+            country: address.country,
+            state: address.state,
+            city: address.city,
+          },
         });
 
         if (feeCity) {
@@ -430,7 +490,11 @@ export async function POST(req: NextRequest) {
         } else {
           // 2. Try State specific
           const feeState = await prisma.deliveryFee.findFirst({
-            where: { country: address.country, state: address.state, city: null },
+            where: {
+              country: address.country,
+              state: address.state,
+              city: null,
+            },
           });
 
           if (feeState) {
@@ -445,17 +509,17 @@ export async function POST(req: NextRequest) {
               deliveryFee = feeCountry.price;
             } else {
               // 3b. Try Region/Group Specific (Fallback if no country match)
-              // Assumption: We check if any Defined Region matches the user's country? 
-              // Or rather, if the user's country is part of a region? 
+              // Assumption: We check if any Defined Region matches the user's country?
+              // Or rather, if the user's country is part of a region?
               // Without a Country->Region map table, we can only check if the address.country
-              // matches a 'region' field entry in DeliveryFee? 
-              // No, wait. The user selects "United Kingdom" as country. 
+              // matches a 'region' field entry in DeliveryFee?
+              // No, wait. The user selects "United Kingdom" as country.
               // If Admin sets Region="United Kingdom", Price=X.
               // We should search where region = address.country OR region = 'Europe' (if we knew).
               // For now, let's strictly check if the country name is used as a region key.
 
               const feeRegion = await prisma.deliveryFee.findFirst({
-                where: { region: address.country }
+                where: { region: address.country },
               });
 
               if (feeRegion) {
@@ -463,7 +527,10 @@ export async function POST(req: NextRequest) {
               } else {
                 // 4. Fallback to hardcoded for Nigeria states if applicable
                 const normalizedState = normalizeState(address.state);
-                if (normalizedState && DELIVERY_FEES_BY_STATE[normalizedState]) {
+                if (
+                  normalizedState &&
+                  DELIVERY_FEES_BY_STATE[normalizedState]
+                ) {
                   deliveryFee = DELIVERY_FEES_BY_STATE[normalizedState];
                 }
               }
@@ -515,13 +582,10 @@ export async function POST(req: NextRequest) {
     console.error("Database POST error:", error);
     return NextResponse.json(
       { error: "Failed to create item" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
-
-
 
 // ==================== PUT ====================
 export async function PUT(req: NextRequest) {
@@ -584,7 +648,7 @@ export async function PUT(req: NextRequest) {
     } else {
       return NextResponse.json(
         { error: "Unsupported Content-Type" },
-        { status: 415 }
+        { status: 415 },
       );
     }
 
@@ -595,7 +659,7 @@ export async function PUT(req: NextRequest) {
     if (!id) {
       return NextResponse.json(
         { error: "Missing or invalid id" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -616,19 +680,15 @@ export async function PUT(req: NextRequest) {
     // CART PAYLOAD UPDATES
     // =========================
     if (model === "cart") {
-        // Allow updating name and contact if provided
-        // Logic handled by default update below unless it is status/payment specific
-        
-        // However, if it IS status/payment specific, we enter the block below.
-        // We should merge logic or let the block below handle strict status/payment updates.
-        // If the user is just renaming (body only has name), it skips the big block below.
+      // Allow updating name and contact if provided
+      // Logic handled by default update below unless it is status/payment specific
+      // However, if it IS status/payment specific, we enter the block below.
+      // We should merge logic or let the block below handle strict status/payment updates.
+      // If the user is just renaming (body only has name), it skips the big block below.
     }
 
     if (!updatedData || Object.keys(updatedData).length === 0) {
-      return NextResponse.json(
-        { error: "Nothing to update" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
     // =========================
@@ -647,56 +707,66 @@ export async function PUT(req: NextRequest) {
       const updatePayload: any = {};
       if (body.status) updatePayload.status = body.status;
       // Only allow total update if cart is still pending (not paid/completed)
-      if (body.total && existingCart?.status === "pending") updatePayload.total = body.total;
-      
+      if (body.total && existingCart?.status === "pending")
+        updatePayload.total = body.total;
+
       // Also allow updating name/contact here if passed
       if (body.name) updatePayload.name = body.name;
       if (body.contact) updatePayload.contact = body.contact;
 
       if (Object.keys(updatePayload).length > 0 || body.payment) {
-          const updatedCart = await prisma.cart.update({
-            where: { id },
-            data: {
-              ...updatePayload,
-              ...(body.payment && {
-                  payment: {
-                    upsert: {
-                      create: body.payment,
-                      update: body.payment,
-                    },
-                  },
-              })
-            },
-            include: {
-                user: { include: { addresses: true } },
-                products: { include: { product: true } },
-                payment: true
-            }
+        const updatedCart = await prisma.cart.update({
+          where: { id },
+          data: {
+            ...updatePayload,
+            ...(body.payment && {
+              payment: {
+                upsert: {
+                  create: body.payment,
+                  update: body.payment,
+                },
+              },
+            }),
+          },
+          include: {
+            user: { include: { addresses: true } },
+            products: { include: { product: true } },
+            payment: true,
+          },
+        });
+
+        // Send email if paid
+        if (
+          body.status === "paid" &&
+          updatedCart.user?.email &&
+          body.adminConfirmed
+        ) {
+          const { sendPaymentConfirmationEmail } =
+            await import("@/lib/nodemailer");
+          // Use cart contact, then user contact, then address phone
+          const contact =
+            updatedCart.contact ||
+            updatedCart.user.contact ||
+            updatedCart.user.addresses?.[0]?.phone ||
+            "N/A";
+
+          const address = updatedCart.user.addresses?.[0];
+          const addressStr = address
+            ? `${address.address}, ${address.city}, ${address.state}, ${address.country}`
+            : "Address on file";
+
+          await sendPaymentConfirmationEmail(updatedCart.user.email, {
+            customerName: updatedCart.user.name || "Customer",
+            contact: contact,
+            address: addressStr,
+            products: updatedCart.products,
+            total: updatedCart.total,
+            deliveryFee: updatedCart.deliveryFee,
+            orderId: updatedCart.id,
           });
-          
-          // Send email if paid
-          if (body.status === 'paid' && updatedCart.user?.email && body.adminConfirmed) {
-              const { sendPaymentConfirmationEmail } = await import('@/lib/nodemailer');
-              // Use cart contact, then user contact, then address phone
-              const contact = updatedCart.contact || updatedCart.user.contact || updatedCart.user.addresses?.[0]?.phone || 'N/A';
-              
-              const address = updatedCart.user.addresses?.[0];
-              const addressStr = address 
-                  ? `${address.address}, ${address.city}, ${address.state}, ${address.country}`
-                  : "Address on file";
+        }
 
-              await sendPaymentConfirmationEmail(updatedCart.user.email, {
-                  customerName: updatedCart.user.name || 'Customer',
-                  contact: contact,
-                  address: addressStr,
-                  products: updatedCart.products,
-                  total: updatedCart.total,
-                  deliveryFee: updatedCart.deliveryFee,
-                  orderId: updatedCart.id
-              });
-          }
-
-          return NextResponse.json(updatedCart);
+        return NextResponse.json(updatedCart);
       }
     }
 
@@ -710,20 +780,27 @@ export async function PUT(req: NextRequest) {
     console.error("Database PUT error:", error);
     return NextResponse.json(
       { error: "Failed to update item" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
-
 
 // ==================== DELETE ====================
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const model = searchParams.get("model");
   const id = `${parseId(searchParams.get("id"), model || "")}`;
-  console.log("DELETE request for model:", model, "id:", id, 'search params id', searchParams.get("id"));
+  console.log(
+    "DELETE request for model:",
+    model,
+    "id:",
+    id,
+    "search params id",
+    searchParams.get("id"),
+  );
 
-  if (!model || !modelMap[model]) return NextResponse.json({ error: "Invalid model" }, { status: 400 });
+  if (!model || !modelMap[model])
+    return NextResponse.json({ error: "Invalid model" }, { status: 400 });
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const prismaModel = modelMap[model];
@@ -733,6 +810,9 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Database DELETE error:", error);
-    return NextResponse.json({ error: "Failed to delete item" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to delete item" },
+      { status: 500 },
+    );
   }
 }
