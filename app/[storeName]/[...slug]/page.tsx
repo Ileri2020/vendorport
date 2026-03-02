@@ -97,14 +97,14 @@ const DynamicStorePage = () => {
             </div>
             <div className="flex gap-2">
                <Link href={`/${storeName}/analytics`}>
-                 <Button size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+                 <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
                     <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Insights</span>
                  </Button>
                </Link>
-               <Button onClick={() => handleOpenAdmin('pages')} size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+               <Button onClick={() => handleOpenAdmin('pages')} size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
                   <PlusCircle className="h-4 w-4" /> <span className="hidden sm:inline">Add Page</span>
                </Button>
-               <Button onClick={() => handleOpenAdmin('settings')} size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+               <Button onClick={() => handleOpenAdmin('settings')} size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
                   <Settings className="h-4 w-4" /> <span className="hidden sm:inline">Edit Layout</span>
                </Button>
             </div>

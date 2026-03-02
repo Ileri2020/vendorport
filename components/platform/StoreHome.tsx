@@ -142,13 +142,29 @@ const StoreHome = ({
     }
   };
 
-  const handleCreatePage = async (name: string, slug: string) => {
+  const handleCreatePage = async (name: string, slug: string, templateSlug?: string) => {
      try {
         const res = await axios.post('/api/dbhandler?model=page', {
            name,
            slug,
            projectSettingsId: settings?.id
         });
+        
+        if (templateSlug) {
+           const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
+           if (template) {
+              for (const s of template.sections) {
+                 await axios.post('/api/dbhandler?model=section', {
+                    pageId: res.data.id,
+                    type: s.type,
+                    layout: s.layout,
+                    order: s.order,
+                    data: (s as any).data
+                 });
+              }
+           }
+        }
+
         toast.success("Page created!");
         window.location.href = `/${storeName}/${slug}`;
      } catch (err) {
@@ -273,7 +289,7 @@ const StoreHome = ({
                {renderSection(section)}
                
                {isAdmin && (
-                  <div className="py-2 w-full flex justify-center opacity-0 group-hover/section:opacity-100 transition-opacity bg-accent/5 border-b dash-border">
+                  <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border">
                      <AddSectionTrigger onAdd={handleAddSection} />
                   </div>
                )}
@@ -462,8 +478,8 @@ const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) =>
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="border-2 border-accent/70 gap-2 text-accent/70 font-bold hover:bg-accent/10">
-           <PlusCircle className="h-4 w-4" /> Add Section Here
+        <Button variant="ghost" size="sm" className="border-2 border-accent text-accent font-black hover:bg-accent hover:text-white transition-all scale-90 hover:scale-100 shadow-sm px-4">
+           <PlusCircle className="h-4 w-4 mr-2" /> Add Section Here
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -504,7 +520,7 @@ const AdminToolbar = ({
 }: { 
   business: Business, 
   onUpdateSettings: (data: any) => void, 
-  onCreatePage: (name: string, slug: string) => void,
+  onCreatePage: (name: string, slug: string, template?: string) => void,
   isOpen: boolean,
   onOpenChange: (open: boolean) => void,
   initialTab?: string | null
@@ -512,6 +528,7 @@ const AdminToolbar = ({
   const [currency, setCurrency] = React.useState(business.settings?.currency || "USD");
   const [rate, setRate] = React.useState(business.settings?.exchangeRate?.toString() || "1.0");
   const [newPageName, setNewPageName] = React.useState("");
+  const [selectedTemplate, setSelectedTemplate] = React.useState<string>("home");
   const [activeTab, setActiveTab] = React.useState(initialTab || "pages");
   const { storeName } = useParams();
 
@@ -522,7 +539,7 @@ const AdminToolbar = ({
   const handleAddPage = () => {
      if (!newPageName) return;
      const slug = newPageName.toLowerCase().replace(/\s+/g, '-');
-     onCreatePage(newPageName, slug);
+     onCreatePage(newPageName, slug, selectedTemplate);
      setNewPageName("");
   };
 
@@ -569,15 +586,34 @@ const AdminToolbar = ({
                 <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
                    <TabsContent value="pages" className="mt-0 space-y-6">
                       <div className="space-y-4">
-                         <div className="flex flex-col sm:flex-row gap-2">
-                            <Input 
-                              placeholder="New Page Name (e.g. Services)" 
-                              className="flex-1 font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors" 
-                              value={newPageName}
-                              onChange={(e) => setNewPageName(e.target.value)}
-                            />
-                            <Button onClick={handleAddPage} className="font-black bg-accent hover:bg-accent/90">
-                               <PlusCircle className="h-4 w-4 mr-2" /> Add Page
+                         <div className="p-4 bg-accent/5 rounded-2xl space-y-4 border-2 border-accent/10">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-accent">Create New Page</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                               <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest">Page Name</Label>
+                                  <Input 
+                                    placeholder="e.g. Services" 
+                                    className="font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors h-11" 
+                                    value={newPageName}
+                                    onChange={(e) => setNewPageName(e.target.value)}
+                                  />
+                               </div>
+                               <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest">Starting Template</Label>
+                                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                                     <SelectTrigger className="h-11 border-2">
+                                        <SelectValue placeholder="Choose template..." />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                        {Object.entries(DEFAULT_PAGE_TEMPLATES).map(([slug, tpl]) => (
+                                           <SelectItem key={slug} value={slug}>{tpl.name} Layout</SelectItem>
+                                        ))}
+                                     </SelectContent>
+                                  </Select>
+                               </div>
+                            </div>
+                            <Button onClick={handleAddPage} className="w-full font-black bg-accent hover:bg-accent/90 h-12 shadow-lg shadow-accent/20">
+                               <PlusCircle className="h-4 w-4 mr-2" /> Launch New Page
                             </Button>
                          </div>
 
