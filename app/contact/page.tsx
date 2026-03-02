@@ -2,17 +2,28 @@
 import info from "@/data/cont"
 import { motion } from "framer-motion"
 import contact from "@/data/cont"
+import { getSiteSettings } from "@/server/action/siteSettings"
+import { AdminEditable } from "@/components/myComponents/subs/AdminEditable"
+import { useAppContext } from "@/hooks/useAppContext"
+import { useEffect, useState } from "react"
 import Social from "@/components/utility/social"
 import ContactForm from "@/components/utility/contactForm"
 import MessageHistory from "@/components/utility/MessageHistory"
 import { Badge } from "@/components/ui/badge"
 import { useSession } from "next-auth/react"
-import { useState, useEffect } from "react"
 import axios from "axios"
+import { FaEnvelope } from "react-icons/fa"
+import { MdOutlinePhone } from "react-icons/md"
 
 const Contact = () => {
   const { data: session } = useSession();
   const [unseenCount, setUnseenCount] = useState(0);
+  const { currentBusiness } = useAppContext();
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    getSiteSettings(currentBusiness?.id).then(setSettings);
+  }, [currentBusiness]);
 
   useEffect(() => {
     const fetchUnseenCount = async () => {
@@ -60,19 +71,47 @@ const Contact = () => {
           </div>
           <div className="flex flex-col flex-1 max-w-[480px] mx-3">
             <div className="text-2xl font-semibold my-3 text-center md:text-start">Let's talk</div>
-            <div className="my-5">{contact.description}</div>
+            <AdminEditable value={settings?.contactDesc || contact.description} field="contactDesc">
+              <div className="my-5">
+                {settings?.contactDesc || contact.description}
+              </div>
+            </AdminEditable>
             <div className="flex flex-col">
-              {contact.contact.map((contact, index) => {
-                return (
-                  <div className="flex flex-row m-2" key={index}>
-                    <div className="p-2 text-3xl">{contact.icon}</div>
+              {/* show email and phone if settings exist, otherwise fall back to static list */}
+              {settings ? (
+                <>
+                  <div className="flex flex-row m-2">
+                    <div className="p-2 text-3xl"><FaEnvelope/></div>
                     <div className="flex flex-col mx-5">
-                      <div className="text-lg my-1">{contact.text}</div>
-                      <div>{contact.value}</div>
+                      <div className="text-lg my-1">Email</div>
+                      <AdminEditable value={settings.contactEmail || ""} field="contactEmail">
+                        <div>{settings.contactEmail}</div>
+                      </AdminEditable>
                     </div>
                   </div>
-                )
-              })}
+                  <div className="flex flex-row m-2">
+                    <div className="p-2 text-3xl"><MdOutlinePhone/></div>
+                    <div className="flex flex-col mx-5">
+                      <div className="text-lg my-1">Phone</div>
+                      <AdminEditable value={settings.contactPhone || ""} field="contactPhone">
+                        <div>{settings.contactPhone}</div>
+                      </AdminEditable>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                contact.contact.map((contact, index) => {
+                  return (
+                    <div className="flex flex-row m-2" key={index}>
+                      <div className="p-2 text-3xl">{contact.icon}</div>
+                      <div className="flex flex-col mx-5">
+                        <div className="text-lg my-1">{contact.text}</div>
+                        <div>{contact.value}</div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
             <div className="w-full mx-2 my-10 flex justify-center items-center">
               <Social

@@ -60,15 +60,7 @@ export default function CreateStorePage() {
       });
 
       if (response.data.id) {
-         // Create default project settings and first page
-         await axios.post('/api/dbhandler?model=projectSettings', {
-            businessId: response.data.id,
-            currency: 'USD',
-         });
-         
-         const settingsRes = await axios.get(`/api/dbhandler?model=projectSettings&businessId=${response.data.id}`);
-         const settingsId = settingsRes.data[0]?.id || response.data.settings?.id; // If returned in create response
-
+         // backend now initializes project settings, home page and placeholder content
          toast.success('Store created successfully!');
          router.push(`/${slug}`);
       }

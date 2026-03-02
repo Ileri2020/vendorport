@@ -13,6 +13,7 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import { useCart } from "@/hooks/use-cart";
+import { useAppContext } from "@/hooks/useAppContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Plus } from "lucide-react";
@@ -60,12 +61,19 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
      Fetch + Normalize Data
   ================================ */
   const isAdmin = useIsAdmin();
+  const { currentBusiness } = useAppContext();
 
   async function fetchProducts() {
     try {
       let url = "/api/dbhandler?model=featuredProduct";
+      if (currentBusiness?.id) {
+        url += `&businessId=${currentBusiness.id}`;
+      }
       if (categoryId) {
         url = `/api/dbhandler?model=product&categoryId=${categoryId}`;
+        if (currentBusiness?.id) {
+          url += `&businessId=${currentBusiness.id}`;
+        }
       }
       const res = await fetch(url);
       const data = await res.json();
@@ -181,6 +189,17 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
 
         {loading ? (
           <p className="text-center text-muted-foreground">Loading…</p>
+        ) : products.length === 0 ? (
+          <div className="space-y-8 py-20 text-center text-muted-foreground">
+            <p>No products yet. Add some to showcase your store.</p>
+            <div className="mt-8 grid grid-cols-2 md:grid-cols-5 gap-4">
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="h-32 bg-accent/5 border rounded-lg flex items-center justify-center font-bold text-accent">
+                  Product {i}
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="space-y-8">
             {/* ===============================

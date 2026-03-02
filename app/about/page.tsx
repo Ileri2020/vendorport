@@ -17,14 +17,14 @@ import { AdminEditable } from "@/components/myComponents/subs/AdminEditable"
 import { useEffect, useState } from "react"
 
 const About = () => {
-  const { selectedVideo, setSelectedVideo, useMock } = useAppContext();
+  const { selectedVideo, setSelectedVideo, useMock, currentBusiness } = useAppContext();
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    getSiteSettings().then(setSettings);
-  }, []);
+    getSiteSettings(currentBusiness?.id).then(setSettings);
+  }, [currentBusiness]);
 
-  const aboutText = settings?.aboutText || Stats.about.join(" ");
+  const aboutText = settings?.aboutText || "Write about your business here";
 
   return (
     <motion.section 
@@ -47,11 +47,11 @@ const About = () => {
               </div>
             ))}
           </div> */}
-          {Stats.about.map((item, index) => (
-              <span key={index} className="mb-2 indent-5">
-                &nbsp;&nbsp;&nbsp;&nbsp;{item}
-              </span>
-            ))}
+          <AdminEditable value={aboutText} field="aboutText">
+            <div className="mb-2 indent-5 whitespace-pre-wrap">
+              {aboutText}
+            </div>
+          </AdminEditable>
           </div>
 
           <div className="flex-1 grid grid-cols-2 gap-5 max-w-[580px] my-5">

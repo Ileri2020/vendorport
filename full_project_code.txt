@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-02 09:37:36
+Generated: 2026-03-02 12:25:02
 ================================================================================
 
 
@@ -517,14 +517,14 @@ import { AdminEditable } from "@/components/myComponents/subs/AdminEditable"
 import { useEffect, useState } from "react"
 
 const About = () => {
-  const { selectedVideo, setSelectedVideo, useMock } = useAppContext();
+  const { selectedVideo, setSelectedVideo, useMock, currentBusiness } = useAppContext();
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    getSiteSettings().then(setSettings);
-  }, []);
+    getSiteSettings(currentBusiness?.id).then(setSettings);
+  }, [currentBusiness]);
 
-  const aboutText = settings?.aboutText || Stats.about.join(" ");
+  const aboutText = settings?.aboutText || "Write about your business here";
 
   return (
     <motion.section 
@@ -547,11 +547,11 @@ const About = () => {
               </div>
             ))}
           </div> */}
-          {Stats.about.map((item, index) => (
-              <span key={index} className="mb-2 indent-5">
-                &nbsp;&nbsp;&nbsp;&nbsp;{item}
-              </span>
-            ))}
+          <AdminEditable value={aboutText} field="aboutText">
+            <div className="mb-2 indent-5 whitespace-pre-wrap">
+              {aboutText}
+            </div>
+          </AdminEditable>
           </div>
 
           <div className="flex-1 grid grid-cols-2 gap-5 max-w-[580px] my-5">
@@ -2853,6 +2853,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import cloudinary from "cloudinary";
+import path from "path";
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -3425,10 +3426,136 @@ export async function POST(req: NextRequest) {
 
     console.log("Creating new", model, "with data:", body);
 
+    // Special handling for business creation: enforce uniqueness and create default settings/pages atomically
+    if (model === "business") {
+      // Normalize name
+      const normalized = (body.name || "").trim();
+      if (!normalized) {
+        return NextResponse.json({ error: "Missing business name" }, { status: 400 });
+      }
+
+      // Check for existing business with same name (case-insensitive fallback)
+      const existing = await prisma.business.findFirst({ where: { name: normalized } });
+      if (existing) {
+        return NextResponse.json({ error: "Business name already exists" }, { status: 409 });
+      }
+
+      // Create business with nested default project settings and a Home page
+      const created = await prisma.business.create({
+        data: {
+          name: normalized,
+          ownerId: body.ownerId,
+          template: body.template || "estore",
+          settings: {
+            create: {
+              currency: body.currency || "NGN",
+              exchangeRate: body.exchangeRate ? parseFloat(body.exchangeRate) : 1.0,
+              pages: {
+                create: [
+                  {
+                    name: "Home",
+                    slug: "home",
+                    sections: {
+                      create: [],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          siteSettings: {
+            create: {
+              aboutText: "Write about your business here",
+              addToHome: "Add our app to your home screen for a better experience!",
+              heroTitle: "Welcome to our store",
+              heroSubtitle: "Browse our products and enjoy great deals",
+              contactDesc: "Contact us today for product inquiries, order support, or business collaborations.",
+              contactEmail: "support@example.com",
+              contactPhone: "000-000-0000",
+            },
+          },
+        },
+        include: {
+          settings: { include: { pages: true } },
+          siteSettings: true,
+        },
+      });
+
+      // after the business is created, add placeholder data for a new store
+      try {
+        const placeholderFiles = [
+          "placeholderFemale.webp",
+          "placeholderMale.jpg",
+        ];
+        const uploaded: string[] = [];
+
+        for (const fname of placeholderFiles) {
+          const local = path.join(process.cwd(), "VendorPort", "public", fname);
+          try {
+            const r = await cloudinary.v2.uploader.upload(local, {
+              folder: `placeholders/${created.id}`,
+            });
+            uploaded.push(r.secure_url);
+          } catch (e) {
+            console.error("Failed to upload placeholder", fname, e);
+          }
+        }
+
+        // create 3 placeholder categories
+        const categoryIds: string[] = [];
+        for (let i = 1; i <= 3; i++) {
+          const cat = await prisma.category.create({
+            data: {
+              name: `Placeholder Category ${i}`,
+              businessId: created.id,
+              image: uploaded[(i - 1) % uploaded.length] || undefined,
+            },
+          });
+          categoryIds.push(cat.id);
+        }
+
+        // create 5 placeholder products
+        const productIds: string[] = [];
+        for (let i = 1; i <= 5; i++) {
+          const prod = await prisma.product.create({
+            data: {
+              name: `Placeholder Product ${i}`,
+              description: "Sample item for customizing your store",
+              price: 0.0,
+              images: uploaded.length ? [uploaded[(i - 1) % uploaded.length]] : [],
+              businessId: created.id,
+              categoryId: categoryIds[i % categoryIds.length],
+            },
+          });
+          productIds.push(prod.id);
+        }
+
+        // make first two products featured
+        for (let j = 0; j < Math.min(2, productIds.length); j++) {
+          await prisma.featuredProduct.create({
+            data: {
+              productId: productIds[j],
+              businessId: created.id,
+            },
+          });
+        }
+      } catch (e) {
+        console.error("Error creating placeholder data for business", e);
+      }
+
+      return NextResponse.json(created);
+    }
+
     const newItem = await prismaModel.create({ data: body });
     return NextResponse.json(newItem);
   } catch (error) {
     console.error("Database POST error:", error);
+    // If it's a unique constraint failure, surface a 409
+    const errMessage = (error && (error as any).message) || "Failed to create item";
+    if (errMessage.toLowerCase().includes("unique")) {
+      return NextResponse.json({ error: "Duplicate entry" }, { status: 409 });
+    }
+
     return NextResponse.json(
       { error: "Failed to create item" },
       { status: 500 },
@@ -5320,17 +5447,28 @@ LOCATION: app\contact\page.tsx
 import info from "@/data/cont"
 import { motion } from "framer-motion"
 import contact from "@/data/cont"
+import { getSiteSettings } from "@/server/action/siteSettings"
+import { AdminEditable } from "@/components/myComponents/subs/AdminEditable"
+import { useAppContext } from "@/hooks/useAppContext"
+import { useEffect, useState } from "react"
 import Social from "@/components/utility/social"
 import ContactForm from "@/components/utility/contactForm"
 import MessageHistory from "@/components/utility/MessageHistory"
 import { Badge } from "@/components/ui/badge"
 import { useSession } from "next-auth/react"
-import { useState, useEffect } from "react"
 import axios from "axios"
+import { FaEnvelope } from "react-icons/fa"
+import { MdOutlinePhone } from "react-icons/md"
 
 const Contact = () => {
   const { data: session } = useSession();
   const [unseenCount, setUnseenCount] = useState(0);
+  const { currentBusiness } = useAppContext();
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    getSiteSettings(currentBusiness?.id).then(setSettings);
+  }, [currentBusiness]);
 
   useEffect(() => {
     const fetchUnseenCount = async () => {
@@ -5378,19 +5516,47 @@ const Contact = () => {
           </div>
           <div className="flex flex-col flex-1 max-w-[480px] mx-3">
             <div className="text-2xl font-semibold my-3 text-center md:text-start">Let's talk</div>
-            <div className="my-5">{contact.description}</div>
+            <AdminEditable value={settings?.contactDesc || contact.description} field="contactDesc">
+              <div className="my-5">
+                {settings?.contactDesc || contact.description}
+              </div>
+            </AdminEditable>
             <div className="flex flex-col">
-              {contact.contact.map((contact, index) => {
-                return (
-                  <div className="flex flex-row m-2" key={index}>
-                    <div className="p-2 text-3xl">{contact.icon}</div>
+              {/* show email and phone if settings exist, otherwise fall back to static list */}
+              {settings ? (
+                <>
+                  <div className="flex flex-row m-2">
+                    <div className="p-2 text-3xl"><FaEnvelope/></div>
                     <div className="flex flex-col mx-5">
-                      <div className="text-lg my-1">{contact.text}</div>
-                      <div>{contact.value}</div>
+                      <div className="text-lg my-1">Email</div>
+                      <AdminEditable value={settings.contactEmail || ""} field="contactEmail">
+                        <div>{settings.contactEmail}</div>
+                      </AdminEditable>
                     </div>
                   </div>
-                )
-              })}
+                  <div className="flex flex-row m-2">
+                    <div className="p-2 text-3xl"><MdOutlinePhone/></div>
+                    <div className="flex flex-col mx-5">
+                      <div className="text-lg my-1">Phone</div>
+                      <AdminEditable value={settings.contactPhone || ""} field="contactPhone">
+                        <div>{settings.contactPhone}</div>
+                      </AdminEditable>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                contact.contact.map((contact, index) => {
+                  return (
+                    <div className="flex flex-row m-2" key={index}>
+                      <div className="p-2 text-3xl">{contact.icon}</div>
+                      <div className="flex flex-col mx-5">
+                        <div className="text-lg my-1">{contact.text}</div>
+                        <div>{contact.value}</div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
             </div>
             <div className="w-full mx-2 my-10 flex justify-center items-center">
               <Social
@@ -5482,15 +5648,7 @@ export default function CreateStorePage() {
       });
 
       if (response.data.id) {
-         // Create default project settings and first page
-         await axios.post('/api/dbhandler?model=projectSettings', {
-            businessId: response.data.id,
-            currency: 'USD',
-         });
-         
-         const settingsRes = await axios.get(`/api/dbhandler?model=projectSettings&businessId=${response.data.id}`);
-         const settingsId = settingsRes.data[0]?.id || response.data.settings?.id; // If returned in create response
-
+         // backend now initializes project settings, home page and placeholder content
          toast.success('Store created successfully!');
          router.push(`/${slug}`);
       }
@@ -5869,8 +6027,18 @@ LOCATION: app\help\page.tsx
 
 "use client"
 import { motion } from "framer-motion"
+import { useEffect, useState } from "react"
+import { useAppContext } from "@/hooks/useAppContext"
+import { getSiteSettings } from "@/server/action/siteSettings"
+import { AdminEditable } from "@/components/myComponents/subs/AdminEditable"
 
 const Help = () => {
+  const { currentBusiness } = useAppContext();
+  const [settings, setSettings] = useState<any>(null);
+  useEffect(() => {
+    getSiteSettings(currentBusiness?.id).then(setSettings);
+  }, [currentBusiness]);
+  const helpText = settings?.helpText || "help";
   return (
     <motion.section
       initial = {{ opacity: 0 }}
@@ -5880,7 +6048,9 @@ const Help = () => {
       }}
       className="w-[100vw] overflow-clip"
     >
-      help
+      <AdminEditable value={helpText} field="helpText">
+        <div className="p-4">{helpText}</div>
+      </AdminEditable>
     </motion.section>
   )
 }
@@ -8932,7 +9102,7 @@ import { Edit2, Check, X } from "lucide-react"
 
 interface AdminEditableProps {
   value: string
-  field: "aboutText" | "addToHome"
+  field: "aboutText" | "addToHome" | "heroTitle" | "heroSubtitle" | "contactDesc" | "contactEmail" | "contactPhone" | "helpText"
   children: React.ReactNode
 }
 
@@ -11099,6 +11269,7 @@ LOCATION: components\myComponents\subs\featuredCategories.tsx
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAppContext } from "@/hooks/useAppContext";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit3, Trash2 } from "lucide-react";
 import {
@@ -11113,8 +11284,13 @@ import axios from "axios";
 import { toast } from "sonner";
 
 // Fetch categories from backend
-async function getCategories() {
-  const res = await fetch(`/api/dbhandler?model=category`);
+async function getCategories(businessId?: string) {
+  let url = `/api/dbhandler?model=category`;
+  if (businessId) {
+    url += `&businessId=${businessId}`;
+  }
+
+  const res = await fetch(url);
 
   if (!res.ok) return [];
 
@@ -11132,9 +11308,10 @@ async function getCategories() {
 const FeaturedCategories = () => {
   const [categories, setCategories] = useState([]);
   const isAdmin = useIsAdmin();
+  const { currentBusiness } = useAppContext();
 
   const fetchCategories = async () => {
-    const cats = await getCategories();
+    const cats = await getCategories(currentBusiness?.id);
     setCategories(cats);
   };
 
@@ -11187,8 +11364,19 @@ const FeaturedCategories = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
-          {categories.map((category: any) => (
-            <div key={category.id} className="group relative flex flex-col space-y-4 overflow-hidden rounded-2xl border bg-card shadow transition-all duration-300 hover:shadow-lg">
+          {categories.length === 0 ? (
+            [1,2,3].map((i) => {
+              return (
+                <div key={`empty-${i}`} className="flex flex-col items-center justify-center h-40 border rounded-xl bg-accent/5 text-accent font-bold">
+                  {/* placeholder box */}
+                  Category {i}
+                </div>
+              )
+            })
+          ) : (
+            categories.map((category: any) => {
+              return (
+              <div key={category.id} className="group relative flex flex-col space-y-4 overflow-hidden rounded-2xl border bg-card shadow transition-all duration-300 hover:shadow-lg">
               {isAdmin && (
                 <div className="absolute top-2 right-2 flex gap-2 z-30">
                   <Dialog onOpenChange={(open) => !open && fetchCategories()}>
@@ -11240,8 +11428,10 @@ const FeaturedCategories = () => {
                   </p>
                 </div>
               </Link>
-            </div>
-          ))}
+                </div>
+            );
+          })
+        )}
         </div>
       </div>
     </section>
@@ -11271,6 +11461,7 @@ import {
   CarouselItem,
 } from "@/components/ui/carousel";
 import { useCart } from "@/hooks/use-cart";
+import { useAppContext } from "@/hooks/useAppContext";
 import { useToast } from "@/hooks/use-toast";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Plus } from "lucide-react";
@@ -11318,12 +11509,19 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
      Fetch + Normalize Data
   ================================ */
   const isAdmin = useIsAdmin();
+  const { currentBusiness } = useAppContext();
 
   async function fetchProducts() {
     try {
       let url = "/api/dbhandler?model=featuredProduct";
+      if (currentBusiness?.id) {
+        url += `&businessId=${currentBusiness.id}`;
+      }
       if (categoryId) {
         url = `/api/dbhandler?model=product&categoryId=${categoryId}`;
+        if (currentBusiness?.id) {
+          url += `&businessId=${currentBusiness.id}`;
+        }
       }
       const res = await fetch(url);
       const data = await res.json();
@@ -11439,6 +11637,17 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
 
         {loading ? (
           <p className="text-center text-muted-foreground">Loading…</p>
+        ) : products.length === 0 ? (
+          <div className="space-y-8 py-20 text-center text-muted-foreground">
+            <p>No products yet. Add some to showcase your store.</p>
+            <div className="mt-8 grid grid-cols-2 md:grid-cols-5 gap-4">
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="h-32 bg-accent/5 border rounded-lg flex items-center justify-center font-bold text-accent">
+                  Product {i}
+                </div>
+              ))}
+            </div>
+          </div>
         ) : (
           <div className="space-y-8">
             {/* ===============================
@@ -13212,7 +13421,9 @@ import {
 import { SearchInput } from './searchcomponent'
 import { RiseAndFadeText } from './textctrl'
 import { useAppContext } from '@/hooks/useAppContext'
+import { getSiteSettings } from '@/server/action/siteSettings'
 import { motion, AnimatePresence } from "framer-motion"
+import { AdminEditable } from '@/components/utility/AdminEditable';
 import {
   Accordion,
   AccordionContent,
@@ -13292,7 +13503,12 @@ const IconMarquee = () => {
 // --- Main Component ---
 
 const Hero = ({ variant = 'modern-split' }: HeroProps) => {
-  const { user } = useAppContext();
+  const { user, currentBusiness } = useAppContext();
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    getSiteSettings(currentBusiness?.id).then(setSettings);
+  }, [currentBusiness]);
 
   // Carousel/Slide Logic (Used in multiple variants, must be global/hook order)
   const slides = ['/small chops 1.jpg', '/small chops 3.jpg', '/small chops 4.jpg'];
@@ -13317,15 +13533,17 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
   // Shared Logic
   const DynamicText = () => (
     <RiseAndFadeText
-      texts={[
-        "From Succo Stores", "Card & Bank Transfer Payments", "Login With Google or Facebook",
-        "Naturally Processed Spices", "Quality You Can Trust", "Trusted by Homes and Businesses",
-        "Fast & Reliable Delivery", "Carefully Packed for Freshness", "Customer Satisfaction Guaranteed",
-        "Premium Products, Fair Prices", "Authentic Nigerian Spice Blends", "Locally Sourced, Globally Delivered",
-        "Traditional Taste, Modern Quality", "Export-Standard Food Products", "Crafted for Every Kitchen",
-        "Pure. Natural. Flavorful.", "Freshness in Every Pack", "Spices That Elevate Your Meals",
-        "Taste You Can Trust", "Quality Without Compromise",
-      ]}
+      texts={
+        settings?.heroDynamicTexts || [
+          "From Succo Stores", "Card & Bank Transfer Payments", "Login With Google or Facebook",
+          "Naturally Processed Spices", "Quality You Can Trust", "Trusted by Homes and Businesses",
+          "Fast & Reliable Delivery", "Carefully Packed for Freshness", "Customer Satisfaction Guaranteed",
+          "Premium Products, Fair Prices", "Authentic Nigerian Spice Blends", "Locally Sourced, Globally Delivered",
+          "Traditional Taste, Modern Quality", "Export-Standard Food Products", "Crafted for Every Kitchen",
+          "Pure. Natural. Flavorful.", "Freshness in Every Pack", "Spices That Elevate Your Meals",
+          "Taste You Can Trust", "Quality Without Compromise",
+        ]
+      }
       className="text-xl md:text-2xl mt-2 font-semibold text-muted-foreground overflow-hidden"
     />
   );
@@ -13384,13 +13602,25 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
                   <Star className="mr-1 h-3 w-3 fill-accent" /> #1 Choice
                 </div>
                 <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-                  <span className="block text-foreground">World of flavors! 🍴</span>
-                  <span className="block text-accent">Succo</span>
-                </h1>
-                 <DynamicText />
-                 <p className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed">
-                  Discover premium products at competitive prices, with fast shipping and exceptional customer service.
-                </p>
+                  <AdminEditable
+                    value={settings?.heroTitle || "World of flavors! 🍴"}
+                    field="heroTitle"
+                    model="siteSettings"
+                    id={settings?.id || ""}
+                    as="span"
+                    className="block text-foreground"
+                  />
+                   <span className="block text-accent">Succo</span>
+                 </h1>
+                  <DynamicText />
+                  <AdminEditable
+                    value={settings?.heroSubtitle || "Discover premium products at competitive prices, with fast shipping and exceptional customer service."}
+                    field="heroSubtitle"
+                    model="siteSettings"
+                    id={settings?.id || ""}
+                    as="p"
+                    className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed"
+                  />
               </div>
               <ProductCarousel />
               <CTAButtons />
@@ -20209,6 +20439,7 @@ export const PlatformStore = () => {
 LOCATION: components\platform\StoreHome.tsx
 ================================================================================
 
+"use client"
 import React from 'react'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
 import { AdminEditable } from '@/components/utility/AdminEditable'
@@ -27137,8 +27368,9 @@ const Navbar = (): JSX.Element | null => {
   const pathname = usePathname();
   const { storeName } = useParams();
 
-  // Hide platform navbar if we're in a specific store route
-  if (storeName) return null;
+  // Hide platform navbar UI when on a specific store route, but
+  // avoid returning early so hook order remains stable between renders.
+  const hideNavbar = Boolean(storeName);
 
   useEffect(() => {
     if (status === "authenticated" && user.email === "nil") {
@@ -27151,6 +27383,8 @@ const Navbar = (): JSX.Element | null => {
   return (
     <TooltipProvider>
       <div className="sticky top-0 z-30 w-full overflow-clip flex flex-col m-0 p-0">
+        {hideNavbar ? null : (
+        <>
         <header className="w-full justify-center items-center py-1 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
           <div className="container mx-auto flex justify-between items-center gap-2 h-[60px] overflow-clip">
 
@@ -27214,6 +27448,8 @@ const Navbar = (): JSX.Element | null => {
         </header>
         <Advert />
         <GlobalDialog />
+        </>
+        )}
       </div>
     </TooltipProvider>
   )
@@ -33459,6 +33695,7 @@ model Business {
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   settings         ProjectSettings?
+  siteSettings     SiteSettings?
   products         Product[]
   categories       Category[]
   carts            Cart[]
@@ -33479,7 +33716,7 @@ model Business {
 model ProjectSettings {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   businessId   String   @unique @db.ObjectId
-  business     Business @relation(fields: [businessId], references: [id])
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   currency     String   @default("NGN")
   exchangeRate Float    @default(1.0)
   pages        Page[]
@@ -33505,10 +33742,18 @@ model Section {
 }
 
 model SiteSettings {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  aboutText String   @default("Welcome to our store. We provide high-quality products to our customers.")
-  addToHome String   @default("Add our app to your home screen for a better experience!")
-  updatedAt DateTime @updatedAt
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId   String   @unique @db.ObjectId
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  aboutText    String   @default("Write about your business here")
+  addToHome    String   @default("Add our app to your home screen for a better experience!")
+  heroTitle    String   @default("Welcome to our store")
+  heroSubtitle String   @default("Browse our products and enjoy great deals")
+  contactDesc  String   @default("Contact us today for product inquiries, order support, or business collaborations.")
+  contactEmail String?  @default("support@example.com")
+  contactPhone String?  @default("000-000-0000")
+  helpText    String   @default("How can we assist you?")
+  updatedAt    DateTime @updatedAt
 }
 
 model Account {
@@ -33593,7 +33838,7 @@ model Post {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   businessId  String?   @db.ObjectId
-  business    Business? @relation(fields: [businessId], references: [id])
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
@@ -33609,7 +33854,7 @@ model Notification {
   file       String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String?   @db.ObjectId
 }
 
@@ -33621,7 +33866,7 @@ model Category {
   //slug     String   @unique
   products    Product[]
   businessId  String?   @db.ObjectId
-  business    Business? @relation(fields: [businessId], references: [id])
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -33651,7 +33896,7 @@ model Product {
   updatedAt         DateTime         @updatedAt
   wishlist          Wishlist[]
   businessId        String?          @db.ObjectId
-  business          Business?        @relation(fields: [businessId], references: [id])
+  business          Business?        @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   // add product features like dosage form, strength, manufacturer, etc
 }
@@ -33688,7 +33933,7 @@ model Cart {
   lunchId      String?    @db.ObjectId
   lunch        Lunch?     @relation(fields: [lunchId], references: [id], onDelete: SetNull)
   businessId   String?    @db.ObjectId
-  business     Business?  @relation(fields: [businessId], references: [id])
+  business     Business?  @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model CartItem {
@@ -33715,7 +33960,7 @@ model Payment {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model Coupon {
@@ -33724,7 +33969,7 @@ model Coupon {
   discount   Float?
   expiresAt  DateTime?
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -33755,7 +34000,7 @@ model DeliveryFee {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([country, state, city, region, businessId])
 }
@@ -33767,7 +34012,7 @@ model Visit {
   userAgent   String?
   ipAddress   String?
   businessId  String?   @db.ObjectId
-  business    Business? @relation(fields: [businessId], references: [id])
+  business     Business?  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
 
   @@unique([fingerprint, visitDate, businessId])
@@ -33784,7 +34029,7 @@ model Refund {
   status     String    @default("pending")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  business   Business? @relation(fields: [businessId], references: [id])
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String?   @db.ObjectId
 }
 
@@ -33800,7 +34045,7 @@ model Message {
   isSeen        Boolean   @default(false)
   isResolved    Boolean   @default(false)
   businessId    String?   @db.ObjectId
-  business      Business? @relation(fields: [businessId], references: [id])
+  business      Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -33810,7 +34055,7 @@ model FeaturedProduct {
   product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId  String    @unique @db.ObjectId
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -33826,7 +34071,7 @@ model Review {
   isArchived Boolean   @default(false)
   reply      Boolean   @default(false)
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -33844,7 +34089,7 @@ model Lunch {
   status     String    @default("active") // active, completed, cancelled
   carts      Cart[]
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -33856,7 +34101,7 @@ model Wishlist {
   product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId  String    @db.ObjectId
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -33979,6 +34224,195 @@ model Wishlist {
 
 //       Display Prisma debug info
 //       $ prisma debug
+
+
+
+================================================================================
+LOCATION: scripts\copy_placeholder_images.js
+================================================================================
+
+const fs = require('fs');
+const path = require('path');
+
+const publicDir = path.join(__dirname, '..', 'public');
+
+const mapping = [
+  { src: 'placeholderFemale.webp', dest: 'placeholder-category-1.webp' },
+  { src: 'placeholderMale.jpg', dest: 'placeholder-category-2.jpg' },
+  { src: 'placeholderFemale.webp', dest: 'placeholder-category-3.webp' },
+  { src: 'placeholderMale.jpg', dest: 'placeholder-product-1.jpg' },
+  { src: 'placeholderFemale.webp', dest: 'placeholder-product-2.webp' },
+  { src: 'placeholderMale.jpg', dest: 'placeholder-product-3.jpg' },
+  { src: 'placeholderFemale.webp', dest: 'placeholder-product-4.webp' },
+  { src: 'placeholderMale.jpg', dest: 'placeholder-product-5.jpg' },
+];
+
+mapping.forEach(({ src, dest }) => {
+  const srcPath = path.join(publicDir, src);
+  const destPath = path.join(publicDir, dest);
+  try {
+    fs.copyFileSync(srcPath, destPath);
+    console.log(`Copied ${src} to ${dest}`);
+  } catch (e) {
+    console.error(`Failed to copy ${src} -> ${dest}:`, e.message);
+  }
+});
+
+console.log('Placeholder copy complete.');
+
+
+
+================================================================================
+LOCATION: scripts\fetch_itech.js
+================================================================================
+
+const https = require('http');
+const fs = require('fs');
+
+const url = 'http://localhost:3000/itech';
+
+https.get(url, (res) => {
+  console.log('Status:', res.statusCode);
+  const file = fs.createWriteStream('VendorPort/temp_itech_response.html');
+  res.pipe(file);
+  file.on('finish', () => file.close(() => console.log('Saved response to VendorPort/temp_itech_response.html')));
+}).on('error', (e) => {
+  console.error('Error fetching:', e.message);
+});
+
+
+
+================================================================================
+LOCATION: scripts\print_lines.js
+================================================================================
+
+const fs = require('fs');
+const path = 'components/myComponents/subs/featuredCategories.tsx';
+const full = fs.readFileSync(path,'utf8').split('\n');
+for(let i=0;i<full.length;i++){
+  if(i>=140 && i<170) console.log(`${i+1}: ${full[i]}`);
+}
+
+
+
+================================================================================
+LOCATION: scripts\remove_duplicate_business.js
+================================================================================
+
+const { PrismaClient } = require('@prisma/client');
+
+(async () => {
+  const prisma = new PrismaClient();
+  try {
+    const name = process.argv[2];
+    if (!name) {
+      console.error('Usage: node remove_duplicate_business.js <businessName>');
+      process.exit(1);
+    }
+
+    const items = await prisma.business.findMany({ where: { name } });
+    console.log(`Found ${items.length} businesses with name='${name}'`);
+    if (items.length <= 1) {
+      console.log('Nothing to delete.');
+      process.exit(0);
+    }
+
+    // Keep the first one, delete others
+    const keep = items[0];
+    const toDelete = items.slice(1);
+
+    for (const b of toDelete) {
+      console.log('Deleting duplicate business:', b.id);
+      await prisma.business.delete({ where: { id: b.id } });
+    }
+
+    console.log('Done.');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error:', err);
+    process.exit(2);
+  }
+})();
+
+
+================================================================================
+LOCATION: scripts\remove_duplicate_business_fix.js
+================================================================================
+
+const { PrismaClient } = require('@prisma/client');
+
+(async () => {
+  const prisma = new PrismaClient();
+  try {
+    const name = process.argv[2];
+    if (!name) {
+      console.error('Usage: node remove_duplicate_business_fix.js <businessName>');
+      process.exit(1);
+    }
+
+    const items = await prisma.business.findMany({ where: { name } });
+    console.log(`Found ${items.length} businesses with name='${name}'`);
+    if (items.length <= 1) {
+      console.log('Nothing to delete.');
+      process.exit(0);
+    }
+
+    // Keep the first one, delete others
+    const keep = items[0];
+    const toDelete = items.slice(1);
+
+    for (const b of toDelete) {
+      console.log('Processing duplicate business:', b.id);
+
+      // Delete related project settings, pages, and sections first
+      const ps = await prisma.projectSettings.findUnique({ where: { businessId: b.id } });
+      if (ps) {
+        console.log('Found projectSettings:', ps.id);
+        const pages = await prisma.page.findMany({ where: { projectSettingsId: ps.id } });
+        for (const p of pages) {
+          console.log('Deleting sections for page:', p.id);
+          await prisma.section.deleteMany({ where: { pageId: p.id } });
+        }
+        console.log('Deleting pages for projectSettings:', ps.id);
+        await prisma.page.deleteMany({ where: { projectSettingsId: ps.id } });
+
+        console.log('Deleting projectSettings:', ps.id);
+        await prisma.projectSettings.delete({ where: { id: ps.id } });
+      }
+
+      // Attempt to delete the business
+      console.log('Deleting duplicate business:', b.id);
+      await prisma.business.delete({ where: { id: b.id } });
+    }
+
+    console.log('Done.');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error:', err);
+    process.exit(2);
+  }
+})();
+
+
+
+================================================================================
+LOCATION: scripts\test_create_business.js
+================================================================================
+
+const axios = require('axios');
+
+(async () => {
+  try {
+    const res = await axios.post('http://localhost:3000/api/dbhandler?model=business', {
+      name: 'teststore-' + Date.now(),
+      ownerId: '000000000000000000000000',
+      template: 'estore'
+    });
+    console.log('create response', res.data);
+  } catch (e) {
+    console.error('error', e.response ? e.response.data : e.message);
+  }
+})();
 
 
 
@@ -34145,16 +34579,51 @@ LOCATION: server\action\siteSettings.ts
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function getSiteSettings() {
+interface SiteSettingsInput {
+  aboutText?: string;
+  addToHome?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  contactDesc?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+}
+
+export async function getSiteSettings(businessId?: string) {
   try {
-    let settings = await prisma.siteSettings.findFirst();
-    if (!settings) {
-      settings = await prisma.siteSettings.create({
-        data: {
-          aboutText: "Welcome to our store. We provide high-quality products to our customers.",
-          addToHome: "Add our app to your home screen for a better experience!",
-        },
-      });
+    let settings;
+    if (businessId) {
+      settings = await prisma.siteSettings.findFirst({ where: { businessId } });
+      if (!settings) {
+        settings = await prisma.siteSettings.create({
+          data: {
+            business: { connect: { id: businessId } },
+            aboutText: "Write about your business here",
+            addToHome: "Add our app to your home screen for a better experience!",
+            heroTitle: "Welcome to our store",
+            heroSubtitle: "Browse our products and enjoy great deals",
+            contactDesc: "Contact us today for product inquiries, order support, or business collaborations.",
+            contactEmail: "support@example.com",
+            contactPhone: "000-000-0000",
+          },
+        });
+      }
+    } else {
+      settings = await prisma.siteSettings.findFirst();
+      if (!settings && businessId) {
+        settings = await prisma.siteSettings.create({
+          data: {
+            businessId,
+            aboutText: "Write about your business here",
+            addToHome: "Add our app to your home screen for a better experience!",
+            heroTitle: "Welcome to our store",
+            heroSubtitle: "Browse our products and enjoy great deals",
+            contactDesc: "Contact us today for product inquiries, order support, or business collaborations.",
+            contactEmail: "support@example.com",
+            contactPhone: "000-000-0000",
+          },
+        });
+      }
     }
     return settings;
   } catch (error) {
@@ -34163,23 +34632,41 @@ export async function getSiteSettings() {
   }
 }
 
-export async function updateSiteSettings(data: { aboutText?: string; addToHome?: string }) {
+export async function updateSiteSettings(
+  data: SiteSettingsInput,
+  businessId?: string
+) {
   try {
-    const settings = await prisma.siteSettings.findFirst();
+    const whereClause = businessId ? { businessId } : {};
+    const settings = businessId
+      ? await prisma.siteSettings.findFirst({ where: { businessId } })
+      : await prisma.siteSettings.findFirst();
     if (settings) {
       await prisma.siteSettings.update({
         where: { id: settings.id },
         data,
       });
     } else {
-      await prisma.siteSettings.create({
-        data: {
-          aboutText: data.aboutText || "Welcome to our store. We provide high-quality products to our customers.",
-          addToHome: data.addToHome || "Add our app to your home screen for a better experience!",
-        },
-      });
+      const createData: any = { ...data };
+      if (businessId) {
+        createData.business = { connect: { id: businessId } };
+      }
+      // fill missing defaults
+      createData.aboutText = createData.aboutText || "Write about your business here";
+      createData.addToHome = createData.addToHome || "Add our app to your home screen for a better experience!";
+      createData.heroTitle = createData.heroTitle || "Welcome to our store";
+      createData.heroSubtitle = createData.heroSubtitle || "Browse our products and enjoy great deals";
+      createData.contactDesc = createData.contactDesc || "Contact us today for product inquiries, order support, or business collaborations.";
+      createData.contactEmail = createData.contactEmail || "support@example.com";
+      createData.contactPhone = createData.contactPhone || "000-000-0000";
+      createData.helpText = createData.helpText || "How can we assist you?";
+
+      await prisma.siteSettings.create({ data: createData });
     }
+    // revalidate home and about/contact pages globally
     revalidatePath("/");
+    revalidatePath("/about");
+    revalidatePath("/contact");
     return { success: true };
   } catch (error) {
     console.error("Failed to update site settings:", error);
@@ -38664,6 +39151,93 @@ export default config;
 
 
 ================================================================================
+LOCATION: temp_itech_response.html
+================================================================================
+
+<!DOCTYPE html><html lang="en"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="stylesheet" href="/_next/static/chunks/app_globals_71f961d1.css" data-precedence="next_static/chunks/app_globals_71f961d1.css"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_bae88007._.js"/><script src="/_next/static/chunks/node_modules_next_dist_compiled_react-dom_1e674e59._.js" async=""></script><script src="/_next/static/chunks/node_modules_next_dist_compiled_react-server-dom-turbopack_9212ccad._.js" async=""></script><script src="/_next/static/chunks/node_modules_next_dist_compiled_next-devtools_index_1dd7fb59.js" async=""></script><script src="/_next/static/chunks/node_modules_next_dist_compiled_a0e4c7b4._.js" async=""></script><script src="/_next/static/chunks/node_modules_next_dist_client_aaee43fe._.js" async=""></script><script src="/_next/static/chunks/node_modules_next_dist_7a8122d0._.js" async=""></script><script src="/_next/static/chunks/node_modules_%40swc_helpers_cjs_d80fb378._.js" async=""></script><script src="/_next/static/chunks/_a0ff3932._.js" async=""></script><script src="/_next/static/chunks/turbopack-_45210fd5._.js" async=""></script><script src="/_next/static/chunks/node_modules_next_dist_094231d7._.js" async=""></script><script src="/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js" async=""></script><script src="/_next/static/chunks/_7cbc4789._.js" async=""></script><script src="/_next/static/chunks/_25d4c8b3._.js" async=""></script><script src="/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js" async=""></script><script src="/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js" async=""></script><script src="/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js" async=""></script><script src="/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js" async=""></script><script src="/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js" async=""></script><script src="/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js" async=""></script><script src="/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js" async=""></script><script src="/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js" async=""></script><script src="/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js" async=""></script><script src="/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js" async=""></script><script src="/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js" async=""></script><script src="/_next/static/chunks/node_modules_f37a395e._.js" async=""></script><script src="/_next/static/chunks/app_layout_tsx_78cdd4a3._.js" async=""></script><script src="/_next/static/chunks/_feda0669._.js" async=""></script><script src="/_next/static/chunks/node_modules_9c6159d7._.js" async=""></script><script src="/_next/static/chunks/app_%5BstoreName%5D_page_tsx_12392459._.js" async=""></script><script src="/_next/static/chunks/node_modules_next_dist_client_components_builtin_global-error_78cdd4a3.js" async=""></script><link rel="icon" href="/favicon.ico?favicon.0b3bf435.ico" sizes="256x256" type="image/x-icon"/><script src="/_next/static/chunks/node_modules_next_dist_build_polyfills_polyfill-nomodule.js" noModule=""></script></head><body class="font-roboto_mono antialiased"><div hidden=""><!--$--><!--/$--></div><!--$!--><template data-dgst="BAILOUT_TO_CLIENT_SIDE_RENDERING" data-msg="Switched to client rendering because the server rendering errored:
+
+Bail out to client-side rendering: next/dynamic" data-stck="Switched to client rendering because the server rendering errored:
+
+Error: Bail out to client-side rendering: next/dynamic
+    at BailoutToCSR (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\node_modules_next_dad5d8bb._.js:89:37)
+    at Object.react_stack_bottom_frame (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:308231)
+    at renderWithHooks (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:117683)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:132355)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at renderNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:212388)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:189474)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at finishFunctionComponent (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:118693)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:133864)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at finishFunctionComponent (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:118693)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:133864)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:194297)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:192682)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at finishFunctionComponent (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:118693)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:133864)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:194297)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:192682)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at finishFunctionComponent (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:118693)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:133864)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at finishFunctionComponent (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:118693)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:133864)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:194297)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at renderNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:212388)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:181117)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:192682)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)
+    at renderNodeDestructive (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:200498)
+    at finishFunctionComponent (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:118693)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:133864)
+    at renderElement (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:194297)
+    at retryNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:2:201235)" data-cstck="
+    at BailoutToCSR (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\node_modules_next_dad5d8bb._.js:87:25)
+    at Suspense (&lt;anonymous&gt;)
+    at LoadableComponent (&lt;anonymous&gt;)
+    at ThemeProvider (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\[root-of-the-server]__42b789c5._.js:35:26)
+    at CartProvider (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\[root-of-the-server]__42b789c5._.js:1619:25)
+    at Provider (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\node_modules_a723e076._.js:1086:21)
+    at Providers (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\[root-of-the-server]__42b789c5._.js:180:22)
+    at body (&lt;anonymous&gt;)
+    at AppContextProvider (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\[root-of-the-server]__42b789c5._.js:351:31)
+    at SessionProvider (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\node_modules_a723e076._.js:13900:13)
+    at html (&lt;anonymous&gt;)
+    at RootLayout (about://React/Server/C:%5CUsers%5COlolade%5CDesktop%5Cportfolio%5Ccommerce%5CVendorPort%5C.next%5Cdev%5Cserver%5Cchunks%5Cssr%5C%5Broot-of-the-server%5D__cc8eaf32._.js?3:565:150)
+    at RootLayout (about://React/Server/C:%5CUsers%5COlolade%5CDesktop%5Cportfolio%5Ccommerce%5CVendorPort%5C.next%5Cdev%5Cserver%5Cchunks%5Cssr%5C%5Broot-of-the-server%5D__cc8eaf32._.js?3:565:150)
+    at SegmentViewNode (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\.next\dev\server\chunks\ssr\node_modules_next_dist_3a203ced._.js:3981:28)
+    at __next_root_layout_boundary__ (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:20:23177)
+    at RedirectErrorBoundary (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:20:20837)
+    at RedirectBoundary (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:20:21472)
+    at AppDevOverlayErrorBoundary (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:22:9548)
+    at HotReload (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:22:21379)
+    at Router (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:20:25063)
+    at ErrorBoundaryHandler (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:20:40221)
+    at ErrorBoundary (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:20:41358)
+    at RootErrorBoundary (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:20:22404)
+    at AppRouter (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:20:31881)
+    at ServerInsertedHTMLProvider (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:36:461)
+    at app_render_App (C:\Users\Ololade\Desktop\portfolio\commerce\VendorPort\node_modules\next\dist\compiled\next-server\app-page-turbo.runtime.dev.js:40:30939)"></template><!--/$--><script id="_R_">self.__next_r="pq69LNm1fVDPLSgvphf5k"</script><script src="/_next/static/chunks/%5Bturbopack%5D_browser_dev_hmr-client_hmr-client_ts_bae88007._.js" async=""></script><script>(self.__next_f=self.__next_f||[]).push([0])</script><script>self.__next_f.push([1,"6:I[\"[project]/node_modules/next/dist/next-devtools/userspace/app/segment-explorer-node.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"SegmentViewNode\"]\n8:\"$Sreact.fragment\"\n25:I[\"[project]/node_modules/next/dist/client/components/layout-router.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"default\"]\n27:I[\"[project]/node_modules/next/dist/client/components/render-from-template-context.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"default\"]\n2b:I[\"[project]/node_modules/next/dist/client/components/client-page.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"ClientPageRoot\"]\n2c:I[\"[project]/app/[storeName]/page.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\",\"/_next/static/chunks/_feda0669._.js\",\"/_next/static/chunks/node_modules_9c6159d7._.js\",\"/_next/static/chunks/app_%5BstoreName%5D_page_tsx_12392459._.js\"],\"default\"]\n33:I[\"[project]/node_modules/next/dist/lib/framework/boundary-components.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"OutletBoundary\"]\n35:\"$Sreact.suspense\"\n3e:I[\"[project]/node_modules/next/dist/lib/framework/boundary-components.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"ViewportBoundary\"]\n44:I[\"[project]/node_modules/next/dist/lib/framework/boundary-components.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"MetadataBoundary\"]\n48:I[\"[project]/node_modules/next/dist/client/components/builtin/global-error.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_client_components_builtin_global-error_78cdd4a3.js\"],\"default\"]\n4e:I[\"[project]/node_modules/next/dist/lib/metadata/generate/icon-mark.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"IconMark\"]\n:HL[\"/_next/static/chunks/app_globals_71f961d1.css\",\"style\"]\n:HC[\"/\",\"\"]\n:N1772445712915.991\n3:\"$EObject.defineProperty(()=\u003e{ctx.componentMod.preloadStyle(fullHref,ctx.renderOpts.crossOrigin,ctx.nonce)},\\\"name\\\",{value:\\\"\\\"})\"\n4:\"$EObject.defineProperty(()=\u003e{ctx.componentMod.preconnect(\\\"/\\\",\\\"anonymous\\\",ctx.nonce)},\\\"name\\\",{value:\\\"\\\"})\"\n2:{\"name\":\"Preloads\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{\"preloadCallbacks\":[\"$3\",\"$4\"]}}\n5:[]\n7:[]\n9:[[\"Array.map\",\"\",0,0,0,0,false]]\na:[[\"Array.map\",\"\",0,0,0,0,false]]\nb:[[\"Array.map\",\"\",0,0,0,0,false]]\nc:[[\"Array.map\",\"\",0,0,0,0,false]]\nd:[[\"Array.map\",\"\",0,0,0,0,false]]\ne:[[\"Array.map\",\"\",0,0,0,0,false]]\nf:[[\"Array.map\",\"\",0,0,0,0,false]]\n10:[[\"Array.map\",\"\""])</script><script>self.__next_f.push([1,",0,0,0,0,false]]\n11:[[\"Array.map\",\"\",0,0,0,0,false]]\n12:[[\"Array.map\",\"\",0,0,0,0,false]]\n13:[[\"Array.map\",\"\",0,0,0,0,false]]\n14:[[\"Array.map\",\"\",0,0,0,0,false]]\n15:[[\"Array.map\",\"\",0,0,0,0,false]]\n16:[[\"Array.map\",\"\",0,0,0,0,false]]\n17:[[\"Array.map\",\"\",0,0,0,0,false]]\n18:[[\"Array.map\",\"\",0,0,0,0,false]]\n1b:I[\"[project]/node_modules/next/dist/client/components/layout-router.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"default\"]\n1e:I[\"[project]/node_modules/next/dist/client/components/render-from-template-context.js [app-client] (ecmascript)\",[\"/_next/static/chunks/node_modules_next_dist_094231d7._.js\",\"/_next/static/chunks/app_favicon_ico_mjs_756560dc._.js\"],\"default\"]\n1f:{}\n20:[[\"Function.all\",\"\",0,0,0,0,true]]\n1d:{\"children\":[\"$\",\"$L1e\",null,\"$1f\",null,\"$20\",1]}\n21:[[\"Function.all\",\"\",0,0,0,0,true]]\n1c:{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$8\",null,\"$1d\",null,\"$21\",0],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$Y\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\",\"segmentViewBoundaries\":\"$Y\"}\n22:[[\"Function.all\",\"\",0,0,0,0,true]]\n1a:{\"name\":\"RootLayout\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{\"children\":[\"$\",\"$L1b\",null,\"$1c\",null,\"$22\",1],\"params\":\"$Y\"}}\n23:[[\"Function.all\",\"\",0,0,0,0,true]]\n24:[[\"Function.all\",\"\",0,0,0,0,true],[\"Function.all\",\"\",0,0,0,0,true]]\n26:[[\"Function.all\",\"\",0,0,0,0,true],[\"Function.all\",\"\",0,0,0,0,true]]\n28:[[\"Function.all\",\"\",0,0,0,0,true],[\"Function.all\",\"\",0,0,0,0,true]]\n29:[[\"Function.all\",\"\",0,0,0,0,true],[\"Function.all\",\"\",0,0,0,0,true]]\n2a:[[\"Function.all\",\"\",0,0,0,0,true],[\"Function.all\",\"\",0,0,0,0,true]]\n2d:[[\"Array.map\",\"\",0,0,0,0,false],[\"Array.map\",\"\",0,0,0,0,false],[\"Function.all\",\"\",0,0,0,0,true]]\n2e:[[\"Array.map\",\"\",0,0,0,0,false],[\"Array.map\",\"\",0,0,0,0,false],[\"Function.all\",\"\",0,0,0,0,true]]\n2f:[[\"Array.map\",\"\",0,0,0,0,false],[\"Array.map\",\"\",0,0,0,0,false],[\"Function.all\",\"\",0,0,0,0,true]]\n31:{\"name\":\"Next.MetadataOutlet\",\"key\":null,\"env\":\"Server\",\"stack\":[[\"Function.all\",\"\",0,0,0,0,true],[\"Function.all\",\"\",0,0,0,0,true]],\"props\":{}}\n32:[]\n34:[]\n37:[]\n"])</script><script>self.__next_f.push([1,"3a:\"$EObject.defineProperty(function(type,config,children){for(var propName,i=2;i\u003carguments.length;i++)validateChildKeys(arguments[i]);i={};var key=null;if(null!=config)for(propName in didWarnAboutOldJSXRuntime||!(\\\"__self\\\"in config)||\\\"key\\\"in config||(didWarnAboutOldJSXRuntime=!0,console.warn(\\\"Your app (or one of its dependencies) is using an outdated JSX transform. Update to the modern JSX transform for faster performance: https://react.dev/link/new-jsx-transform\\\")),hasValidKey(config)\u0026\u0026(checkKeyStringCoercion(config.key),key=\\\"\\\"+config.key),config)hasOwnProperty.call(config,propName)\u0026\u0026\\\"key\\\"!==propName\u0026\u0026\\\"__self\\\"!==propName\u0026\u0026\\\"__source\\\"!==propName\u0026\u0026(i[propName]=config[propName]);var childrenLength=arguments.length-2;if(1===childrenLength)i.children=children;else if(1\u003cchildrenLength){for(var childArray=Array(childrenLength),_i=0;_i\u003cchildrenLength;_i++)childArray[_i]=arguments[_i+2];Object.freeze\u0026\u0026Object.freeze(childArray),i.children=childArray}if(type\u0026\u0026type.defaultProps)for(propName in childrenLength=type.defaultProps)void 0===i[propName]\u0026\u0026(i[propName]=childrenLength[propName]);return key\u0026\u0026function(props,displayName){function warnAboutAccessingKey(){specialPropKeyWarningShown||(specialPropKeyWarningShown=!0,console.error(\\\"%s: `key` is not a prop. Trying to access it will result in `undefined` being returned. If you need to access the same value within the child component, you should pass it as a different prop. (https://react.dev/link/special-props)\\\",displayName))}warnAboutAccessingKey.isReactWarning=!0,Object.defineProperty(props,\\\"key\\\",{get:warnAboutAccessingKey,configurable:!0})}(i,\\\"function\\\"==typeof type?type.displayName||type.name||\\\"Unknown\\\":type),(propName=1e4\u003eReactSharedInternals.recentlyCreatedOwnerStacks++)?(childArray=Error.stackTraceLimit,Error.stackTraceLimit=10,childrenLength=Error(\\\"react-stack-top-frame\\\"),Error.stackTraceLimit=childArray):childrenLength=unknownOwnerDebugStack,ReactElement(type,key,i,getOwner(),childrenLength,propName?createTask(getTaskName(type)):unknownOwnerDebugTask)},\\\"name\\\",{value:\\\"\\\"})\"\n"])</script><script>self.__next_f.push([1,"39:{\"name\":\"NonIndex\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{\"createElement\":\"$3a\",\"pagePath\":\"/[storeName]\",\"statusCode\":200,\"isPossibleServerAction\":false}}\n3c:{\"name\":\"Next.Viewport\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{}}\n3d:[]\n41:{\"name\":\"Next.Metadata\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{}}\n42:[]\n43:[]\n45:[]\n49:[]\n4a:[]\n4b:[]\n4c:[[\"Array.map\",\"\",0,0,0,0,false]]\n4d:[]\n1:D{\"time\":0.7889000000432134}\n1:D\"$2\"\n1:D{\"time\":1.075300000142306}\n1:null\n19:D{\"time\":7.939200000138953}\n19:D\"$1a\"\n30:D{\"time\":16.59750000014901}\n30:D\"$31\"\n30:D{\"time\":27.44039999996312}\n30:[\"$\",\"$L33\",null,{\"children\":[\"$\",\"$35\",null,{\"name\":\"Next.MetadataOutlet\",\"children\":\"$@36\"},\"$31\",\"$34\",1]},\"$31\",\"$32\",1]\n38:D{\"time\":40.369799999985844}\n38:D\"$39\"\n38:D{\"time\":40.420000000158325}\n38:null\n3b:D{\"time\":40.79399999999441}\n3b:D\"$3c\"\n3b:D{\"time\":41.514700000174344}\n3b:[\"$\",\"$L3e\",null,{\"children\":\"$@3f\"},\"$3c\",\"$3d\",1]\n40:D{\"time\":42.29579999996349}\n40:D\"$41\"\n40:D{\"time\":42.68420000001788}\n40:[\"$\",\"div\",null,{\"hidden\":true,\"children\":[\"$\",\"$L44\",null,{\"children\":[\"$\",\"$35\",null,{\"name\":\"Next.Metadata\",\"children\":\"$@46\"},\"$41\",\"$45\",1]},\"$41\",\"$43\",1]},\"$41\",\"$42\",1]\n47:[]\n"])</script><script>self.__next_f.push([1,"0:{\"P\":\"$1\",\"b\":\"development\",\"c\":[\"\",\"itech\"],\"q\":\"\",\"i\":false,\"f\":[[[\"\",{\"children\":[[\"storeName\",\"itech\",\"d\"],{\"children\":[\"__PAGE__\",{}]}]},\"$undefined\",\"$undefined\",true],[[\"$\",\"$L6\",\"layout\",{\"type\":\"layout\",\"pagePath\":\"layout.tsx\",\"children\":[\"$\",\"$8\",\"c\",{\"children\":[[[\"$\",\"link\",\"0\",{\"rel\":\"stylesheet\",\"href\":\"/_next/static/chunks/app_globals_71f961d1.css\",\"precedence\":\"next_static/chunks/app_globals_71f961d1.css\",\"crossOrigin\":\"$undefined\",\"nonce\":\"$undefined\"},null,\"$9\",0],[\"$\",\"script\",\"script-0\",{\"src\":\"/_next/static/chunks/_7cbc4789._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$a\",0],[\"$\",\"script\",\"script-1\",{\"src\":\"/_next/static/chunks/_25d4c8b3._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$b\",0],[\"$\",\"script\",\"script-2\",{\"src\":\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$c\",0],[\"$\",\"script\",\"script-3\",{\"src\":\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$d\",0],[\"$\",\"script\",\"script-4\",{\"src\":\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$e\",0],[\"$\",\"script\",\"script-5\",{\"src\":\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$f\",0],[\"$\",\"script\",\"script-6\",{\"src\":\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$10\",0],[\"$\",\"script\",\"script-7\",{\"src\":\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$11\",0],[\"$\",\"script\",\"script-8\",{\"src\":\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$12\",0],[\"$\",\"script\",\"script-9\",{\"src\":\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$13\",0],[\"$\",\"script\",\"script-10\",{\"src\":\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$14\",0],[\"$\",\"script\",\"script-11\",{\"src\":\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$15\",0],[\"$\",\"script\",\"script-12\",{\"src\":\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$16\",0],[\"$\",\"script\",\"script-13\",{\"src\":\"/_next/static/chunks/node_modules_f37a395e._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$17\",0],[\"$\",\"script\",\"script-14\",{\"src\":\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$18\",0]],\"$L19\"]},null,\"$7\",1]},null,\"$5\",0],{\"children\":[[\"$\",\"$8\",\"c\",{\"children\":[null,[\"$\",\"$L25\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L27\",null,{},null,\"$26\",1],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":\"$undefined\",\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\",\"segmentViewBoundaries\":[\"$undefined\",\"$undefined\",\"$undefined\",\"$undefined\"]},null,\"$24\",1]]},null,\"$23\",0],{\"children\":[[\"$\",\"$8\",\"c\",{\"children\":[[\"$\",\"$L6\",\"c-page\",{\"type\":\"page\",\"pagePath\":\"[storeName]/page.tsx\",\"children\":[\"$\",\"$L2b\",null,{\"Component\":\"$2c\",\"serverProvidedParams\":{\"searchParams\":{},\"params\":{\"storeName\":\"itech\"},\"promises\":null}},null,\"$2a\",1]},null,\"$29\",1],[[\"$\",\"script\",\"script-0\",{\"src\":\"/_next/static/chunks/_feda0669._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$2d\",0],[\"$\",\"script\",\"script-1\",{\"src\":\"/_next/static/chunks/node_modules_9c6159d7._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$2e\",0],[\"$\",\"script\",\"script-2\",{\"src\":\"/_next/static/chunks/app_%5BstoreName%5D_page_tsx_12392459._.js\",\"async\":true,\"nonce\":\"$undefined\"},null,\"$2f\",0]],\"$30\"]},null,\"$28\",0],{},null,false,false]},null,false,false]},null,false,false],[\"$\",\"$8\",\"h\",{\"children\":[\"$38\",\"$3b\",\"$40\",null]},null,\"$37\",0],false]],\"m\":\"$W47\",\"G\":[\"$48\",[\"$\",\"$L6\",\"ge-svn\",{\"type\":\"global-error\",\"pagePath\":\"__next_builtin__global-error.js\",\"children\":[]},null,\"$49\",0]],\"S\":false}\n"])</script><script>self.__next_f.push([1,"3f:D{\"time\":52.78760000015609}\n3f:[[\"$\",\"meta\",\"0\",{\"charSet\":\"utf-8\"},\"$31\",\"$4a\",0],[\"$\",\"meta\",\"1\",{\"name\":\"viewport\",\"content\":\"width=device-width, initial-scale=1\"},\"$31\",\"$4b\",0]]\n46:D{\"time\":57.739000000059605}\n46:[[\"$\",\"link\",\"0\",{\"rel\":\"icon\",\"href\":\"/favicon.ico?favicon.0b3bf435.ico\",\"sizes\":\"256x256\",\"type\":\"image/x-icon\"},\"$31\",\"$4c\",0],[\"$\",\"$L4e\",\"1\",{},\"$31\",\"$4d\",0]]\n36:D{\"time\":58.176800000015646}\n36:null\n"])</script><script>self.__next_f.push([1,"57:I[\"[project]/node_modules/next-auth/react.js [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"SessionProvider\"]\n59:I[\"[project]/context/appContext.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"AppContextProvider\"]\n5c:I[\"[project]/store/providers.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"Providers\"]\n5e:I[\"[project]/hooks/use-cart.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a"])</script><script>self.__next_f.push([1,"395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"CartProvider\"]\n60:I[\"[project]/components/theme-provider.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"ThemeProvider\"]\n62:I[\"[project]/components/utility/VisitTracker.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"VisitTracker\"]\n64:I[\"[project]/components/utility/navbar.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"default\"]\n75:I[\"[project]/components/ui/sonner.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next"])</script><script>self.__next_f.push([1,"/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"Toaster\"]\n77:I[\"[project]/components/myComponents/subs/footer.tsx [app-client] (ecmascript)\",[\"/_next/static/chunks/_7cbc4789._.js\",\"/_next/static/chunks/_25d4c8b3._.js\",\"/_next/static/chunks/node_modules_react-icons_ai_index_mjs_9504e8ee._.js\",\"/_next/static/chunks/node_modules_react-icons_bi_index_mjs_80d32eb5._.js\",\"/_next/static/chunks/node_modules_react-icons_vsc_index_mjs_ea4690de._.js\",\"/_next/static/chunks/node_modules_react-icons_io5_index_mjs_9bce8f6c._.js\",\"/_next/static/chunks/node_modules_react-icons_ci_index_mjs_5056adca._.js\",\"/_next/static/chunks/node_modules_react-icons_fc_index_mjs_c0b04ec4._.js\",\"/_next/static/chunks/node_modules_react-icons_fa_index_mjs_0459ff00._.js\",\"/_next/static/chunks/node_modules_react-icons_lib_844c6c50._.js\",\"/_next/static/chunks/node_modules_axios_lib_99e19c7d._.js\",\"/_next/static/chunks/node_modules_%40radix-ui_e8a3b5e0._.js\",\"/_next/static/chunks/node_modules_%40floating-ui_1b6e7b6d._.js\",\"/_next/static/chunks/node_modules_f37a395e._.js\",\"/_next/static/chunks/app_layout_tsx_78cdd4a3._.js\"],\"Footer\"]\n4f:J{\"name\":\"\",\"start\":92.90789999999106,\"end\":100.78350000013597,\"env\":\"Server\",\"owner\":\"$1a\",\"value\":\"$@50\"}\n51:[[\"usersession\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",421,140,420,21,false],[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",565,150,564,1,false]]\n52:J{\"name\":\"\",\"start\":111.02509999996983,\"end\":3529.972500000149,\"env\":\"Server\",\"owner\":\"$1a\",\"value\":\"$@53\"}\n54:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",598,188,564,1,false]]\n50:null\n53:\"$undefined\"\n55:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",566,263,564,1,false]]\n56:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",568,270,564,1,false]]\n58:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",570,274,564,1,false]]\n5a:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",571,278,564,1,false]]\n5b:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",573,282,564,1,false]]\n5d:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",574,286,564,1,false]]\n5f:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",575,290,564,1,false]]\n61:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",581,288,564,1,false]]\n63:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",586,288,564,1,false]]\n65:[[\"Function.all\",\"\",0,0,0,0,true]]\n66:[[\"Function.all\",\"\",0,0,0,0,true]]\n67:[]\n69:{\"name\":\"NotFound\",\"key\":null,\"env\":\"Server\",\"stack\":[],\"props\":{}}\n6a:{\"name\":\"HTTPAccessErrorFallback\",\"key\":null,\"env\":\"Server\",\"owner\":\"$69\",\"stack\":[],\"props\":{\"status\":404,\"message\":\"This page could not be found.\"}}\n6b:[]\n6c:[]\n6d:[]\n6e:[]\n6f:[]\n70:[]\n71:[]\n72:[[\"Function.all\",\"\",0,0,0,0,true]]\n73:[[\"Function.all\",\"\",0,0,0,0,true]]\n74:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-"])</script><script>self.__next_f.push([1,"server]__cc8eaf32._.js\",592,288,564,1,false]]\n76:[[\"RootLayout\",\"C:\\\\Users\\\\Ololade\\\\Desktop\\\\portfolio\\\\commerce\\\\VendorPort\\\\.next\\\\dev\\\\server\\\\chunks\\\\ssr\\\\[root-of-the-server]__cc8eaf32._.js\",597,288,564,1,false]]\n19:D{\"time\":12.700700000161305}\n19:D{\"awaited\":\"$4f\",\"env\":\"Server\",\"owner\":\"$1a\",\"stack\":\"$51\"}\n19:D{\"time\":106.38140000007115}\n19:D{\"time\":106.99350000009872}\n19:D{\"awaited\":\"$52\",\"env\":\"Server\",\"owner\":\"$1a\",\"stack\":\"$54\"}\n19:D{\"time\":3530.840900000185}\n19:D{\"time\":3540.257900000084}\n68:D{\"time\":3545.193200000096}\n68:D\"$69\"\n68:D{\"time\":3546.096900000004}\n68:D\"$6a\"\n68:D{\"time\":3547.1829000001308}\n68:[[\"$\",\"title\",null,{\"children\":\"404: This page could not be found.\"},\"$6a\",\"$6b\",1],[\"$\",\"div\",null,{\"style\":{\"fontFamily\":\"system-ui,\\\"Segoe UI\\\",Roboto,Helvetica,Arial,sans-serif,\\\"Apple Color Emoji\\\",\\\"Segoe UI Emoji\\\"\",\"height\":\"100vh\",\"textAlign\":\"center\",\"display\":\"flex\",\"flexDirection\":\"column\",\"alignItems\":\"center\",\"justifyContent\":\"center\"},\"children\":[\"$\",\"div\",null,{\"children\":[[\"$\",\"style\",null,{\"dangerouslySetInnerHTML\":{\"__html\":\"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}\"}},\"$6a\",\"$6e\",1],[\"$\",\"h1\",null,{\"className\":\"next-error-h1\",\"style\":{\"display\":\"inline-block\",\"margin\":\"0 20px 0 0\",\"padding\":\"0 23px 0 0\",\"fontSize\":24,\"fontWeight\":500,\"verticalAlign\":\"top\",\"lineHeight\":\"49px\"},\"children\":404},\"$6a\",\"$6f\",1],[\"$\",\"div\",null,{\"style\":{\"display\":\"inline-block\"},\"children\":[\"$\",\"h2\",null,{\"style\":{\"fontSize\":14,\"fontWeight\":400,\"lineHeight\":\"49px\",\"margin\":0},\"children\":\"This page could not be found.\"},\"$6a\",\"$71\",1]},\"$6a\",\"$70\",1]]},\"$6a\",\"$6d\",1]},\"$6a\",\"$6c\",1]]\n"])</script><script>self.__next_f.push([1,"19:[\"$\",\"html\",null,{\"lang\":\"en\",\"children\":[\"$\",\"$L57\",null,{\"session\":\"$undefined\",\"children\":[\"$\",\"$L59\",null,{\"children\":[\"$\",\"body\",null,{\"className\":\"font-roboto_mono antialiased\",\"children\":[\"$\",\"$L5c\",null,{\"children\":[\"$\",\"$L5e\",null,{\"children\":[\"$\",\"$L60\",null,{\"attribute\":\"class\",\"defaultTheme\":\"light\",\"enableSystem\":true,\"disableTransitionOnChange\":true,\"children\":[[\"$\",\"$L62\",null,{},\"$1a\",\"$61\",1],[\"$\",\"$L64\",null,{},\"$1a\",\"$63\",1],[\"$\",\"$L25\",null,{\"parallelRouterKey\":\"children\",\"error\":\"$undefined\",\"errorStyles\":\"$undefined\",\"errorScripts\":\"$undefined\",\"template\":[\"$\",\"$L27\",null,{},null,\"$66\",1],\"templateStyles\":\"$undefined\",\"templateScripts\":\"$undefined\",\"notFound\":[\"$\",\"$L6\",\"c-not-found\",{\"type\":\"not-found\",\"pagePath\":\"__next_builtin__not-found.js\",\"children\":[\"$68\",[]]},null,\"$67\",0],\"forbidden\":\"$undefined\",\"unauthorized\":\"$undefined\",\"segmentViewBoundaries\":[[\"$\",\"$L6\",null,{\"type\":\"boundary:not-found\",\"pagePath\":\"__next_builtin__not-found.js@boundary\"},null,\"$72\",1],\"$undefined\",\"$undefined\",[\"$\",\"$L6\",null,{\"type\":\"boundary:global-error\",\"pagePath\":\"__next_builtin__global-error.js\"},null,\"$73\",1]]},null,\"$65\",1],[\"$\",\"$L75\",null,{},\"$1a\",\"$74\",1],[\"$\",\"$L77\",null,{\"categories\":[{\"id\":\"696de7e579746a937465b658\",\"name\":\"Drinks\"},{\"id\":\"6995aa8f8a9c946d9e1735b9\",\"name\":\"Confectioneries\"},{\"id\":\"69959bdfeb4dab076c8913a7\",\"name\":\"Small chops\"},{\"id\":\"6995ab294474296d34bda062\",\"name\":\"Shawarma\"},{\"id\":\"6995aa5b276a5614953832f2\",\"name\":\"Barbecue\"}]},\"$1a\",\"$76\",1]]},\"$1a\",\"$5f\",1]},\"$1a\",\"$5d\",1]},\"$1a\",\"$5b\",1]},\"$1a\",\"$5a\",1]},\"$1a\",\"$58\",1]},\"$1a\",\"$56\",1]},\"$1a\",\"$55\",1]\n"])</script></body></html>
+
+
+================================================================================
 LOCATION: temp_page.html
 ================================================================================
 
@@ -39246,5 +39820,5 @@ export const normalizeDateTime = (dateTime?: string): string => {
 
 
 ================================================================================
-TOTAL FILES CONSOLIDATED: 336
+TOTAL FILES CONSOLIDATED: 343
 ================================================================================

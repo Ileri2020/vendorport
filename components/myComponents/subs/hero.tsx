@@ -12,7 +12,9 @@ import {
 import { SearchInput } from './searchcomponent'
 import { RiseAndFadeText } from './textctrl'
 import { useAppContext } from '@/hooks/useAppContext'
+import { getSiteSettings } from '@/server/action/siteSettings'
 import { motion, AnimatePresence } from "framer-motion"
+import { AdminEditable } from '@/components/utility/AdminEditable';
 import {
   Accordion,
   AccordionContent,
@@ -92,7 +94,12 @@ const IconMarquee = () => {
 // --- Main Component ---
 
 const Hero = ({ variant = 'modern-split' }: HeroProps) => {
-  const { user } = useAppContext();
+  const { user, currentBusiness } = useAppContext();
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    getSiteSettings(currentBusiness?.id).then(setSettings);
+  }, [currentBusiness]);
 
   // Carousel/Slide Logic (Used in multiple variants, must be global/hook order)
   const slides = ['/small chops 1.jpg', '/small chops 3.jpg', '/small chops 4.jpg'];
@@ -117,15 +124,17 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
   // Shared Logic
   const DynamicText = () => (
     <RiseAndFadeText
-      texts={[
-        "From Succo Stores", "Card & Bank Transfer Payments", "Login With Google or Facebook",
-        "Naturally Processed Spices", "Quality You Can Trust", "Trusted by Homes and Businesses",
-        "Fast & Reliable Delivery", "Carefully Packed for Freshness", "Customer Satisfaction Guaranteed",
-        "Premium Products, Fair Prices", "Authentic Nigerian Spice Blends", "Locally Sourced, Globally Delivered",
-        "Traditional Taste, Modern Quality", "Export-Standard Food Products", "Crafted for Every Kitchen",
-        "Pure. Natural. Flavorful.", "Freshness in Every Pack", "Spices That Elevate Your Meals",
-        "Taste You Can Trust", "Quality Without Compromise",
-      ]}
+      texts={
+        settings?.heroDynamicTexts || [
+          "From Succo Stores", "Card & Bank Transfer Payments", "Login With Google or Facebook",
+          "Naturally Processed Spices", "Quality You Can Trust", "Trusted by Homes and Businesses",
+          "Fast & Reliable Delivery", "Carefully Packed for Freshness", "Customer Satisfaction Guaranteed",
+          "Premium Products, Fair Prices", "Authentic Nigerian Spice Blends", "Locally Sourced, Globally Delivered",
+          "Traditional Taste, Modern Quality", "Export-Standard Food Products", "Crafted for Every Kitchen",
+          "Pure. Natural. Flavorful.", "Freshness in Every Pack", "Spices That Elevate Your Meals",
+          "Taste You Can Trust", "Quality Without Compromise",
+        ]
+      }
       className="text-xl md:text-2xl mt-2 font-semibold text-muted-foreground overflow-hidden"
     />
   );
@@ -184,13 +193,25 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
                   <Star className="mr-1 h-3 w-3 fill-accent" /> #1 Choice
                 </div>
                 <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-                  <span className="block text-foreground">World of flavors! 🍴</span>
-                  <span className="block text-accent">Succo</span>
-                </h1>
-                 <DynamicText />
-                 <p className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed">
-                  Discover premium products at competitive prices, with fast shipping and exceptional customer service.
-                </p>
+                  <AdminEditable
+                    value={settings?.heroTitle || "World of flavors! 🍴"}
+                    field="heroTitle"
+                    model="siteSettings"
+                    id={settings?.id || ""}
+                    as="span"
+                    className="block text-foreground"
+                  />
+                   <span className="block text-accent">Succo</span>
+                 </h1>
+                  <DynamicText />
+                  <AdminEditable
+                    value={settings?.heroSubtitle || "Discover premium products at competitive prices, with fast shipping and exceptional customer service."}
+                    field="heroSubtitle"
+                    model="siteSettings"
+                    id={settings?.id || ""}
+                    as="p"
+                    className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed"
+                  />
               </div>
               <ProductCarousel />
               <CTAButtons />

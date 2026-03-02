@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import cloudinary from "cloudinary";
+import path from "path";
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -613,11 +614,85 @@ export async function POST(req: NextRequest) {
               },
             },
           },
+          siteSettings: {
+            create: {
+              aboutText: "Write about your business here",
+              addToHome: "Add our app to your home screen for a better experience!",
+              heroTitle: "Welcome to our store",
+              heroSubtitle: "Browse our products and enjoy great deals",
+              contactDesc: "Contact us today for product inquiries, order support, or business collaborations.",
+              contactEmail: "support@example.com",
+              contactPhone: "000-000-0000",
+            },
+          },
         },
         include: {
           settings: { include: { pages: true } },
+          siteSettings: true,
         },
       });
+
+      // after the business is created, add placeholder data for a new store
+      try {
+        const placeholderFiles = [
+          "placeholderFemale.webp",
+          "placeholderMale.jpg",
+        ];
+        const uploaded: string[] = [];
+
+        for (const fname of placeholderFiles) {
+          const local = path.join(process.cwd(), "VendorPort", "public", fname);
+          try {
+            const r = await cloudinary.v2.uploader.upload(local, {
+              folder: `placeholders/${created.id}`,
+            });
+            uploaded.push(r.secure_url);
+          } catch (e) {
+            console.error("Failed to upload placeholder", fname, e);
+          }
+        }
+
+        // create 3 placeholder categories
+        const categoryIds: string[] = [];
+        for (let i = 1; i <= 3; i++) {
+          const cat = await prisma.category.create({
+            data: {
+              name: `Placeholder Category ${i}`,
+              businessId: created.id,
+              image: uploaded[(i - 1) % uploaded.length] || undefined,
+            },
+          });
+          categoryIds.push(cat.id);
+        }
+
+        // create 5 placeholder products
+        const productIds: string[] = [];
+        for (let i = 1; i <= 5; i++) {
+          const prod = await prisma.product.create({
+            data: {
+              name: `Placeholder Product ${i}`,
+              description: "Sample item for customizing your store",
+              price: 0.0,
+              images: uploaded.length ? [uploaded[(i - 1) % uploaded.length]] : [],
+              businessId: created.id,
+              categoryId: categoryIds[i % categoryIds.length],
+            },
+          });
+          productIds.push(prod.id);
+        }
+
+        // make first two products featured
+        for (let j = 0; j < Math.min(2, productIds.length); j++) {
+          await prisma.featuredProduct.create({
+            data: {
+              productId: productIds[j],
+              businessId: created.id,
+            },
+          });
+        }
+      } catch (e) {
+        console.error("Error creating placeholder data for business", e);
+      }
 
       return NextResponse.json(created);
     }

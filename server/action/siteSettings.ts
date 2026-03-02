@@ -3,16 +3,51 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function getSiteSettings() {
+interface SiteSettingsInput {
+  aboutText?: string;
+  addToHome?: string;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  contactDesc?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+}
+
+export async function getSiteSettings(businessId?: string) {
   try {
-    let settings = await prisma.siteSettings.findFirst();
-    if (!settings) {
-      settings = await prisma.siteSettings.create({
-        data: {
-          aboutText: "Welcome to our store. We provide high-quality products to our customers.",
-          addToHome: "Add our app to your home screen for a better experience!",
-        },
-      });
+    let settings;
+    if (businessId) {
+      settings = await prisma.siteSettings.findFirst({ where: { businessId } });
+      if (!settings) {
+        settings = await prisma.siteSettings.create({
+          data: {
+            business: { connect: { id: businessId } },
+            aboutText: "Write about your business here",
+            addToHome: "Add our app to your home screen for a better experience!",
+            heroTitle: "Welcome to our store",
+            heroSubtitle: "Browse our products and enjoy great deals",
+            contactDesc: "Contact us today for product inquiries, order support, or business collaborations.",
+            contactEmail: "support@example.com",
+            contactPhone: "000-000-0000",
+          },
+        });
+      }
+    } else {
+      settings = await prisma.siteSettings.findFirst();
+      if (!settings && businessId) {
+        settings = await prisma.siteSettings.create({
+          data: {
+            businessId,
+            aboutText: "Write about your business here",
+            addToHome: "Add our app to your home screen for a better experience!",
+            heroTitle: "Welcome to our store",
+            heroSubtitle: "Browse our products and enjoy great deals",
+            contactDesc: "Contact us today for product inquiries, order support, or business collaborations.",
+            contactEmail: "support@example.com",
+            contactPhone: "000-000-0000",
+          },
+        });
+      }
     }
     return settings;
   } catch (error) {
@@ -21,23 +56,41 @@ export async function getSiteSettings() {
   }
 }
 
-export async function updateSiteSettings(data: { aboutText?: string; addToHome?: string }) {
+export async function updateSiteSettings(
+  data: SiteSettingsInput,
+  businessId?: string
+) {
   try {
-    const settings = await prisma.siteSettings.findFirst();
+    const whereClause = businessId ? { businessId } : {};
+    const settings = businessId
+      ? await prisma.siteSettings.findFirst({ where: { businessId } })
+      : await prisma.siteSettings.findFirst();
     if (settings) {
       await prisma.siteSettings.update({
         where: { id: settings.id },
         data,
       });
     } else {
-      await prisma.siteSettings.create({
-        data: {
-          aboutText: data.aboutText || "Welcome to our store. We provide high-quality products to our customers.",
-          addToHome: data.addToHome || "Add our app to your home screen for a better experience!",
-        },
-      });
+      const createData: any = { ...data };
+      if (businessId) {
+        createData.business = { connect: { id: businessId } };
+      }
+      // fill missing defaults
+      createData.aboutText = createData.aboutText || "Write about your business here";
+      createData.addToHome = createData.addToHome || "Add our app to your home screen for a better experience!";
+      createData.heroTitle = createData.heroTitle || "Welcome to our store";
+      createData.heroSubtitle = createData.heroSubtitle || "Browse our products and enjoy great deals";
+      createData.contactDesc = createData.contactDesc || "Contact us today for product inquiries, order support, or business collaborations.";
+      createData.contactEmail = createData.contactEmail || "support@example.com";
+      createData.contactPhone = createData.contactPhone || "000-000-0000";
+      createData.helpText = createData.helpText || "How can we assist you?";
+
+      await prisma.siteSettings.create({ data: createData });
     }
+    // revalidate home and about/contact pages globally
     revalidatePath("/");
+    revalidatePath("/about");
+    revalidatePath("/contact");
     return { success: true };
   } catch (error) {
     console.error("Failed to update site settings:", error);

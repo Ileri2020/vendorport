@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAppContext } from "@/hooks/useAppContext";
 import { Button } from "@/components/ui/button";
 import { Plus, Edit3, Trash2 } from "lucide-react";
 import {
@@ -16,8 +17,13 @@ import axios from "axios";
 import { toast } from "sonner";
 
 // Fetch categories from backend
-async function getCategories() {
-  const res = await fetch(`/api/dbhandler?model=category`);
+async function getCategories(businessId?: string) {
+  let url = `/api/dbhandler?model=category`;
+  if (businessId) {
+    url += `&businessId=${businessId}`;
+  }
+
+  const res = await fetch(url);
 
   if (!res.ok) return [];
 
@@ -35,9 +41,10 @@ async function getCategories() {
 const FeaturedCategories = () => {
   const [categories, setCategories] = useState([]);
   const isAdmin = useIsAdmin();
+  const { currentBusiness } = useAppContext();
 
   const fetchCategories = async () => {
-    const cats = await getCategories();
+    const cats = await getCategories(currentBusiness?.id);
     setCategories(cats);
   };
 
@@ -90,8 +97,19 @@ const FeaturedCategories = () => {
         </div>
 
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
-          {categories.map((category: any) => (
-            <div key={category.id} className="group relative flex flex-col space-y-4 overflow-hidden rounded-2xl border bg-card shadow transition-all duration-300 hover:shadow-lg">
+          {categories.length === 0 ? (
+            [1,2,3].map((i) => {
+              return (
+                <div key={`empty-${i}`} className="flex flex-col items-center justify-center h-40 border rounded-xl bg-accent/5 text-accent font-bold">
+                  {/* placeholder box */}
+                  Category {i}
+                </div>
+              )
+            })
+          ) : (
+            categories.map((category: any) => {
+              return (
+              <div key={category.id} className="group relative flex flex-col space-y-4 overflow-hidden rounded-2xl border bg-card shadow transition-all duration-300 hover:shadow-lg">
               {isAdmin && (
                 <div className="absolute top-2 right-2 flex gap-2 z-30">
                   <Dialog onOpenChange={(open) => !open && fetchCategories()}>
@@ -143,8 +161,10 @@ const FeaturedCategories = () => {
                   </p>
                 </div>
               </Link>
-            </div>
-          ))}
+                </div>
+            );
+          })
+        )}
         </div>
       </div>
     </section>

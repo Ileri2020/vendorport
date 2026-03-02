@@ -10,7 +10,7 @@ import { Edit2, Check, X } from "lucide-react"
 
 interface AdminEditableProps {
   value: string
-  field: "aboutText" | "addToHome"
+  field: "aboutText" | "addToHome" | "heroTitle" | "heroSubtitle" | "contactDesc" | "contactEmail" | "contactPhone" | "helpText"
   children: React.ReactNode
 }
 
