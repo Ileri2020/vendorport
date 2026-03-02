@@ -576,10 +576,62 @@ export async function POST(req: NextRequest) {
 
     console.log("Creating new", model, "with data:", body);
 
+    // Special handling for business creation: enforce uniqueness and create default settings/pages atomically
+    if (model === "business") {
+      // Normalize name
+      const normalized = (body.name || "").trim();
+      if (!normalized) {
+        return NextResponse.json({ error: "Missing business name" }, { status: 400 });
+      }
+
+      // Check for existing business with same name (case-insensitive fallback)
+      const existing = await prisma.business.findFirst({ where: { name: normalized } });
+      if (existing) {
+        return NextResponse.json({ error: "Business name already exists" }, { status: 409 });
+      }
+
+      // Create business with nested default project settings and a Home page
+      const created = await prisma.business.create({
+        data: {
+          name: normalized,
+          ownerId: body.ownerId,
+          template: body.template || "estore",
+          settings: {
+            create: {
+              currency: body.currency || "NGN",
+              exchangeRate: body.exchangeRate ? parseFloat(body.exchangeRate) : 1.0,
+              pages: {
+                create: [
+                  {
+                    name: "Home",
+                    slug: "home",
+                    sections: {
+                      create: [],
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        },
+        include: {
+          settings: { include: { pages: true } },
+        },
+      });
+
+      return NextResponse.json(created);
+    }
+
     const newItem = await prismaModel.create({ data: body });
     return NextResponse.json(newItem);
   } catch (error) {
     console.error("Database POST error:", error);
+    // If it's a unique constraint failure, surface a 409
+    const errMessage = (error && (error as any).message) || "Failed to create item";
+    if (errMessage.toLowerCase().includes("unique")) {
+      return NextResponse.json({ error: "Duplicate entry" }, { status: 409 });
+    }
+
     return NextResponse.json(
       { error: "Failed to create item" },
       { status: 500 },

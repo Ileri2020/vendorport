@@ -13,11 +13,12 @@ export function ProductCarousel() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        fetch("/api/product?limit=10")
+        fetch("/api/dbhandler?model=product")
             .then(res => res.json())
             .then(data => {
-                const shuffled = (data.products || []).sort(() => Math.random() - 0.5)
-                setProducts(shuffled)
+                // dbhandler returns an array directly for products
+                const shuffled = (Array.isArray(data) ? data : []).sort(() => Math.random() - 0.5)
+                setProducts(shuffled.slice(0, 10)) // Limit to 10 on frontend for now
                 setLoading(false)
             })
             .catch(() => setLoading(false))

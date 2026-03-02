@@ -69,7 +69,7 @@ model Business {
 model ProjectSettings {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   businessId   String   @unique @db.ObjectId
-  business     Business @relation(fields: [businessId], references: [id])
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   currency     String   @default("NGN")
   exchangeRate Float    @default(1.0)
   pages        Page[]
@@ -183,7 +183,7 @@ model Post {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   businessId  String?   @db.ObjectId
-  business    Business? @relation(fields: [businessId], references: [id])
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model Notification {
@@ -199,7 +199,7 @@ model Notification {
   file       String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String?   @db.ObjectId
 }
 
@@ -211,7 +211,7 @@ model Category {
   //slug     String   @unique
   products    Product[]
   businessId  String?   @db.ObjectId
-  business    Business? @relation(fields: [businessId], references: [id])
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -241,7 +241,7 @@ model Product {
   updatedAt         DateTime         @updatedAt
   wishlist          Wishlist[]
   businessId        String?          @db.ObjectId
-  business          Business?        @relation(fields: [businessId], references: [id])
+  business          Business?        @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   // add product features like dosage form, strength, manufacturer, etc
 }
@@ -278,7 +278,7 @@ model Cart {
   lunchId      String?    @db.ObjectId
   lunch        Lunch?     @relation(fields: [lunchId], references: [id], onDelete: SetNull)
   businessId   String?    @db.ObjectId
-  business     Business?  @relation(fields: [businessId], references: [id])
+  business     Business?  @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model CartItem {
@@ -305,7 +305,7 @@ model Payment {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model Coupon {
@@ -314,7 +314,7 @@ model Coupon {
   discount   Float?
   expiresAt  DateTime?
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
@@ -345,7 +345,7 @@ model DeliveryFee {
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@unique([country, state, city, region, businessId])
 }
@@ -357,7 +357,7 @@ model Visit {
   userAgent   String?
   ipAddress   String?
   businessId  String?   @db.ObjectId
-  business    Business? @relation(fields: [businessId], references: [id])
+  business     Business?  @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
 
   @@unique([fingerprint, visitDate, businessId])
@@ -374,7 +374,7 @@ model Refund {
   status     String    @default("pending")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  business   Business? @relation(fields: [businessId], references: [id])
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String?   @db.ObjectId
 }
 
@@ -390,7 +390,7 @@ model Message {
   isSeen        Boolean   @default(false)
   isResolved    Boolean   @default(false)
   businessId    String?   @db.ObjectId
-  business      Business? @relation(fields: [businessId], references: [id])
+  business      Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -400,7 +400,7 @@ model FeaturedProduct {
   product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId  String    @unique @db.ObjectId
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -416,7 +416,7 @@ model Review {
   isArchived Boolean   @default(false)
   reply      Boolean   @default(false)
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -434,7 +434,7 @@ model Lunch {
   status     String    @default("active") // active, completed, cancelled
   carts      Cart[]
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 }
@@ -446,7 +446,7 @@ model Wishlist {
   product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId  String    @db.ObjectId
   businessId String?   @db.ObjectId
-  business   Business? @relation(fields: [businessId], references: [id])
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 

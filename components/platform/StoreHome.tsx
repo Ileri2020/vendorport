@@ -1,3 +1,4 @@
+"use client"
 import React from 'react'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
 import { AdminEditable } from '@/components/utility/AdminEditable'

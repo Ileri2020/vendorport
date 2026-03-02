@@ -27,8 +27,9 @@ const Navbar = (): JSX.Element | null => {
   const pathname = usePathname();
   const { storeName } = useParams();
 
-  // Hide platform navbar if we're in a specific store route
-  if (storeName) return null;
+  // Hide platform navbar UI when on a specific store route, but
+  // avoid returning early so hook order remains stable between renders.
+  const hideNavbar = Boolean(storeName);
 
   useEffect(() => {
     if (status === "authenticated" && user.email === "nil") {
@@ -41,6 +42,8 @@ const Navbar = (): JSX.Element | null => {
   return (
     <TooltipProvider>
       <div className="sticky top-0 z-30 w-full overflow-clip flex flex-col m-0 p-0">
+        {hideNavbar ? null : (
+        <>
         <header className="w-full justify-center items-center py-1 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
           <div className="container mx-auto flex justify-between items-center gap-2 h-[60px] overflow-clip">
 
@@ -104,6 +107,8 @@ const Navbar = (): JSX.Element | null => {
         </header>
         <Advert />
         <GlobalDialog />
+        </>
+        )}
       </div>
     </TooltipProvider>
   )

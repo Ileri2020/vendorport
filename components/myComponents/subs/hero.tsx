@@ -94,6 +94,26 @@ const IconMarquee = () => {
 const Hero = ({ variant = 'modern-split' }: HeroProps) => {
   const { user } = useAppContext();
 
+  // Carousel/Slide Logic (Used in multiple variants, must be global/hook order)
+  const slides = ['/small chops 1.jpg', '/small chops 3.jpg', '/small chops 4.jpg'];
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isFloating, setIsFloating] = useState(false);
+
+  useEffect(() => {
+    if (variant === 'carousel') {
+      const t = setInterval(() => setCurrentSlide(c => (c + 1) % slides.length), 5000);
+      return () => clearInterval(t);
+    }
+  }, [variant, slides.length]);
+
+  useEffect(() => {
+    if (variant === 'carousel') {
+      const handleScroll = () => setIsFloating(window.scrollY > 400);
+      window.addEventListener('scroll', handleScroll);
+      return () => window.removeEventListener('scroll', handleScroll);
+    }
+  }, [variant]);
+
   // Shared Logic
   const DynamicText = () => (
     <RiseAndFadeText
@@ -214,21 +234,6 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
   }
 
   if (variant === 'carousel') {
-    const slides = ['/small chops 1.jpg', '/small chops 3.jpg', '/small chops 4.jpg'];
-    const [currentSlide, setCurrentSlide] = useState(0);
-    const [isFloating, setIsFloating] = useState(false);
-    
-    useEffect(() => {
-        const t = setInterval(() => setCurrentSlide(c => (c + 1) % slides.length), 5000);
-        return () => clearInterval(t);
-    }, []);
-    
-    useEffect(() => {
-        const handleScroll = () => setIsFloating(window.scrollY > 400);
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
-
     return (
       <div className="relative h-screen w-full overflow-hidden">
         {/* Nav & Notification can be part of layout, but here simplified as part of hero */}
