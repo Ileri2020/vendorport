@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings as SettingsIcon, PlusCircle, Layout } from 'lucide-react'
+import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3, PlusCircle } from 'lucide-react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
@@ -20,6 +21,7 @@ const DynamicStorePage = () => {
   const [business, setBusiness] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
   useEffect(() => {
     const fetchBusiness = async () => {
@@ -53,6 +55,11 @@ const DynamicStorePage = () => {
     }
   }, [storeName, setCurrentBusiness]);
 
+  const handleOpenAdmin = (tab: 'pages' | 'settings') => {
+    setAdminTab(null);
+    setTimeout(() => setAdminTab(tab), 10);
+  };
+
   if (isLoading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
@@ -79,13 +86,32 @@ const DynamicStorePage = () => {
     );
   }
 
-  // Find the current page in business settings
-  const currentPage = business.settings?.pages?.find((p: any) => p.slug === pageSlug) || (pageSlug === 'home' ? business.settings?.pages?.[0] : null);
-
   return (
     <div className="min-h-screen bg-background relative flex flex-col">
-       {/* Store Header / Sticky Nav could go here if business wants one */}
-       <StoreHome business={business} activePageSlug={pageSlug} />
+       {/* Admin Toolbar (only if owner/staff) */}
+       {(user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
+         <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+               <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>
+               <span className="font-bold hidden md:inline uppercase tracking-tighter text-sm">Owner Mode: {business.name}</span>
+            </div>
+            <div className="flex gap-2">
+               <Link href={`/${storeName}/analytics`}>
+                 <Button size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+                    <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Insights</span>
+                 </Button>
+               </Link>
+               <Button onClick={() => handleOpenAdmin('pages')} size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+                  <PlusCircle className="h-4 w-4" /> <span className="hidden sm:inline">Add Page</span>
+               </Button>
+               <Button onClick={() => handleOpenAdmin('settings')} size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+                  <Settings className="h-4 w-4" /> <span className="hidden sm:inline">Edit Layout</span>
+               </Button>
+            </div>
+         </div>
+       )}
+
+       <StoreHome business={business} activePageSlug={pageSlug} initialAdminTab={adminTab} />
     </div>
   );
 }

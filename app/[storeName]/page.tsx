@@ -12,7 +12,7 @@ import StoreHome from '@/components/platform/StoreHome'
 const DynamicStorePage = () => {
   const { storeName } = useParams();
   const router = useRouter();
-  const { user } = useAppContext();
+  const { user, setCurrentBusiness } = useAppContext();
   const [business, setBusiness] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +36,7 @@ const DynamicStorePage = () => {
         }
 
         setBusiness(biz);
+        setCurrentBusiness(biz); // Sync context
         setIsLoading(false);
       } catch (err) {
         console.error("Error fetching business:", err);
@@ -47,7 +48,7 @@ const DynamicStorePage = () => {
     if (storeName) {
       fetchBusiness();
     }
-  }, [storeName]);
+  }, [storeName, setCurrentBusiness]);
 
   const handleOpenAdmin = (tab: 'pages' | 'settings') => {
     // We set it to null first then the tab to trigger the effect in StoreHome if it's already set
