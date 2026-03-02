@@ -99,7 +99,7 @@ const Navbar = (): JSX.Element | null => {
                 </div>
               ) : (
                 <Link href="/create-store">
-                   <Button className="bg-accent hover:bg-accent/90 text-white font-bold">Create My Store</Button>
+                   <Button className="bg-accent:bg-accent/90 hover:bg-accent/60 text-white font-bold">Create My Store</Button>
                 </Link>
               )}
             </div>

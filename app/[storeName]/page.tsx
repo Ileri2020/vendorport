@@ -16,6 +16,7 @@ const DynamicStorePage = () => {
   const [business, setBusiness] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
   useEffect(() => {
     const fetchBusiness = async () => {
@@ -47,6 +48,12 @@ const DynamicStorePage = () => {
       fetchBusiness();
     }
   }, [storeName]);
+
+  const handleOpenAdmin = (tab: 'pages' | 'settings') => {
+    // We set it to null first then the tab to trigger the effect in StoreHome if it's already set
+    setAdminTab(null);
+    setTimeout(() => setAdminTab(tab), 10);
+  };
 
   if (isLoading) {
     return (
@@ -80,28 +87,29 @@ const DynamicStorePage = () => {
          <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
             <div className="flex items-center gap-2">
                <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>
-               <span className="font-bold hidden md:inline">Admin Mode: {business.name}</span>
+               <span className="font-bold hidden md:inline uppercase tracking-tighter text-sm">Owner Mode: {business.name}</span>
             </div>
             <div className="flex gap-2">
                <Link href={`/${storeName}/analytics`}>
-                 <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
-                    <BarChart3 className="h-4 w-4" /> Insights
+                 <Button size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+                    <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Insights</span>
                  </Button>
                </Link>
-               <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
-                  <PlusCircle className="h-4 w-4" /> Add Page
+               <Button onClick={() => handleOpenAdmin('pages')} size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+                  <PlusCircle className="h-4 w-4" /> <span className="hidden sm:inline">Add Page</span>
                </Button>
-               <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
-                  <Settings className="h-4 w-4" /> Edit Layout
+               <Button onClick={() => handleOpenAdmin('settings')} size="sm" variant="outline" className="border-2 hover:bg-white/10 flex items-center gap-1 font-bold text-xs h-9">
+                  <Settings className="h-4 w-4" /> <span className="hidden sm:inline">Edit Layout</span>
                </Button>
             </div>
          </div>
        )}
 
-       <StoreHome business={business} />
+       <StoreHome business={business} initialAdminTab={adminTab} />
     </div>
   );
 }
+
 
 // Inline helper for PlusCircle since I missed importing it
 const PlusCircle = ({ className }: { className?: string }) => (

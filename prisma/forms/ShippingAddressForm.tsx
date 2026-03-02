@@ -86,7 +86,7 @@ export default function ShippingAddressForm() {
         <Input type="text" placeholder="Country" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} />
         <Input type="text" placeholder="Phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
         <ul className='w-full'>
           {shippingAddresses.length > 0 ? (
             shippingAddresses.map((item , index) => (

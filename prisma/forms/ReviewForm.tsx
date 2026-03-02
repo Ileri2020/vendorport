@@ -78,8 +78,8 @@ export default function LikeForm() {
             <strong>ID:</strong> {item.id} |
             <strong>Ministry:</strong> {item.ministryId} |
             <strong>User:</strong> {item.userId}
-            <button onClick={() => handleEdit(item)}>Edit</button>
-            <button onClick={() => handleDelete(item.id)}>Delete</button>
+            <Button onClick={() => handleEdit(item)}>Edit</Button>
+            <Button onClick={() => handleDelete(item.id)}>Delete</Button>
           </li>
         ))}
       </ul>

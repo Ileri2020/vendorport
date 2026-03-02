@@ -48,18 +48,18 @@ export function LunchList({ initialLunches }: LunchListProps) {
     return (
         <div className="space-y-6">
              <div className="flex gap-4 border-b">
-                <button 
+                <Button 
                     className={cn("pb-2 px-4 transition-colors", activeTab === "templates" ? "border-b-2 border-primary font-bold" : "text-muted-foreground")}
                     onClick={() => setActiveTab("templates")}
                 >
                     Saved Templates
-                </button>
-                <button 
+                </Button>
+                <Button 
                     className={cn("pb-2 px-4 transition-colors", activeTab === "schedules" ? "border-b-2 border-primary font-bold" : "text-muted-foreground")}
                     onClick={() => setActiveTab("schedules")}
                 >
                     Active Schedules
-                </button>
+                </Button>
             </div>
 
             {activeTab === "templates" ? (
@@ -263,9 +263,9 @@ function LunchItem({ item }: { item: CartItem & { product: Product } }) {
                 <div className="text-xs text-muted-foreground">₦{item.product.price}</div>
             </div>
             <div className="flex items-center gap-1 bg-background border rounded-md h-7">
-                <button className="px-2 hover:bg-muted h-full" onClick={() => handleQuantityChange(-1)}>-</button>
+                <Button className="px-2 hover:bg-muted h-full" onClick={() => handleQuantityChange(-1)}>-</Button>
                 <span className="text-xs w-4 text-center">{item.quantity}</span>
-                <button className="px-2 hover:bg-muted h-full" onClick={() => handleQuantityChange(1)}>+</button>
+                <Button className="px-2 hover:bg-muted h-full" onClick={() => handleQuantityChange(1)}>+</Button>
             </div>
         </div>
     )

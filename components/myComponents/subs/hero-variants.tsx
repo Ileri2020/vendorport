@@ -83,7 +83,7 @@ const CarouselHero = () => {
           className="fixed top-16 left-0 right-0 z-40 bg-accent text-white py-2 px-4 text-center text-sm"
         >
           Free delivery on orders over ₦5,000
-          <button onClick={() => setShowNotification(false)} className="ml-4 underline">Dismiss</button>
+          <Button onClick={() => setShowNotification(false)} className="ml-4 underline">Dismiss</Button>
         </motion.div>
       )}
 
@@ -106,18 +106,18 @@ const CarouselHero = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
         {/* Carousel Controls */}
-        <button
+        <Button
           onClick={prevSlide}
           className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full p-3 z-20"
         >
           <ChevronLeft className="h-6 w-6 text-white" />
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={nextSlide}
           className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full p-3 z-20"
         >
           <ChevronRight className="h-6 w-6 text-white" />
-        </button>
+        </Button>
 
         {/* Pagination Dots */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-20">

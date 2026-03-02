@@ -94,7 +94,7 @@ export default function UserForm() {
           <option value="moderator">Moderator</option>
         </select>
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
 
         <ul className='w-full'>
         {users.length > 0 ? (

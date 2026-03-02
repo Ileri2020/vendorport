@@ -216,27 +216,27 @@ export function CartClient({ className }: CartProps) {
                                                 <Link href={`/store/${item.id}`} className="text-sm font-medium">
                                                     {item.name ?? "Unnamed product"}
                                                 </Link>
-                                                <button onClick={() => removeItem(item.id)}>
+                                                <Button onClick={() => removeItem(item.id)}>
                                                     <X className="h-4 w-4" />
-                                                </button>
+                                                </Button>
                                             </div>
 
                                             <div className="mt-2 flex justify-between items-center">
                                                 <div className="flex items-center border rounded">
-                                                    <button
+                                                    <Button
                                                         disabled={item.quantity <= 1}
                                                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
                                                         className="px-2"
                                                     >
                                                         <Minus size={12} />
-                                                    </button>
+                                                    </Button>
                                                     <span className="px-3 text-sm">{item.quantity}</span>
-                                                    <button
+                                                    <Button
                                                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                                                         className="px-2"
                                                     >
                                                         <Plus size={12} />
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                                 <span className="text-sm font-medium">
                                                     ₦{(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}

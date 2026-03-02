@@ -1,4 +1,5 @@
 
+import { Button } from '@/components/ui/button';
 import React, { useEffect, useState } from 'react';
 
 interface CarouselProps {
@@ -32,18 +33,18 @@ export const CoverCarousel: React.FC<CarouselProps> = ({ numCards }) => {
       <div className="absolute w-full h-full transform-3d rotate-y-0 transition-transform duration-1000">
         {cards}
       </div>
-      <button
+      <Button
         onClick={handlePrev}
         className="absolute top-1/2 left-0 transform -translate-y-1/2 bg-gray-200 p-2 rounded-full"
       >
         Prev
-      </button>
-      <button
+      </Button>
+      <Button
         onClick={handleNext}
         className="absolute top-1/2 right-0 transform -translate-y-1/2 bg-gray-200 p-2 rounded-full"
       >
         Next
-      </button>
+      </Button>
     </div>
   );
 };

@@ -77,7 +77,7 @@ export default function PostForm() {
         <Input type="text" placeholder="Description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
         <Input type="text" placeholder="Content URL" value={formData.contentUrl} onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })} />
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
         <ul className='w-full'>
           {posts.length > 0 ? (
             posts.map((item , index) => (

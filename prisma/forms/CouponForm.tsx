@@ -60,7 +60,7 @@ export default function CouponForm() {
         <Input type="number" placeholder="Discount" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} />
         <Input type="datetime-local" placeholder="Expires At" value={formData.expiresAt} onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })} />
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
         <ul className='w-full'>
           {coupons.length > 0 ? (
             coupons.map((item , index) => (

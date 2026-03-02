@@ -358,18 +358,18 @@ export default function ProductDetailPage() {
           {/* Navigation Arrows */}
           {product.image.length > 1 && (
             <>
-              <button 
+              <Button 
                 onClick={(e) => { e.preventDefault(); prevImage(); }} 
                 className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 backdrop-blur-sm text-white rounded-full hover:bg-black/50 transition-all opacity-0 group-hover:opacity-100 z-10"
               >
                 <ChevronLeft size={24} />
-              </button>
-              <button 
+              </Button>
+              <Button 
                 onClick={(e) => { e.preventDefault(); nextImage(); }} 
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 backdrop-blur-sm text-white rounded-full hover:bg-black/50 transition-all opacity-0 group-hover:opacity-100 z-10"
               >
                 <ChevronRight size={24} />
-              </button>
+              </Button>
 
               {/* Dots / Thumbnails Overlay */}
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">

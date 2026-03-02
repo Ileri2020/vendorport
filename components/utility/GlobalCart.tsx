@@ -285,11 +285,11 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
                              <PriceDisplay amount={item.price} className="text-xs font-bold text-accent" />
                              <div className="flex items-center gap-3 pt-1">
                                <div className="flex items-center border rounded-full px-2 py-0.5 gap-3 bg-muted/10">
-                                 <button onClick={() => updateQuantity(item.id, item.quantity - 1, bid)} className="p-1"><Minus className="h-2 w-2" /></button>
+                                 <Button onClick={() => updateQuantity(item.id, item.quantity - 1, bid)} className="p-1"><Minus className="h-2 w-2" /></Button>
                                  <span className="text-[10px] font-black">{item.quantity}</span>
-                                 <button onClick={() => updateQuantity(item.id, item.quantity + 1, bid)} className="p-1"><Plus className="h-2 w-2" /></button>
+                                 <Button onClick={() => updateQuantity(item.id, item.quantity + 1, bid)} className="p-1"><Plus className="h-2 w-2" /></Button>
                                </div>
-                               <button onClick={() => removeItem(item.id, bid)} className="hover:text-destructive ml-auto"><Trash2 className="h-3 w-3" /></button>
+                               <Button onClick={() => removeItem(item.id, bid)} className="hover:text-destructive ml-auto"><Trash2 className="h-3 w-3" /></Button>
                              </div>
                            </div>
                          </div>

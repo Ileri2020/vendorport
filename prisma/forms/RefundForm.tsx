@@ -67,7 +67,7 @@ export default function RefundForm() {
           <option value="rejected">Rejected</option>
         </select>
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
         <ul className='w-full'>
           {refunds.length > 0 ? (
             refunds.map((item , index) => (

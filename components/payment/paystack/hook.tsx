@@ -2,6 +2,7 @@ import React from 'react';
 import logo from './logo.svg';
 import { usePaystackPayment } from 'react-paystack';
 import './App.css';
+import { Button } from '@/components/ui/button';
 
 const config = {
     reference: (new Date()).getTime().toString(),
@@ -26,9 +27,9 @@ const PaystackHookExample = () => {
     const initializePayment = usePaystackPayment(config);
     return (
       <div>
-          <button onClick={() => {
+          <Button onClick={() => {
               // initializePayment(onSuccess, onClose)
-          }}>Paystack Hooks Implementation</button>
+          }}>Paystack Hooks Implementation</Button>
       </div>
     );
 };

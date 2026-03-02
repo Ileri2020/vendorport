@@ -7,6 +7,7 @@ import { toggleWishlist, checkWishlisStatus } from "@/action/wishlist"
 import { AddLunchDialog } from "./AddLunchDialog"
 import Link from "next/link"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 
 export function ProductCarousel() {
     const [products, setProducts] = useState<any[]>([])
@@ -87,16 +88,16 @@ function CarouselCard({ product }: { product: any }) {
                 </div>
 
                 {/* Wishlist Icon */}
-                <button 
+                <Button 
                     onClick={handleWishlist}
                     className="absolute top-2 right-12 bg-background/60 backdrop-blur-sm p-1.5 rounded-full z-10 hover:bg-background transition-colors"
                 >
                     <Heart className={cn("h-4 w-4", isInWishlist ? "fill-destructive text-destructive" : "text-muted-foreground")} />
-                </button>
+                </Button>
 
                 {/* Add to Cart Overlay */}
                 <div className="absolute bottom-0 left-0 right-0 h-1/5 bg-background/60 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button 
+                    <Button 
                         className="w-full h-full flex items-center justify-center gap-2 font-bold text-sm text-primary hover:bg-primary hover:text-white transition-colors"
                         onClick={(e) => {
                             e.preventDefault();
@@ -105,7 +106,7 @@ function CarouselCard({ product }: { product: any }) {
                         }}
                     >
                         <ShoppingCart className="h-4 w-4" /> Add to Cart
-                    </button>
+                    </Button>
                 </div>
             </div>
 
