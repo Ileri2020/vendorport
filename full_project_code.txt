@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-02 12:25:02
+Generated: 2026-03-02 12:34:39
 ================================================================================
 
 
@@ -1842,7 +1842,6 @@ export async function GET(req: Request) {
 LOCATION: app\api\auth\login\route.ts
 ================================================================================
 
-"use server"
 import { PrismaClient } from '@prisma/client';
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcrypt';
@@ -1946,7 +1945,7 @@ export async function POST(req: NextRequest) {
 LOCATION: app\api\auth\send-verification-code\route.ts
 ================================================================================
 
-"use server";
+;
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { sendVerificationEmail } from "@/lib/nodemailer";
@@ -2045,7 +2044,6 @@ export async function POST(req: NextRequest) {
 LOCATION: app\api\auth\verify-code-set-password\route.ts
 ================================================================================
 
-"use server"
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
@@ -2847,7 +2845,7 @@ export default dbHandler;
 LOCATION: app\api\dbhandler\route.ts
 ================================================================================
 
-"use server";
+;
 
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
@@ -4100,7 +4098,7 @@ export const POST = async (req: Request) => {
 LOCATION: app\api\payment\route.ts
 ================================================================================
 
-"use server";
+;
 
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
@@ -5108,7 +5106,7 @@ export async function GET(req: NextRequest) {
 LOCATION: app\api\visit\route.ts
 ================================================================================
 
-"use server";
+;
 
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";

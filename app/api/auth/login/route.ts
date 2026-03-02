@@ -1,4 +1,3 @@
-"use server"
 import { PrismaClient } from '@prisma/client';
 import { NextRequest } from 'next/server';
 import bcrypt from 'bcrypt';
