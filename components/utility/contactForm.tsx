@@ -8,8 +8,10 @@ import React, { useRef, useState, FormEvent } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppContext } from "@/hooks/useAppContext";
 
-const ContactForm = () => {
-  const { user } = useAppContext();
+const ContactForm = ({ businessId }: { businessId?: string }) => {
+  const { user, currentBusiness } = useAppContext();
+  const effectiveBusinessId = businessId || currentBusiness?.id;
+  
   const [details, setDetails] = useState({
     username: user?.name || "",
     email: user?.email || "",
@@ -45,6 +47,7 @@ const ContactForm = () => {
         senderEmail: details.email,
         subject: details.category,
         message: details.message,
+        businessId: effectiveBusinessId,
       };
 
       const res = await fetch("/api/dbhandler?model=message", {

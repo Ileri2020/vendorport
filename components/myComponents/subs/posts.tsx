@@ -2,18 +2,40 @@
 import React, { useEffect, useState } from 'react';
 import Post from './post';
 import axios from 'axios';
+import { useAppContext } from '@/hooks/useAppContext';
 
 const Posts = ({ page }) => {
+  const { currentBusiness } = useAppContext();
   const [allpost, setallpost] = useState(null);
   const [sortOrder, setSortOrder] = useState('desc');
   const [postTypes, setPostTypes] = useState({ video: true, audio: true, image: true, });
 
   const fetchallpost = () =>{
-    axios.get('/api/dbhandler', { params: { model: 'posts', } })
+    if (!currentBusiness?.id) return;
+
+    axios.get('/api/dbhandler', { 
+      params: { 
+        model: 'post', 
+        businessId: currentBusiness.id 
+      } 
+    })
       .then(response => {
         const posts = response.data;
-        let filteredPosts = posts.filter(post => post.for === page && postTypes[post.type]);
-        filteredPosts = filteredPosts.sort((a, b) => sortOrder === 'asc' ? new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime() : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        let filteredPosts = posts.filter(post => post.for === page || !post.for);
+        
+        // Apply post type filter if post types are defined
+        if (postTypes) {
+           filteredPosts = filteredPosts.filter(post => {
+              if (!post.type) return true;
+              return postTypes[post.type];
+           });
+        }
+
+        filteredPosts = filteredPosts.sort((a, b) => 
+           sortOrder === 'asc' 
+           ? new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime() 
+           : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
         setallpost(filteredPosts);
       })
       .catch(error => {
@@ -23,7 +45,7 @@ const Posts = ({ page }) => {
 
   useEffect(() => {
     fetchallpost();
-  }, [sortOrder, postTypes, page]);
+  }, [sortOrder, postTypes, page, currentBusiness?.id]);
 
   const handleSortChange = (e) => {
     setSortOrder(e.target.value);

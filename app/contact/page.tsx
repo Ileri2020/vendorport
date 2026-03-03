@@ -8,43 +8,19 @@ import { useAppContext } from "@/hooks/useAppContext"
 import { useEffect, useState } from "react"
 import Social from "@/components/utility/social"
 import ContactForm from "@/components/utility/contactForm"
-import MessageHistory from "@/components/utility/MessageHistory"
-import { Badge } from "@/components/ui/badge"
 import { useSession } from "next-auth/react"
-import axios from "axios"
 import { FaEnvelope } from "react-icons/fa"
 import { MdOutlinePhone } from "react-icons/md"
+import { ChatInterface } from "@/components/myComponents/subs/ChatInterface"
 
 const Contact = () => {
   const { data: session } = useSession();
-  const [unseenCount, setUnseenCount] = useState(0);
   const { currentBusiness } = useAppContext();
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
     getSiteSettings(currentBusiness?.id).then(setSettings);
   }, [currentBusiness]);
-
-  useEffect(() => {
-    const fetchUnseenCount = async () => {
-      if (!session?.user?.email) return;
-
-      try {
-        const res = await axios.get("/api/dbhandler?model=message");
-        const userMessages = res.data.filter(
-          (msg: any) => msg.senderEmail === session.user.email && !msg.isSeen && msg.adminResponse
-        );
-        setUnseenCount(userMessages.length);
-      } catch (error) {
-        console.error("Failed to fetch unseen count:", error);
-      }
-    };
-
-    fetchUnseenCount();
-    // Poll every 30 seconds for new messages
-    const interval = setInterval(fetchUnseenCount, 30000);
-    return () => clearInterval(interval);
-  }, [session]);
 
   return (
     <motion.section
@@ -53,81 +29,67 @@ const Contact = () => {
         opacity: 1,
         transition: { delay: 0.5, duration: 0.6, ease: "easeIn" }
       }}
-      className="w-[100vw] overflow-clip py-6 relative"
+      className="w-full overflow-hidden py-12 relative"
     >
-      {/* Unseen Messages Badge */}
-      {unseenCount > 0 && (
-        <div className="fixed top-20 right-4 z-50 md:top-24 md:right-8">
-          <Badge variant="destructive" className="text-sm px-3 py-1 shadow-lg animate-pulse">
-            {unseenCount} New Message{unseenCount > 1 ? "s" : ""}
-          </Badge>
-        </div>
-      )}
+      <div className="container mx-auto px-4">
+        <div className="max-w-6xl mx-auto space-y-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            {/* Left Box: Contact Form */}
+            <div className="order-2 lg:order-1 bg-card rounded-[2.5rem] shadow-2xl overflow-hidden border">
+              <ContactForm />
+            </div>
 
-      <div className="container mx-auto">
-        <div className="flex flex-col xl:flex-row gap-[30px]">
-          <div className="xl:h-[54%] order-2 xl:order-none">
-            <ContactForm />
-          </div>
-          <div className="flex flex-col flex-1 max-w-[480px] mx-3">
-            <div className="text-2xl font-semibold my-3 text-center md:text-start">Let's talk</div>
-            <AdminEditable value={settings?.contactDesc || contact.description} field="contactDesc">
-              <div className="my-5">
-                {settings?.contactDesc || contact.description}
+            {/* Right Box: Info */}
+            <div className="order-1 lg:order-2 flex flex-col space-y-8 p-6">
+              <div>
+                <h1 className="text-5xl font-black tracking-tighter mb-4">Let's Connect</h1>
+                <AdminEditable value={settings?.contactDesc || contact.description} field="contactDesc">
+                  <p className="text-xl text-muted-foreground leading-relaxed italic">
+                    {settings?.contactDesc || contact.description}
+                  </p>
+                </AdminEditable>
               </div>
-            </AdminEditable>
-            <div className="flex flex-col">
-              {/* show email and phone if settings exist, otherwise fall back to static list */}
-              {settings ? (
-                <>
-                  <div className="flex flex-row m-2">
-                    <div className="p-2 text-3xl"><FaEnvelope/></div>
-                    <div className="flex flex-col mx-5">
-                      <div className="text-lg my-1">Email</div>
-                      <AdminEditable value={settings.contactEmail || ""} field="contactEmail">
-                        <div>{settings.contactEmail}</div>
-                      </AdminEditable>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
+                 <div className="flex gap-6 items-center p-4 bg-accent/5 rounded-3xl border border-accent/10">
+                    <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent text-2xl shadow-inner"><FaEnvelope/></div>
+                    <div>
+                       <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Email Us</p>
+                       <AdminEditable value={settings?.contactEmail || "support@vendorport.com"} field="contactEmail">
+                          <p className="font-bold text-lg">{settings?.contactEmail || "support@vendorport.com"}</p>
+                       </AdminEditable>
                     </div>
-                  </div>
-                  <div className="flex flex-row m-2">
-                    <div className="p-2 text-3xl"><MdOutlinePhone/></div>
-                    <div className="flex flex-col mx-5">
-                      <div className="text-lg my-1">Phone</div>
-                      <AdminEditable value={settings.contactPhone || ""} field="contactPhone">
-                        <div>{settings.contactPhone}</div>
-                      </AdminEditable>
+                 </div>
+                 <div className="flex gap-6 items-center p-4 bg-accent/5 rounded-3xl border border-accent/10">
+                    <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent text-2xl shadow-inner"><MdOutlinePhone/></div>
+                    <div>
+                       <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Call Us</p>
+                       <AdminEditable value={settings?.contactPhone || "+234 800 000 0000"} field="contactPhone">
+                          <p className="font-bold text-lg">{settings?.contactPhone || "+234 800 000 0000"}</p>
+                       </AdminEditable>
                     </div>
-                  </div>
-                </>
-              ) : (
-                contact.contact.map((contact, index) => {
-                  return (
-                    <div className="flex flex-row m-2" key={index}>
-                      <div className="p-2 text-3xl">{contact.icon}</div>
-                      <div className="flex flex-col mx-5">
-                        <div className="text-lg my-1">{contact.text}</div>
-                        <div>{contact.value}</div>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
+                 </div>
+              </div>
+
+              <div className="pt-6 border-t border-dashed">
+                <p className="text-sm font-black uppercase tracking-[0.2em] mb-4 text-center lg:text-left">Follow Our Journey</p>
+                <Social
+                  containerStyles='flex gap-4'
+                  iconStyles='w-12 h-12 border-2 border-accent rounded-2xl flex justify-center items-center text-accent text-xl hover:bg-accent hover:text-white transition-all duration-500 shadow-lg shadow-accent/10'
+                />
+              </div>
             </div>
-            <div className="w-full mx-2 my-10 flex justify-center items-center">
-              <Social
-                containerStyles='flex gap-4 md:gap-6 mx-auto'
-                iconStyles='w-9 h-9 border border-accent rounded-full flex justify-center items-center text-accent text-base hover:bg-accent hover:text-background/80 hover:transition-all duration-500'
-              />
-            </div>
+          </div>
+
+          {/* Chat Section */}
+          <div className="pt-16 border-t">
+             <div className="text-center mb-12">
+                <h2 className="text-3xl font-black tracking-tight mb-2">Live Support</h2>
+                <p className="text-muted-foreground">Chat with our dedicated support team in real-time.</p>
+             </div>
+             <ChatInterface />
           </div>
         </div>
-
-        {/* Message History Section */}
-        {session && (
-          <div className="mt-12">
-            <MessageHistory />
-          </div>
-        )}
       </div>
     </motion.section>
   )

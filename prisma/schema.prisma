@@ -18,7 +18,7 @@ model User {
   emailVerified DateTime?
   password      String?
   providerid    String?
-  role          String            @default("customer") //professional admin staff
+  role          String            @default("customer") //professional admin staff supreme
   cart          Cart[]
   //orders   Order[]
   reviews       Review[]
@@ -52,6 +52,7 @@ model Business {
   siteSettings     SiteSettings?
   products         Product[]
   categories       Category[]
+  staff            Staff[]
   carts            Cart[]
   coupons          Coupon[]
   deliveryFees     DeliveryFee[]
@@ -95,6 +96,18 @@ model Section {
   order  Int
 }
 
+model Staff {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  role       String
+  bio        String?
+  image      String?
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 model SiteSettings {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   businessId   String   @unique @db.ObjectId
@@ -106,7 +119,11 @@ model SiteSettings {
   contactDesc  String   @default("Contact us today for product inquiries, order support, or business collaborations.")
   contactEmail String?  @default("support@example.com")
   contactPhone String?  @default("000-000-0000")
-  helpText    String   @default("How can we assist you?")
+  helpText     String   @default("How can we assist you?")
+  facebook     String?
+  instagram    String?
+  twitter      String?
+  linkedin     String?
   updatedAt    DateTime @updatedAt
 }
 
@@ -184,7 +201,10 @@ model Post {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
   title       String?
   description String?
-  contentUrl  String?
+  url         String? // changed from contentUrl to match frontend
+  type        String?   @default("image") // video, audio, image
+  for         String? // e.g., "General", "Hospital", etc.
+  event       String?
   author      User      @relation(fields: [authorId], references: [id])
   authorId    String    @db.ObjectId
   // product    Product?     @relation(fields: [productId], references: [id])
@@ -366,7 +386,7 @@ model Visit {
   userAgent   String?
   ipAddress   String?
   businessId  String?   @db.ObjectId
-  business     Business?  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
 
   @@unique([fingerprint, visitDate, businessId])
@@ -383,7 +403,7 @@ model Refund {
   status     String    @default("pending")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String?   @db.ObjectId
 }
 

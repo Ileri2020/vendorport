@@ -11,6 +11,11 @@ interface SiteSettingsInput {
   contactDesc?: string;
   contactEmail?: string;
   contactPhone?: string;
+  helpText?: string;
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  linkedin?: string;
 }
 
 export async function getSiteSettings(businessId?: string) {

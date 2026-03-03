@@ -9,12 +9,12 @@ export const useIsBusinessAdmin = () => {
   
   if (!user || user.id === "nil" || !currentBusiness) return false;
   
-  // Check if current user is the owner of the business
-  const isOwner = user.id === currentBusiness.ownerId;
+  // Check if current user is the owner of the business OR is a supreme admin
+  const isOwner = user.id === currentBusiness.ownerId || user.role === 'supreme';
   
-  // Check if the business slug matches the storeName in URL
+  // Check if the business slug matches the storeName in URL OR is supreme admin
   const currentSlug = currentBusiness.name.toLowerCase().replace(/\s+/g, '-');
-  const isCorrectDomain = currentSlug === storeName;
+  const isCorrectDomain = currentSlug === storeName || user.role === 'supreme';
   
   return isOwner && isCorrectDomain;
 }

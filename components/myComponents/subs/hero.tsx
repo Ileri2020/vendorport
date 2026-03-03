@@ -28,6 +28,9 @@ type HeroVariant = 'modern-split' | 'immersive' | 'carousel' | 'story' | 'menu' 
 
 interface HeroProps {
   variant?: HeroVariant;
+  title?: string;
+  subtitle?: string;
+  sectionId?: string;
 }
 
 // --- Shared Components ---
@@ -93,15 +96,17 @@ const IconMarquee = () => {
 
 // --- Main Component ---
 
-const Hero = ({ variant = 'modern-split' }: HeroProps) => {
+const Hero = ({ variant = 'modern-split', title, subtitle, sectionId }: HeroProps) => {
   const { user, currentBusiness } = useAppContext();
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    getSiteSettings(currentBusiness?.id).then(setSettings);
+    if (currentBusiness?.id) {
+       getSiteSettings(currentBusiness.id).then(setSettings);
+    }
   }, [currentBusiness]);
 
-  // Carousel/Slide Logic (Used in multiple variants, must be global/hook order)
+  // Carousel/Slide Logic
   const slides = ['/small chops 1.jpg', '/small chops 3.jpg', '/small chops 4.jpg'];
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isFloating, setIsFloating] = useState(false);
@@ -114,25 +119,19 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
   }, [variant, slides.length]);
 
   useEffect(() => {
-    if (variant === 'carousel') {
-      const handleScroll = () => setIsFloating(window.scrollY > 400);
-      window.addEventListener('scroll', handleScroll);
-      return () => window.removeEventListener('scroll', handleScroll);
-    }
-  }, [variant]);
+    const handleScroll = () => setIsFloating(window.scrollY > 400);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Shared Logic
   const DynamicText = () => (
     <RiseAndFadeText
       texts={
         settings?.heroDynamicTexts || [
-          "From Succo Stores", "Card & Bank Transfer Payments", "Login With Google or Facebook",
+          "From " + (currentBusiness?.name || "Our Store"), "Card & Bank Transfer Payments", "Login With Google or Facebook",
           "Naturally Processed Spices", "Quality You Can Trust", "Trusted by Homes and Businesses",
           "Fast & Reliable Delivery", "Carefully Packed for Freshness", "Customer Satisfaction Guaranteed",
-          "Premium Products, Fair Prices", "Authentic Nigerian Spice Blends", "Locally Sourced, Globally Delivered",
-          "Traditional Taste, Modern Quality", "Export-Standard Food Products", "Crafted for Every Kitchen",
-          "Pure. Natural. Flavorful.", "Freshness in Every Pack", "Spices That Elevate Your Meals",
-          "Taste You Can Trust", "Quality Without Compromise",
         ]
       }
       className="text-xl md:text-2xl mt-2 font-semibold text-muted-foreground overflow-hidden"
@@ -144,9 +143,11 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
     transition: { duration: 2, repeat: Infinity, ease: "easeInOut" }
   };
 
+  const storeBase = currentBusiness?.name ? `/${currentBusiness.name.toLowerCase().replace(/\s+/g, '-')}` : '/store';
+
   const CTAButtons = ({ className = "" }: { className?: string }) => (
     <div className={`flex flex-col gap-3 sm:flex-row z-10 ${className}`}>
-      <Link href="/store" className='w-full max-w-52'>
+      <Link href={`${storeBase}/store`} className='w-full max-w-52'>
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={buttonBounce}>
           <Button className={`h-12 gap-1.5 px-8 transition-all duration-200 bg-accent hover:bg-accent/90 w-full text-white font-bold text-lg shadow-xl shadow-accent/20`} size="lg">
             Shop Now <ArrowRight className="h-5 w-5 animate-pulse" />
@@ -169,7 +170,7 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
     <div className={`flex flex-wrap gap-5 text-sm ${className} mt-4`}>
       <div className="flex items-center gap-1.5">
         <Truck className="h-5 w-5 text-primary" />
-        <span>Free shipping over ₦200,000</span>
+        <span>Free shipping available</span>
       </div>
       <div className="flex items-center gap-1.5">
         <Clock className="h-5 w-5 text-primary" />
@@ -177,6 +178,44 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
       </div>
     </div>
   );
+
+  const editableTitle = (defaultVal: string) => {
+    const val = title || (sectionId ? defaultVal : (settings?.heroTitle || defaultVal));
+    const model = sectionId ? "section" : "siteSettings";
+    const field = sectionId ? "data.title" : "heroTitle";
+    const id = sectionId || settings?.id || "";
+
+    return (
+      <AdminEditable 
+        value={val} 
+        field={field} 
+        model={model} 
+        id={id} 
+        as="span" 
+        className="relative z-10" 
+        data={sectionId ? { title: val, text: subtitle } : undefined}
+      />
+    );
+  };
+
+  const editableSubtitle = (defaultVal: string) => {
+    const val = subtitle || (sectionId ? defaultVal : (settings?.heroSubtitle || defaultVal));
+    const model = sectionId ? "section" : "siteSettings";
+    const field = sectionId ? "data.text" : "heroSubtitle";
+    const id = sectionId || settings?.id || "";
+
+    return (
+      <AdminEditable 
+        value={val} 
+        field={field} 
+        model={model} 
+        id={id} 
+        as="p" 
+        className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed" 
+        data={sectionId ? { title, text: val } : undefined}
+      />
+    );
+  };
 
   // --- VARIANTS ---
 
@@ -190,28 +229,14 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
               <div className="flex z-50 md:hidden w-full justify-center items-center"><SearchInput /></div>
               <div className="space-y-4">
                 <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-accent/10 text-accent hover:bg-accent/20">
-                  <Star className="mr-1 h-3 w-3 fill-accent" /> #1 Choice
+                  <Star className="mr-1 h-3 w-3 fill-accent" /> Top Rated
                 </div>
                 <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-                  <AdminEditable
-                    value={settings?.heroTitle || "World of flavors! 🍴"}
-                    field="heroTitle"
-                    model="siteSettings"
-                    id={settings?.id || ""}
-                    as="span"
-                    className="block text-foreground"
-                  />
-                   <span className="block text-accent">Succo</span>
+                   <div className="block text-foreground">{editableTitle("World of flavors!")}</div>
+                   <span className="block text-accent uppercase tracking-tighter">{currentBusiness?.name || "Our Store"}</span>
                  </h1>
                   <DynamicText />
-                  <AdminEditable
-                    value={settings?.heroSubtitle || "Discover premium products at competitive prices, with fast shipping and exceptional customer service."}
-                    field="heroSubtitle"
-                    model="siteSettings"
-                    id={settings?.id || ""}
-                    as="p"
-                    className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed"
-                  />
+                  {editableSubtitle("Discover premium products at competitive prices, with fast shipping and exceptional customer service.")}
               </div>
               <ProductCarousel />
               <CTAButtons />
@@ -221,7 +246,7 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative w-[400px] h-[400px] bg-accent/10 rounded-full animate-blob mix-blend-multiply filter blur-xl opacity-70"></div>
                 <div className="relative w-[400px] h-[400px] bg-primary/10 rounded-full animate-blob animation-delay-2000 mix-blend-multiply filter blur-xl opacity-70 -ml-20"></div>
-                <img src="/mission-burrito-fast-food-shawarma-kati-roll-breakfast-6dd86711999109a88eae948201cd24bf.png" alt="Delicious Food" className="relative z-10 w-[450px] h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+                <img src="/mission-burrito-fast-food-shawarma-kati-roll-breakfast-6dd86711999109a88eae948201cd24bf.png" alt="Featured" className="relative z-10 w-[450px] h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
               </div>
             </motion.div>
           </div>
@@ -242,9 +267,10 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="backdrop-blur-md bg-black/30 p-8 md:p-10 rounded-2xl border border-white/10 shadow-2xl">
               <div className="flex z-50 md:hidden w-full justify-center items-center mb-6"><SearchInput /></div>
               <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight mb-4 drop-shadow-md">
-                Indulge in a world of flavors! 🍴 <br /><span className="text-accent">Succo</span>
+                {editableTitle("Exclusive Experience")} <br />
+                <span className="text-accent">{currentBusiness?.name || "Premium Store"}</span>
               </h1>
-              <div className="text-gray-200 mb-8"><DynamicText /></div>
+              <div className="text-gray-200 mb-8">{editableSubtitle("Quality products tailored just for you.")}</div>
               <CTAButtons />
               <TrustBadges className="text-gray-300" />
             </motion.div>
@@ -257,36 +283,25 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
   if (variant === 'carousel') {
     return (
       <div className="relative h-screen w-full overflow-hidden">
-        {/* Nav & Notification can be part of layout, but here simplified as part of hero */}
-        <div className="absolute top-0 left-0 right-0 z-40 bg-accent text-white py-1 text-center text-sm font-bold">Free delivery on orders over ₦5,000</div>
-        
+        <div className="absolute top-0 left-0 right-0 z-40 bg-accent text-white py-1 text-center text-sm font-bold">Welcome to {currentBusiness?.name || "Our Store"}</div>
         <div className="absolute inset-0 bg-black/60 z-10" />
         <AnimatePresence mode='wait'>
             <motion.img key={currentSlide} src={slides[currentSlide]} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:1}} className="absolute inset-0 w-full h-full object-cover" />
         </AnimatePresence>
-
         <div className="relative z-20 container mx-auto h-full flex flex-col justify-center items-center text-center px-4 pt-20">
-           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">Order Fresh <span className="text-accent">Online</span></h1>
-           <div className="text-gray-200 mb-8 text-xl"><DynamicText /></div>
+           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+              {editableTitle("Fresh Quality")} <span className="text-accent">Online</span>
+           </h1>
+           <div className="text-gray-200 mb-8 text-xl">{editableSubtitle("Order from the comfort of your home.")}</div>
            <CTAButtons />
-           <div className="mt-8 flex gap-4 bg-white/10 backdrop-blur rounded-lg p-2 text-white">
-                <MapPin /> <span className='font-bold'>Select Location:</span> Lagos (Main)
-           </div>
-           
            <div className="absolute bottom-0 w-full bg-background/90 backdrop-blur-md py-6 border-t hidden md:block">
               <div className="container mx-auto grid grid-cols-3 gap-4">
-                  <div className='flex flex-col items-center'><Clock className="text-accent h-6 w-6"/><span className="font-bold">Mon-Sat: 8AM-8PM</span></div>
+                  <div className='flex flex-col items-center'><Clock className="text-accent h-6 w-6"/><span className="font-bold">24/7 Support</span></div>
                   <div className='flex flex-col items-center'><Truck className="text-accent h-6 w-6"/><span className="font-bold">Fast Delivery</span></div>
-                  <div className='flex flex-col items-center'><Star className="text-accent h-6 w-6"/><span className="font-bold">5-Star Quality</span></div>
+                  <div className='flex flex-col items-center'><Star className="text-accent h-6 w-6"/><span className="font-bold">Standard Quality</span></div>
               </div>
            </div>
         </div>
-        
-        {isFloating && (
-           <motion.div initial={{y:100}} animate={{y:0}} className="fixed bottom-6 right-6 z-50">
-              <Button size="lg" className="rounded-full h-16 w-16 shadow-2xl bg-accent text-white"><ShoppingCart /></Button>
-           </motion.div>
-        )}
       </div>
     )
   }
@@ -297,138 +312,28 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
             <div className="fixed inset-0 -z-10 bg-[url('/small%20chops%201.jpg')] bg-cover bg-center bg-fixed opacity-20" />
             <div className="container mx-auto px-4 py-20 min-h-screen grid lg:grid-cols-2 gap-12 items-center">
                 <div className="space-y-8">
-                    <h1 className="text-6xl font-bold">Crafted with <span className="text-accent">Passion</span></h1>
-                    <div className="text-muted-foreground text-xl"><DynamicText /></div>
+                    <h1 className="text-6xl font-bold">{editableTitle("Our Passion")}</h1>
+                    <div className="text-muted-foreground text-xl">{editableSubtitle("The journey of our store and vision.")}</div>
                     <Accordion type="single" collapsible className="w-full bg-background/80 backdrop-blur-sm rounded-lg p-4">
                         <AccordionItem value="story">
-                            <AccordionTrigger className='text-lg font-bold'>Our Story</AccordionTrigger>
-                            <AccordionContent>Founded in 2010... bringing authentic flavors to your table.</AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="team">
-                            <AccordionTrigger className='text-lg font-bold'>Meet the Team</AccordionTrigger>
-                            <AccordionContent>Expert chefs and nutritionists dedicated to quality.</AccordionContent>
+                            <AccordionTrigger className='text-lg font-bold'>The Mission</AccordionTrigger>
+                            <AccordionContent>Providing high-quality products to empower our customers.</AccordionContent>
                         </AccordionItem>
                     </Accordion>
                     <CTAButtons />
                 </div>
-                <div className="bg-muted p-8 rounded-2xl space-y-6">
-                    <h3 className="text-2xl font-bold">Why Choose Us?</h3>
-                    <TrustBadges className="" />
-                    <div className="flex gap-2 mt-4">
-                        <Instagram className="text-accent" /> Follow our journey
-                    </div>
-                </div>
-            </div>
-            <div className="fixed bottom-6 right-6 z-40">
-                <Button className="bg-accent text-white shadow-xl rounded-full px-6 py-4 font-bold">Join us for dinner</Button>
             </div>
         </div>
     )
   }
 
-  if (variant === 'menu') {
-      return (
-          <div className="min-h-screen bg-secondary/10 flex flex-col items-center py-20 px-4">
-               <div className="text-center mb-12">
-                   <h1 className="text-5xl font-bold mb-4">Our <span className="text-accent">Menu</span> Highlights</h1>
-                   <DynamicText />
-               </div>
-               
-               <div className="flex gap-4 mb-8 overflow-x-auto w-full justify-center">
-                   {['Starters', 'Mains', 'Desserts', 'Drinks'].map(c => (
-                       <Button key={c} variant="outline" className="rounded-full px-6">{c}</Button>
-                   ))}
-               </div>
-               
-               <div className="grid md:grid-cols-3 gap-6 max-w-6xl w-full">
-                   {[1,2,3].map(i => (
-                       <div key={i} className="bg-card rounded-xl overflow-hidden shadow-lg group">
-                           <div className="h-48 bg-muted relative overflow-hidden">
-                               <img src={`/small chops ${i}.jpg`} className="object-cover w-full h-full group-hover:scale-110 transition duration-500" />
-                           </div>
-                           <div className="p-6">
-                               <h3 className="text-xl font-bold">Special Delicacy {i}</h3>
-                               <p className="text-muted-foreground text-sm mb-4">Delicious and spicy...</p>
-                               <div className="flex justify-between items-center">
-                                   <span className="text-accent font-bold text-lg">₦2,500</span>
-                                   <Button size="sm">Add to Cart</Button>
-                               </div>
-                           </div>
-                       </div>
-                   ))}
-               </div>
-               
-               <div className="mt-12 w-full max-w-4xl bg-background rounded-xl p-8 shadow-sm flex flex-col md:flex-row items-center justify-between">
-                   <div>
-                       <h3 className="text-2xl font-bold">Chef's Picks</h3>
-                       <p className="text-muted-foreground">Hand-picked favorites for you.</p>
-                   </div>
-                   <div className="mt-4 md:mt-0"><CTAButtons /></div>
-               </div>
-          </div>
-      )
-  }
-
-  if (variant === 'experience') {
-      return (
-          <div className="min-h-screen container mx-auto py-20 px-4 grid lg:grid-cols-2 gap-12">
-              <div className="space-y-6">
-                  <h1 className="text-5xl font-bold">Experience the <span className="text-accent">Ambiance</span></h1>
-                  <DynamicText />
-                  <div className="grid grid-cols-2 gap-4">
-                       <img src="/small chops 1.jpg" className="rounded-lg shadow hover:scale-105 transition cursor-pointer" />
-                       <img src="/small chops 3.jpg" className="rounded-lg shadow hover:scale-105 transition cursor-pointer" />
-                       <img src="/shawama pics 1.jpg" className="rounded-lg shadow hover:scale-105 transition cursor-pointer col-span-2 h-40 object-cover" />
-                  </div>
-              </div>
-              <div className="flex flex-col justify-center space-y-8">
-                  <div className="bg-accent/10 p-6 rounded-lg text-center">
-                      <h3 className="text-xl font-bold">Special Offer Ends In:</h3>
-                      <div className="text-4xl font-mono font-bold text-accent mt-2">12:34:56</div>
-                  </div>
-                  <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="event"><AccordionTrigger>Events</AccordionTrigger><AccordionContent>Book your events...</AccordionContent></AccordionItem>
-                        <AccordionItem value="private"><AccordionTrigger>Private Dining</AccordionTrigger><AccordionContent>Exclusive dining...</AccordionContent></AccordionItem>
-                  </Accordion>
-                  <CTAButtons />
-                  <TrustBadges />
-              </div>
-          </div>
-      )
-  }
-
-  if (variant === 'local') {
-      return (
-          <div className="min-h-screen flex flex-col lg:flex-row">
-              <div className="lg:w-1/2 bg-muted relative min-h-[400px]">
-                 <div className="absolute inset-0 bg-secondary/20 flex items-center justify-center">
-                     <span className="text-muted-foreground font-bold">[Map Embed Placeholder]</span>
-                 </div>
-                 <div className="absolute bottom-4 left-4 bg-card p-4 rounded shadow-lg max-w-xs">
-                     <h4 className="font-bold">Visit Us</h4>
-                     <p className="text-sm">123 Food Street, Lagos</p>
-                 </div>
-              </div>
-              <div className="lg:w-1/2 p-12 flex flex-col justify-center space-y-8">
-                  <h1 className="text-5xl font-bold">Local & <span className="text-accent">Fresh</span></h1>
-                  <DynamicText />
-                  <p className="text-lg text-muted-foreground">We partner with local farmers...</p>
-                  <div className="grid grid-cols-3 gap-2">
-                       <img src="/small chops 1.jpg" className="rounded aspect-square object-cover" />
-                       <img src="/small chops 3.jpg" className="rounded aspect-square object-cover" />
-                       <img src="/shawama pics 1.jpg" className="rounded aspect-square object-cover" />
-                  </div>
-                  <CTAButtons />
-                  <div className="flex gap-2">
-                      <Input placeholder="Enter email for newsletter" />
-                      <Button>Subscribe</Button>
-                  </div>
-              </div>
-          </div>
-      )
-  }
-
-  return null;
+  return (
+    <div className="py-20 bg-background text-center space-y-6">
+       <h1 className="text-5xl font-black">{editableTitle("Our Boutique")}</h1>
+       <div className="max-w-2xl mx-auto">{editableSubtitle("Excellence in every detail.")}</div>
+       <div className="flex justify-center"><CTAButtons /></div>
+    </div>
+  );
 }
 
 export default Hero

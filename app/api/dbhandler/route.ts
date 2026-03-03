@@ -1,10 +1,9 @@
-;
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import cloudinary from "cloudinary";
 import path from "path";
+import { auth } from "@/auth";
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -37,6 +36,8 @@ const modelMap: Record<string, any> = {
   projectSettings: prisma.projectSettings,
   page: prisma.page,
   section: prisma.section,
+  siteSettings: prisma.siteSettings,
+  staff: prisma.staff,
 };
 
 // =====================
@@ -184,6 +185,8 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      siteSettings: true,
+      staff: true,
     },
     projectSettings: {
       business: true,
@@ -197,6 +200,9 @@ export async function GET(req: NextRequest) {
     },
     section: {
       page: true,
+    },
+    staff: {
+      business: true,
     },
   };
 
@@ -933,6 +939,16 @@ export async function DELETE(req: NextRequest) {
   const prismaModel = modelMap[model];
 
   try {
+    const session = await auth();
+    const userRole = session?.user?.role || "";
+
+    if (model === "business" && userRole !== "supreme") {
+      return NextResponse.json(
+        { error: "Only Supreme admins can delete businesses" },
+        { status: 403 }
+      );
+    }
+
     await prismaModel.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {

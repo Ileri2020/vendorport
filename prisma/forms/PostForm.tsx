@@ -1,27 +1,38 @@
 
+'use client'
+
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useAppContext } from "@/hooks/useAppContext";
 
 export default function PostForm() {
+  const { currentBusiness } = useAppContext();
   const [posts, setPosts] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    contentUrl: '',
+    url: '',
     authorId: '',
+    type: 'image',
+    for: 'General',
+    event: '',
   });
   const [editId, setEditId] = useState(null);
-  const [users, setUsers] = useState([]); // Added to store users for the select input
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     fetchPosts();
     fetchUsers();
-  }, []);
+  }, [currentBusiness?.id]);
 
   const fetchPosts = async () => {
-    const res = await axios.get('/api/dbhandler?model=post');
+    let url = '/api/dbhandler?model=post';
+    if (currentBusiness?.id) url += `&businessId=${currentBusiness.id}`;
+    const res = await axios.get(url);
     setPosts(res.data);
   };
 
@@ -32,17 +43,26 @@ export default function PostForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const data = { ...formData, businessId: currentBusiness?.id };
     if (editId) {
-      await axios.put(`/api/dbhandler?model=post&id=${editId}`, formData);
+      await axios.put(`/api/dbhandler?model=post&id=${editId}`, data);
     } else {
-      await axios.post('/api/dbhandler?model=post', formData);
+      await axios.post('/api/dbhandler?model=post', data);
     }
     resetForm();
     fetchPosts();
   };
 
   const handleEdit = (item) => {
-    setFormData(item);
+    setFormData({
+      title: item.title || '',
+      description: item.description || '',
+      url: item.url || '',
+      authorId: item.authorId || '',
+      type: item.type || 'image',
+      for: item.for || 'General',
+      event: item.event || '',
+    });
     setEditId(item.id);
   };
 
@@ -55,49 +75,89 @@ export default function PostForm() {
     setFormData({
       title: '',
       description: '',
-      contentUrl: '',
+      url: '',
       authorId: '',
+      type: 'image',
+      for: 'General',
+      event: '',
     });
     setEditId(null);
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-sm gap-2 justify-center items-center p-3 border-2 border-secondary-foreground rounded-sm m-2'>
-        <h2 className='font-semibold text-lg'>Manage Posts</h2>
-        <select value={formData.authorId} onChange={(e) => setFormData({ ...formData, authorId: e.target.value })}>
-          <option value="">Select Author</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name} ({user.email})
-            </option>
-          ))}
-        </select>
-        <Input type="text" placeholder="Title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
-        <Input type="text" placeholder="Description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
-        <Input type="text" placeholder="Content URL" value={formData.contentUrl} onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })} />
-        <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <Button onClick={resetForm}>Cancel</Button>}
-        <ul className='w-full'>
-          {posts.length > 0 ? (
-            posts.map((item , index) => (
-              <li key={index} className="flex flex-col justify-center items-center gap-2 my-2 bg-secondary rounded-md w-full p-2">
-                <div className="flex flex-row gap-2">
-                  <span>{(index + 1)}. Title : </span>
-                  <span>{item.title}</span>
+    <div className="w-full max-w-md mx-auto p-4 border rounded-xl shadow-lg bg-card">
+      <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
+        <h2 className='font-bold text-xl text-center'>Manage Posts</h2>
+        
+        <div className="space-y-1">
+          <Label>Author</Label>
+          <Select value={formData.authorId} onValueChange={(v) => setFormData({ ...formData, authorId: v })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Author" />
+            </SelectTrigger>
+            <SelectContent>
+              {users.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Title</Label>
+          <Input placeholder="Post Title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label>Type</Label>
+            <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="image">Image</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
+                <SelectItem value="audio">Audio</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Filter Tag (for)</Label>
+            <Input placeholder="General, Blog, etc." value={formData.for} onChange={(e) => setFormData({ ...formData, for: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Content URL</Label>
+          <Input placeholder="https://..." value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} />
+        </div>
+
+        <div className="space-y-1">
+          <Label>Description</Label>
+          <Input placeholder="Excerpt or content..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+        </div>
+
+        <Button type="submit" className="w-full bg-accent hover:bg-accent/90">{editId ? 'Update Post' : 'Create Post'}</Button>
+        {editId && <Button onClick={resetForm} variant="outline" className="w-full">Cancel</Button>}
+
+        <div className="mt-6 border-t pt-4">
+          <h3 className="font-bold mb-3">Recent Posts</h3>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+            {posts.map((item, index) => (
+              <div key={item.id} className="p-3 bg-muted rounded-lg flex flex-col gap-2 group">
+                <div className="flex justify-between items-start">
+                   <p className="font-bold text-sm truncate">{item.title || "Untitled"}</p>
+                   <span className="text-[10px] uppercase font-black bg-accent/20 px-1.5 rounded">{item.type}</span>
                 </div>
-                <p>Description : {item.description || <em>No description</em>}</p>
-                <p>Content URL : {item.contentUrl || <em>No content URL</em>}</p>
-                <div className='flex flex-row gap-2 p-1 w-full'>
-                  <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                  <Button type='button' onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
+                <div className="flex gap-2">
+                   <Button size="sm" onClick={() => handleEdit(item)} className="h-7 text-xs flex-1">Edit</Button>
+                   <Button size="sm" onClick={() => handleDelete(item.id)} variant="ghost" className="h-7 text-xs flex-1 border text-destructive">Delete</Button>
                 </div>
-              </li>
-            ))
-          ) : (
-            <p>No posts available.</p>
-          )}
-        </ul>
+              </div>
+            ))}
+          </div>
+        </div>
       </form>
     </div>
   );

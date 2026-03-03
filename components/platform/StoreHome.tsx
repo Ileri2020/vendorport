@@ -26,15 +26,15 @@ import {
 } from "@/components/ui/select"
 import { Button } from '@/components/ui/button'
 import { DEFAULT_PAGE_TEMPLATES } from '@/lib/storeTemplates'
-import { 
-  PlusCircle, 
-  Trash2, 
-  MoveUp, 
-  MoveDown, 
-  Globe, 
-  Settings as SettingsIcon, 
-  Layout, 
-  ChevronRight, 
+import {
+  PlusCircle,
+  Trash2,
+  MoveUp,
+  MoveDown,
+  Globe,
+  Settings as SettingsIcon,
+  Layout,
+  ChevronRight,
   Home as HomeIcon,
   Info,
   Bell,
@@ -47,24 +47,46 @@ import {
   X,
   Palette,
   CreditCard,
-  Instagram
+  Instagram,
+  BarChart3,
+  Send,
+  Mail,
+  Phone,
+  MapPin,
+  Package,
+  Users,
+  FileText
 } from 'lucide-react'
-import { 
-  Tabs, 
-  TabsContent, 
-  TabsList, 
-  TabsTrigger 
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
 } from "@/components/ui/tabs"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { ScrollScaleWrapper } from '@/components/animation/ScrollScaleWrapper'
 import Hero from '@/components/myComponents/subs/hero'
 import FeaturedProducts from '@/components/myComponents/subs/featuredProducts'
 import FeaturedCategories from '@/components/myComponents/subs/featuredCategories'
 import Features from '@/components/myComponents/subs/features'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { CartDetails } from '@/components/myComponents/subs/CartDetails'
-import { Users } from 'lucide-react'
+import ContactForm from '@/components/utility/contactForm'
+import { ChatInterface } from '@/components/myComponents/subs/ChatInterface'
+import Posts from '@/components/myComponents/subs/posts'
+import Stocks from '@/components/myComponents/subs/stocks'
+import ProductDetailView from "@/components/myComponents/subs/ProductDetailView";
+import ProductForm from "@/prisma/forms/ProductForm";
+import StaffForm from "@/prisma/forms/StaffForm";
+import PostForm from "@/prisma/forms/PostForm";
 
 interface Section {
   id: string
@@ -92,14 +114,34 @@ interface Business {
     exchangeRate: number
     pages: Page[]
   }
+  siteSettings?: {
+    id: string
+    aboutText: string
+    contactEmail: string
+    contactPhone: string
+    helpText: string
+    facebook?: string
+    instagram?: string
+    twitter?: string
+    linkedin?: string
+  }
+  staff?: Staff[]
 }
 
-const StoreHome = ({ 
-  business: initialBusiness, 
+interface Staff {
+  id: string
+  name: string
+  role: string
+  bio?: string
+  image?: string
+}
+
+const StoreHome = ({
+  business: initialBusiness,
   activePageSlug = 'home',
-  initialAdminTab = null 
-}: { 
-  business: Business, 
+  initialAdminTab = null
+}: {
+  business: Business,
   activePageSlug?: string,
   initialAdminTab?: 'pages' | 'settings' | null
 }) => {
@@ -108,7 +150,7 @@ const StoreHome = ({
   const [business, setBusiness] = React.useState(initialBusiness);
   const [isAdminToolbarOpen, setIsAdminToolbarOpen] = React.useState(!!initialAdminTab);
   const { storeName } = useParams();
-  
+
   React.useEffect(() => {
     setCurrentBusiness(initialBusiness);
     setBusiness(initialBusiness);
@@ -149,7 +191,7 @@ const StoreHome = ({
            slug,
            projectSettingsId: settings?.id
         });
-        
+
         if (templateSlug) {
            const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
            if (template) {
@@ -186,7 +228,7 @@ const StoreHome = ({
     if (!activePage) return;
     const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
     if (!template) return;
-    
+
     try {
       for (const s of template.sections) {
          await axios.post('/api/dbhandler?model=section', {
@@ -206,14 +248,29 @@ const StoreHome = ({
 
   const updateGlobalSettings = async (data: any) => {
     try {
-      await axios.put(`/api/dbhandler?model=projectSettings`, {
-        id: settings?.id,
-        ...data
-      });
-      toast.success("Settings updated!");
-      window.location.reload();
+       // Update SiteSettings if present
+       if (data.siteSettings) {
+          await axios.put(`/api/dbhandler?model=siteSettings`, {
+             id: business.siteSettings?.id,
+             ...data.siteSettings
+          });
+       }
+
+       // Update ProjectSettings if present (currency, etc)
+       const projectData = { ...data };
+       delete projectData.siteSettings;
+
+       if (Object.keys(projectData).length > 0) {
+          await axios.put(`/api/dbhandler?model=projectSettings`, {
+             id: settings?.id,
+             ...projectData
+          });
+       }
+
+       toast.success("Settings updated!");
+       window.location.reload();
     } catch (err) {
-      toast.error("Failed to update settings");
+       toast.error("Failed to update settings");
     }
   };
 
@@ -241,25 +298,25 @@ const StoreHome = ({
   return (
     <div className="flex flex-col items-center w-full relative">
        <StoreNavbar business={business} />
-       
+
        {isAdmin && (
-         <AdminToolbar 
-           business={business} 
-           onUpdateSettings={updateGlobalSettings} 
-           onCreatePage={handleCreatePage} 
+         <AdminToolbar
+           business={business}
+           onUpdateSettings={updateGlobalSettings}
+           onCreatePage={handleCreatePage}
            isOpen={isAdminToolbarOpen}
            onOpenChange={setIsAdminToolbarOpen}
            initialTab={initialAdminTab}
          />
        )}
-       
+
        <main className="w-full flex-1">
           {sections.length === 0 && (
              <div className="w-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed border-accent/20 my-10 rounded-[3rem] bg-accent/5 p-10 text-center mx-auto max-w-7xl px-4">
                 <Layout className="h-16 w-16 text-accent/40 mb-6" />
                 <h3 className="text-2xl font-bold text-accent mb-2">This page has no content yet.</h3>
                 <p className="max-w-md text-muted-foreground mb-8">Start from scratch or jump-start your design with one of our professional templates.</p>
-                
+
                 {isAdmin && (
                    <div className="flex flex-wrap justify-center gap-4">
                       <AddSectionTrigger onAdd={handleAddSection} />
@@ -286,8 +343,8 @@ const StoreHome = ({
                      </Button>
                   </div>
                )}
-               {renderSection(section)}
-               
+               <RenderSection section={section} business={business} />
+
                {isAdmin && (
                   <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border">
                      <AddSectionTrigger onAdd={handleAddSection} />
@@ -305,7 +362,7 @@ const StoreHome = ({
 const StoreFooter = ({ business }: { business: Business }) => {
    const { storeName } = useParams();
    const pages = business.settings?.pages || [];
-   
+
    return (
      <footer className="w-full bg-slate-50 border-t py-12 px-6 md:px-12 mt-20">
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
@@ -320,14 +377,14 @@ const StoreFooter = ({ business }: { business: Business }) => {
                  Experience premium quality products and world-class service tailored just for you. Shop with {business.name} today.
               </p>
            </div>
-           
+
            <div>
               <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Navigation</h4>
               <ul className="space-y-3">
                  {pages.map(page => (
                     <li key={page.id}>
-                       <Link 
-                         href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`} 
+                       <Link
+                         href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
                          className="text-sm text-muted-foreground hover:text-accent transition-colors"
                        >
                           {page.name}
@@ -336,7 +393,7 @@ const StoreFooter = ({ business }: { business: Business }) => {
                  ))}
               </ul>
            </div>
-           
+
            <div>
               <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Support</h4>
               <ul className="space-y-3">
@@ -349,10 +406,19 @@ const StoreFooter = ({ business }: { business: Business }) => {
 
            <div className="space-y-6">
               <h4 className="font-bold text-sm uppercase tracking-widest mb-2">Connect</h4>
-              <div className="flex gap-4">
-                 <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><MessageCircle className="h-5 w-5" /></Button>
-                 <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Instagram className="h-5 w-5" /></Button>
-              </div>
+               <div className="flex gap-4">
+                  <Link href={business.siteSettings?.facebook || "#"} target="_blank">
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><MessageCircle className="h-5 w-5" /></Button>
+                  </Link>
+                  <Link href={business.siteSettings?.instagram || "#"} target="_blank">
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Instagram className="h-5 w-5" /></Button>
+                  </Link>
+                  {business.siteSettings?.twitter && (
+                    <Link href={business.siteSettings.twitter} target="_blank">
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Globe className="h-5 w-5" /></Button>
+                    </Link>
+                  )}
+               </div>
               <p className="text-xs text-muted-foreground"> Powered by <span className="font-bold text-accent">VendorPort</span> Platforms </p>
            </div>
         </div>
@@ -403,8 +469,8 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: Section, onUpdate
               {section.type === 'products' && (
                  <div className="space-y-2">
                     <Label>Product Category</Label>
-                    <Select 
-                      value={configData.categoryId || "featured"} 
+                    <Select
+                      value={configData.categoryId || "featured"}
                       onValueChange={(v) => setConfigData({ ...configData, categoryId: v === 'featured' ? null : v })}
                     >
                        <SelectTrigger>
@@ -421,8 +487,8 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: Section, onUpdate
               )}
               <div className="space-y-2">
                  <Label>Section Title (Overlay)</Label>
-                 <Input 
-                   value={configData.title || ""} 
+                 <Input
+                   value={configData.title || ""}
                    onChange={(e) => setConfigData({ ...configData, title: e.target.value })}
                  />
               </div>
@@ -448,9 +514,9 @@ const StoreNavbar = ({ business }: { business: Business }) => {
         </Link>
         <div className="hidden md:flex items-center gap-8">
            {pages.map(page => (
-              <Link 
-                key={page.id} 
-                href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`} 
+              <Link
+                key={page.id}
+                href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
                 className="font-bold text-sm uppercase tracking-widest hover:text-accent transition-colors"
               >
                 {page.name}
@@ -468,7 +534,41 @@ const StoreNavbar = ({ business }: { business: Business }) => {
            <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
            <GlobalCart />
            <Button variant="outline" className="rounded-full font-bold md:flex hidden">Join Platform</Button>
-           <Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-5 w-5" /></Button>
+
+           <Sheet>
+              <SheetTrigger asChild>
+                 <Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-5 w-5" /></Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[400px] border-l-4 border-accent">
+                 <SheetHeader className="text-left mb-8">
+                    <SheetTitle className="text-2xl font-black flex items-center gap-2">
+                       <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shrink-0">
+                          {business.name.charAt(0)}
+                       </div>
+                       <span>{business.name}</span>
+                    </SheetTitle>
+                 </SheetHeader>
+                 <div className="flex flex-col gap-6">
+                    {pages.map(page => (
+                       <Link
+                         key={page.id}
+                         href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
+                         className="font-bold text-lg uppercase tracking-widest hover:text-accent transition-colors flex items-center justify-between group"
+                       >
+                         {page.name}
+                         <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                       </Link>
+                    ))}
+                    <div className="h-px bg-border my-4" />
+                    {isAdmin && (
+                       <Link href={`/${storeName}/analytics`} className="flex items-center gap-3 text-accent font-black">
+                          <BarChart3 className="h-5 w-5" /> OWNER ANALYTICS
+                       </Link>
+                    )}
+                    <Button className="w-full bg-accent hover:bg-accent/90 text-white font-bold h-12 rounded-xl">Visit Platform</Button>
+                 </div>
+              </SheetContent>
+           </Sheet>
         </div>
      </nav>
    );
@@ -501,6 +601,14 @@ const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) =>
                     <SelectItem value="features">Trust Features</SelectItem>
                     <SelectItem value="chat">Chat Button</SelectItem>
                     <SelectItem value="notifications">Announcement Bar</SelectItem>
+                    <SelectItem value="contact-form">Contact Form</SelectItem>
+                    <SelectItem value="chat-interface">Chat Interface</SelectItem>
+                    <SelectItem value="blog-posts">Blog Posts</SelectItem>
+                    <SelectItem value="product-list">Product List</SelectItem>
+                    <SelectItem value="newsletter">Newsletter</SelectItem>
+                    <SelectItem value="cart">Cart Details</SelectItem>
+                    <SelectItem value="product-details">Product Details</SelectItem>
+                    <SelectItem value="staff">Staff/Team</SelectItem>
                  </SelectContent>
               </Select>
            </div>
@@ -510,16 +618,16 @@ const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) =>
   );
 }
 
-const AdminToolbar = ({ 
-  business, 
-  onUpdateSettings, 
+const AdminToolbar = ({
+  business,
+  onUpdateSettings,
   onCreatePage,
   isOpen,
   onOpenChange,
   initialTab = "pages"
-}: { 
-  business: Business, 
-  onUpdateSettings: (data: any) => void, 
+}: {
+  business: Business,
+  onUpdateSettings: (data: any) => void,
   onCreatePage: (name: string, slug: string, template?: string) => void,
   isOpen: boolean,
   onOpenChange: (open: boolean) => void,
@@ -527,6 +635,13 @@ const AdminToolbar = ({
 }) => {
   const [currency, setCurrency] = React.useState(business.settings?.currency || "USD");
   const [rate, setRate] = React.useState(business.settings?.exchangeRate?.toString() || "1.0");
+  const [facebook, setFacebook] = React.useState(business.siteSettings?.facebook || "");
+  const [instagram, setInstagram] = React.useState(business.siteSettings?.instagram || "");
+  const [twitter, setTwitter] = React.useState(business.siteSettings?.twitter || "");
+  const [linkedin, setLinkedin] = React.useState(business.siteSettings?.linkedin || "");
+  const [contactPhone, setContactPhone] = React.useState(business.siteSettings?.contactPhone || "");
+  const [contactEmail, setContactEmail] = React.useState(business.siteSettings?.contactEmail || "");
+
   const [newPageName, setNewPageName] = React.useState("");
   const [selectedTemplate, setSelectedTemplate] = React.useState<string>("home");
   const [activeTab, setActiveTab] = React.useState(initialTab || "pages");
@@ -577,9 +692,18 @@ const AdminToolbar = ({
                       <TabsTrigger value="design" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
                          <Palette className="h-4 w-4 mr-2" /> Design
                       </TabsTrigger>
-                      <TabsTrigger value="settings" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                         <Globe className="h-4 w-4 mr-2" /> Settings
-                      </TabsTrigger>
+                       <TabsTrigger value="settings" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                          <Globe className="h-4 w-4 mr-2" /> Settings
+                       </TabsTrigger>
+                       <TabsTrigger value="inventory" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                          <Package className="h-4 w-4 mr-2" /> Inventory
+                       </TabsTrigger>
+                       <TabsTrigger value="team" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                          <Users className="h-4 w-4 mr-2" /> Team
+                       </TabsTrigger>
+                       <TabsTrigger value="posts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                          <FileText className="h-4 w-4 mr-2" /> Posts
+                       </TabsTrigger>
                    </TabsList>
                 </div>
 
@@ -591,9 +715,9 @@ const AdminToolbar = ({
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                <div className="space-y-2">
                                   <Label className="text-[10px] font-black uppercase tracking-widest">Page Name</Label>
-                                  <Input 
-                                    placeholder="e.g. Services" 
-                                    className="font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors h-11" 
+                                  <Input
+                                    placeholder="e.g. Services"
+                                    className="font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors h-11"
                                     value={newPageName}
                                     onChange={(e) => setNewPageName(e.target.value)}
                                   />
@@ -673,13 +797,70 @@ const AdminToolbar = ({
                                <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Exchange Rate</Label>
                                <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} step="0.01" className="font-black border-2 h-11" />
                             </div>
+                            <div className="space-y-2">
+                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Email</Label>
+                               <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="font-black border-2 h-11" />
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Phone</Label>
+                               <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="font-black border-2 h-11" />
+                            </div>
                          </div>
-                         <Button onClick={() => onUpdateSettings({ currency, exchangeRate: parseFloat(rate) })} className="w-full font-black h-12 bg-accent shadow-lg shadow-accent/20">
-                            Save Global Configuration
-                         </Button>
-                      </div>
-                   </TabsContent>
-                </div>
+
+                         <div className="space-y-4 pt-4 border-t">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-accent">Social Links</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                               <div className="space-y-1">
+                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Facebook URL</Label>
+                                  <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                               </div>
+                               <div className="space-y-1">
+                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Instagram URL</Label>
+                                  <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                               </div>
+                               <div className="space-y-1">
+                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Twitter URL</Label>
+                                  <Input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                               </div>
+                               <div className="space-y-1">
+                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">LinkedIn URL</Label>
+                                  <Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                               </div>
+                            </div>
+                         </div>
+
+                          <Button
+                            onClick={() => onUpdateSettings({
+                              currency,
+                              exchangeRate: parseFloat(rate),
+                              siteSettings: {
+                                facebook,
+                                instagram,
+                                twitter,
+                                linkedin,
+                                contactPhone,
+                                contactEmail
+                              }
+                            })}
+                            className="w-full font-black bg-accent shadow-lg shadow-accent/20 h-12 transition-all hover:scale-[1.01]"
+                          >
+                             Commit All Changes
+                          </Button>
+                       </div>
+                    </TabsContent>
+
+                    <TabsContent value="inventory" className="mt-0">
+                       <ProductForm />
+                    </TabsContent>
+
+                    <TabsContent value="team" className="mt-0">
+                       <StaffForm />
+                    </TabsContent>
+
+                    <TabsContent value="posts" className="mt-0">
+                       <PostForm />
+                    </TabsContent>
+                 </div>
              </Tabs>
           </DialogContent>
        </Dialog>
@@ -688,13 +869,15 @@ const AdminToolbar = ({
 }
 
 
-// Function to render custom UI based on ProjectSettings section definition
-const renderSection = (section: any) => {
+// Component to render custom UI based on ProjectSettings section definition
+const RenderSection = ({ section, business }: { section: any, business: Business }) => {
    const { id, type, layout, data } = section;
+   const { storeName } = useParams();
+   const searchParams = useSearchParams();
    
    switch (type) {
      case 'hero':
-        return <Hero variant={layout as any || 'modern-split'} />;
+        return <Hero variant={layout as any || 'modern-split'} title={data?.title} subtitle={data?.text} sectionId={id} />;
      case 'products':
         if (layout === 'carousel of products') {
           return (
@@ -706,31 +889,7 @@ const renderSection = (section: any) => {
             </ScrollScaleWrapper>
           );
         }
-        if (layout === 'carousel of cards') {
-           return (
-             <div className="w-full overflow-x-auto py-10 flex gap-4 px-10">
-                {[1,2,3,4,5].map(i => (
-                  <div key={i} className="min-w-[250px] h-64 bg-accent/5 border rounded-xl flex items-center justify-center font-bold text-accent"> Card {i} </div>
-                ))}
-             </div>
-           );
-        }
         return <FeaturedProducts />;
-     case 'admin':
-        if (layout === 'carousel of admin') {
-           return (
-             <div className="w-full py-10 px-4 bg-accent/5">
-                <h2 className="text-2xl font-bold mb-4">Admin Insights</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                   <div className="p-4 bg-white shadow rounded-lg text-center"><p className="text-muted-foreground">Orders</p> <p className="text-2xl font-bold">120</p></div>
-                   <div className="p-4 bg-white shadow rounded-lg text-center"><p className="text-muted-foreground">Sales</p> <PriceDisplay amount={4500000} className="text-2xl font-bold" /></div>
-                   <div className="p-4 bg-white shadow rounded-lg text-center"><p className="text-muted-foreground">Visitors</p> <p className="text-2xl font-bold">1.2k</p></div>
-                   <div className="p-4 bg-white shadow rounded-lg text-center"><p className="text-muted-foreground">Inventory</p> <p className="text-2xl font-bold">Low</p></div>
-                </div>
-             </div>
-           );
-        }
-        return <div className="p-10 text-center border">Default Admin Dashboard Not Implemented</div>;
      case 'categories':
         return <FeaturedCategories />;
      case 'features':
@@ -747,6 +906,134 @@ const renderSection = (section: any) => {
              </div>
           </ScrollScaleWrapper>
         );
+     case 'contact-form':
+        return (
+          <div className="w-full py-20 px-4 md:px-20 bg-background">
+             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div className="space-y-8">
+                   <div className="space-y-4 text-center md:text-left">
+                      <AdminEditable as="h2" value={data?.title || 'Connect with Us'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter text-accent" />
+                      <AdminEditable as="p" value={data?.text || "We'd love to hear from you. Fill out the form or use our contact details."} model="section" id={id} field="data.text" data={data} className="text-muted-foreground text-lg" />
+                   </div>
+                   <div className="space-y-6">
+                      <div className="flex gap-4 items-center">
+                         <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><Mail /></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Email</p><p className="font-bold">{business.siteSettings?.contactEmail || `support@${storeName}.com`}</p></div>
+                      </div>
+                      <div className="flex gap-4 items-center">
+                         <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><Phone /></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Phone</p><p className="font-bold">{business.siteSettings?.contactPhone || '+234 (0) 000 000 0000'}</p></div>
+                      </div>
+                      <div className="flex gap-4 items-center">
+                         <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><MapPin /></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Office</p><p className="font-bold">Global Presence</p></div>
+                      </div>
+                   </div>
+                </div>
+                <div className="bg-card shadow-2xl rounded-[2.5rem] overflow-hidden border">
+                   <ContactForm />
+                </div>
+             </div>
+          </div>
+        );
+     case 'chat-interface':
+        return (
+          <div className="w-full py-20 px-4 bg-accent/5">
+             <div className="max-w-5xl mx-auto space-y-8">
+                <div className="text-center space-y-2">
+                   <AdminEditable as="h2" value={data?.title || 'Talk to an Expert'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black tracking-tight" />
+                   <AdminEditable as="p" value={data?.text || 'Get instant support and consultation from our licensed team.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
+                </div>
+                <ChatInterface />
+             </div>
+          </div>
+        );
+     case 'blog-posts':
+        return (
+          <div className="w-full py-20 px-4 max-w-7xl mx-auto">
+             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+                <div className="space-y-2 text-center md:text-left">
+                   <AdminEditable as="h2" value={data?.title || 'Latest Insights'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black" />
+                   <p className="text-muted-foreground">Knowledge base and updates from our experts.</p>
+                </div>
+                <Button variant="outline" className="font-bold rounded-full border-2 h-12 px-8">View All Posts</Button>
+             </div>
+             <Posts page="General" />
+          </div>
+        );
+     case 'product-list':
+        return (
+          <div className="w-full py-20 bg-background">
+             <div className="max-w-7xl mx-auto px-4 space-y-12">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                   <AdminEditable as="h2" value={data?.title || 'Catalog'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
+                   <div className="flex gap-4">
+                      <Button variant="secondary" className="font-bold rounded-xl h-11 px-6">Filters</Button>
+                      <div className="relative">
+                         <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                         <Input className="pl-10 h-11 w-64 rounded-xl border-2 hover:border-accent transition-colors" placeholder="Search products..." />
+                      </div>
+                   </div>
+                </div>
+                <Stocks />
+             </div>
+          </div>
+        );
+     case 'newsletter':
+        return (
+           <div className="w-full py-20 px-4 md:px-0">
+              <div className="max-w-4xl mx-auto px-6 py-12 bg-accent rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-accent/20">
+                 <div className="space-y-2 flex-1 text-center md:text-left">
+                    <h3 className="text-2xl font-black uppercase tracking-widest">Join our Newsletter</h3>
+                    <p className="text-white/80 font-medium">Be the first to know about new arrivals and exclusive offers.</p>
+                 </div>
+                 <div className="flex w-full md:w-auto gap-3 items-center">
+                    <Input placeholder="your@email.com" className="bg-white/10 border-white/20 h-12 rounded-2xl w-full md:w-64 placeholder:text-white/50 font-bold" />
+                    <Button className="h-12 px-8 rounded-2xl bg-white text-accent font-black hover:bg-white/90">Join</Button>
+                 </div>
+              </div>
+           </div>
+        );
+     case 'cart':
+        return (
+          <div className="w-full py-20 px-4 max-w-7xl mx-auto">
+             <div className="mb-12 text-center md:text-left">
+                <h2 className="text-4xl font-black tracking-tighter">Shopping Bag</h2>
+                <p className="text-muted-foreground font-medium">Review your items before checkout.</p>
+             </div>
+             <CartDetails cartId="temp" />
+          </div>
+        );
+     case 'product-details': {
+        const pId = searchParams.get('id');
+        return <ProductDetailView productId={pId || undefined} businessId={business.id} />;
+     }
+     case 'staff': {
+        const staff = business.staff || [];
+        return (
+          <div className="w-full py-20 px-6 max-w-7xl mx-auto border-t border-dashed">
+             <div className="text-center mb-16 space-y-4">
+                <AdminEditable as="h2" value={data?.title || 'Meet the Experts'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black" />
+                <AdminEditable as="p" value={data?.text || 'Our platform is powered by highly skilled individuals dedicated to your satisfaction.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground max-w-2xl mx-auto" />
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                {staff.length > 0 ? staff.map((member, i) => (
+                   <div key={member.id} className="flex flex-col items-center group">
+                      <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-all duration-300 shadow-xl group-hover:shadow-accent/20">
+                         <img src={member.image || 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png'} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
+                      </div>
+                      <h4 className="font-bold text-lg group-hover:text-accent transition-colors">{member.name}</h4>
+                      <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]">{member.role}</p>
+                   </div>
+                )) : (
+                   <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
+                      <p>No team members listed yet. Add staff to your business dashboard.</p>
+                   </div>
+                )}
+             </div>
+          </div>
+        );
+     }
      case 'chat':
         return (
           <div className="fixed bottom-6 right-6 z-[60] group">
@@ -768,40 +1055,9 @@ const renderSection = (section: any) => {
              </div>
           </div>
         );
-     case 'cart':
-        return (
-          <div className="w-full py-20 px-4">
-             <CartDetails cartId="temp" />
-          </div>
-        );
-     case 'staff':
-        return (
-          <div className="w-full py-20 px-6 max-w-7xl mx-auto">
-             <div className="text-center mb-16 space-y-4">
-                <AdminEditable as="h2" value={data?.title || 'Meet the Experts'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black" />
-                <AdminEditable as="p" value={data?.text || 'Our platform is powered by highly skilled individuals dedicated to your satisfaction.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground max-w-2xl mx-auto" />
-             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                {[
-                  { name: 'Dr. Sarah James', role: 'Chief Pharmacist', img: 'https://images.unsplash.com/photo-1559839734-2b71f153673c?q=80&w=200&h=200&auto=format&fit=crop' },
-                  { name: 'Marcus Chen', role: 'Head of Operations', img: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&h=200&auto=format&fit=crop' },
-                  { name: 'Elena Rodriguez', role: 'Customer Success', img: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=200&h=200&auto=format&fit=crop' },
-                  { name: 'David Smith', role: 'Senior Developer', img: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=200&h=200&auto=format&fit=crop' }
-                ].map((member, i) => (
-                   <div key={i} className="flex flex-col items-center group">
-                      <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-colors">
-                         <img src={member.img} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
-                      </div>
-                      <h4 className="font-bold text-lg">{member.name}</h4>
-                      <p className="text-sm text-muted-foreground">{member.role}</p>
-                   </div>
-                ))}
-             </div>
-          </div>
-        );
      default:
-        return <div className="p-10 text-center border">Unknown Section: {type}</div>;
+        return <div className="p-10 text-center text-muted-foreground">Unknown section type: {type}</div>;
    }
 }
 
-export default StoreHome
+export default StoreHome;
