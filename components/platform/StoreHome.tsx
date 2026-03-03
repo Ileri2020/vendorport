@@ -92,6 +92,7 @@ import SectionConfigDialog from './SectionConfigDialog'
 import StoreNavbar from './StoreNavbar'
 import AddSectionTrigger from './AddSectionTrigger'
 import AdminToolbar from './AdminToolbar'
+import { useStoreActions } from '@/hooks/useStoreActions'
 
 interface Section {
   id: string
@@ -220,113 +221,13 @@ const StoreHome = ({
   const activePage = settings?.pages?.find(p => p.slug === activePageSlug) || (activePageSlug === 'home' && settings?.pages?.[0]?.slug === 'home' ? settings.pages[0] : null);
   const sections = activePage?.sections || [];
 
-  const handleAddSection = async (type: string, layout: string) => {
-    if (!activePage) return;
-    try {
-      const newSection = {
-        pageId: activePage.id,
-        type,
-        layout,
-        order: sections.length,
-        data: { title: `New ${type}`, text: "Add your text here..." }
-      };
-      await axios.post('/api/dbhandler?model=section', newSection);
-      toast.success("Section added!");
-      window.location.reload();
-    } catch (err) {
-      toast.error("Failed to add section");
-    }
-  };
-
-  const handleCreatePage = async (name: string, slug: string, templateSlug?: string) => {
-     try {
-        const res = await axios.post('/api/dbhandler?model=page', {
-           name,
-           slug,
-           projectSettingsId: settings?.id
-        });
-
-        if (templateSlug) {
-           const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
-           if (template) {
-              for (const s of template.sections) {
-                 await axios.post('/api/dbhandler?model=section', {
-                    pageId: res.data.id,
-                    type: s.type,
-                    layout: s.layout,
-                    order: s.order,
-                    data: (s as any).data
-                 });
-              }
-           }
-        }
-
-        toast.success("Page created!");
-        window.location.href = `/${storeName}/${slug}`;
-     } catch (err) {
-        toast.error("Failed to create page");
-     }
-  };
-
-  const handleRemoveSection = async (id: string) => {
-    try {
-      await axios.delete(`/api/dbhandler?model=section&id=${id}`);
-      toast.success("Section removed");
-      window.location.reload();
-    } catch (err) {
-      toast.error("Failed to remove section");
-    }
-  };
-
-  const handleApplyTemplate = async (templateSlug: string) => {
-    if (!activePage) return;
-    const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
-    if (!template) return;
-
-    try {
-      for (const s of template.sections) {
-         await axios.post('/api/dbhandler?model=section', {
-            pageId: activePage.id,
-            type: s.type,
-            layout: s.layout,
-            order: s.order,
-            data: (s as any).data
-         });
-      }
-      toast.success(`Applied ${template.name} template!`);
-      window.location.reload();
-    } catch (err) {
-      toast.error("Failed to apply template");
-    }
-  };
-
-  const updateGlobalSettings = async (data: any) => {
-    try {
-       // Update SiteSettings if present
-       if (data.siteSettings) {
-          await axios.put(`/api/dbhandler?model=siteSettings`, {
-             id: business.siteSettings?.id,
-             ...data.siteSettings
-          });
-       }
-
-       // Update ProjectSettings if present (currency, etc)
-       const projectData = { ...data };
-       delete projectData.siteSettings;
-
-       if (Object.keys(projectData).length > 0) {
-          await axios.put(`/api/dbhandler?model=projectSettings`, {
-             id: settings?.id,
-             ...projectData
-          });
-       }
-
-       toast.success("Settings updated!");
-       window.location.reload();
-    } catch (err) {
-       toast.error("Failed to update settings");
-    }
-  };
+  const {
+    handleAddSection,
+    handleCreatePage,
+    handleRemoveSection,
+    handleApplyTemplate,
+    updateGlobalSettings,
+  } = useStoreActions({ activePage, sections, settings, storeName, business });
 
   // If page doesn't exist, show helper
   if (!activePage) {
@@ -607,7 +508,11 @@ const RenderSection = ({ section, business }: { section: any, business: Business
               <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                  {promos.map(promo => (
                     <div key={promo.id} className="relative h-[300px] rounded-[3rem] overflow-hidden group">
-                       <img src={promo.image || ''} className="absolute inset-0 h-full w-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                       <img
+                         src={promo.image || ''}
+                         alt={promo.title || 'Promotion image'}
+                         className="absolute inset-0 h-full w-full object-cover group-hover:scale-110 transition-transform duration-700"
+                       />
                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-10 flex flex-col justify-end">
                           <AdminEditable 
                              as="h4" 
