@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: () => void }) => {
-  const [configData, setConfigData] = React.useState(section.data || {});
+  // section may come from old schema (data) or new businessSection (content/settings)
+  const [configData, setConfigData] = React.useState(section.data || section.content || {});
   const [categories, setCategories] = React.useState<any[]>([]);
 
   React.useEffect(() => {
@@ -23,10 +24,20 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
 
   const handleSave = async () => {
     try {
-      await axios.put(`/api/dbhandler?model=section`, {
-        id: section.id,
-        data: configData
-      });
+      // determine whether to update old section or new businessSection
+      const useMaster = section.hasOwnProperty('businessId');
+      if (useMaster) {
+        // update content/settings
+        await axios.put(`/api/dbhandler?model=businessSection`, {
+          id: section.id,
+          content: configData,
+        });
+      } else {
+        await axios.put(`/api/dbhandler?model=section`, {
+          id: section.id,
+          data: configData,
+        });
+      }
       toast.success("Section updated");
       onUpdate();
     } catch (err) {

@@ -73,6 +73,9 @@ model Business {
   partners         Partner[]
   helpArticles     HelpArticle[]
   chatThreads      ChatThread[]      @relation("BusinessChatThreads")
+
+  // master sections defined by the admin for various pages
+  sections          BusinessSection[]
 }
 
 model ProjectSettings {
@@ -101,6 +104,38 @@ model Section {
   layout String // e.g., "carousel of products", "carousel of cards", etc.
   data   Json? // Store section-specific data
   order  Int
+}
+
+// new unified section system for admins
+model BusinessSection {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId  String   @db.ObjectId
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  page        String   // home, about, shop, footer, header, contact, etc.
+  key         String   // unique key for section type (hero, stats, testimonials)
+  type        String   // static | dynamic | collection
+  position    Int
+  isActive    Boolean  @default(true)
+
+  heading     String?
+  subHeading  String?
+  content     Json?    // rich text, bullets, HTML
+  settings    Json?    // layout + display config
+
+  // linked items such as products or posts when type == "collection"
+  items       SectionItem[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SectionItem {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  sectionId  String          @db.ObjectId
+  section    BusinessSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  refType    String          // product | post | review | category | custom
+  refId      String
+  position   Int
 }
 
 model Staff {

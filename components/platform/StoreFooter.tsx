@@ -10,6 +10,7 @@ interface Business {
   id: string
   name: string
   settings?: any
+  sections?: any[]
   siteSettings?: any
 }
 

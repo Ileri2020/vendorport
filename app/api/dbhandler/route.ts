@@ -36,13 +36,7 @@ const modelMap: Record<string, any> = {
   projectSettings: prisma.projectSettings,
   page: prisma.page,
   section: prisma.section,
-  siteSettings: prisma.siteSettings,
-  staff: prisma.staff,
-  promotion: prisma.promotion,
-  subscriber: prisma.subscriber,
-  businessStat: prisma.businessStat,
-  partner: prisma.partner,
-  helpArticle: prisma.helpArticle,
+  businessSection: prisma.businessSection,
 };
 
 // =====================
@@ -190,6 +184,8 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      // include master sections if present
+      sections: true,
       siteSettings: true,
       staff: true,
       promotions: true,
@@ -210,6 +206,10 @@ export async function GET(req: NextRequest) {
     },
     section: {
       page: true,
+    },
+    businessSection: {
+      business: true,
+      items: true,
     },
     staff: {
       business: true,
@@ -352,7 +352,8 @@ export async function GET(req: NextRequest) {
         model === "notification" ||
         model === "post" ||
         model === "lunch" ||
-        model === "wishlist"
+        model === "wishlist" ||
+        model === "businessSection"
       ) {
         where.businessId = bid;
       }

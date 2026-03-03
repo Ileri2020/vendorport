@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-03 00:05:25
+Generated: 2026-03-03 13:32:41
 ================================================================================
 
 
@@ -2885,6 +2885,11 @@ const modelMap: Record<string, any> = {
   section: prisma.section,
   siteSettings: prisma.siteSettings,
   staff: prisma.staff,
+  promotion: prisma.promotion,
+  subscriber: prisma.subscriber,
+  businessStat: prisma.businessStat,
+  partner: prisma.partner,
+  helpArticle: prisma.helpArticle,
 };
 
 // =====================
@@ -3034,6 +3039,11 @@ export async function GET(req: NextRequest) {
       },
       siteSettings: true,
       staff: true,
+      promotions: true,
+      subscribers: true,
+      stats: true,
+      partners: true,
+      helpArticles: true,
     },
     projectSettings: {
       business: true,
@@ -13839,8 +13849,8 @@ type HeroVariant = 'modern-split' | 'immersive' | 'carousel' | 'story' | 'menu' 
 
 interface HeroProps {
   variant?: HeroVariant;
-  title?: string;
-  subtitle?: string;
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
   sectionId?: string;
 }
 
@@ -20319,6 +20329,346 @@ export const config = {
 
 
 ================================================================================
+LOCATION: components\platform\AddSectionTrigger.tsx
+================================================================================
+
+"use client"
+import React from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { Button } from '@/components/ui/button'
+import { PlusCircle } from 'lucide-react'
+
+const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) => void }) => {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="border-2 border-accent text-accent font-black hover:bg-accent hover:text-white transition-all scale-90 hover:scale-100 shadow-sm px-4">
+           <PlusCircle className="h-4 w-4 mr-2" /> Add Section Here
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add New Section</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+           <div className="space-y-2">
+              <Label>Section Type</Label>
+              <Select onValueChange={(v) => onAdd(v, `UI of ${v}`)}>
+                 <SelectTrigger>
+                    <SelectValue placeholder="Select type..." />
+                 </SelectTrigger>
+                 <SelectContent>
+                    <SelectItem value="hero">Hero Section</SelectItem>
+                    <SelectItem value="products">Products Display</SelectItem>
+                    <SelectItem value="categories">Categories Grid</SelectItem>
+                    <SelectItem value="description">Text/About Section</SelectItem>
+                    <SelectItem value="features">Trust Features</SelectItem>
+                    <SelectItem value="chat">Chat Button</SelectItem>
+                    <SelectItem value="notifications">Announcement Bar</SelectItem>
+                    <SelectItem value="contact-form">Contact Form</SelectItem>
+                    <SelectItem value="chat-interface">Chat Interface</SelectItem>
+                    <SelectItem value="blog-posts">Blog Posts</SelectItem>
+                    <SelectItem value="product-list">Product List</SelectItem>
+                    <SelectItem value="newsletter">Newsletter</SelectItem>
+                    <SelectItem value="cart">Cart Details</SelectItem>
+                    <SelectItem value="product-details">Product Details</SelectItem>
+                    <SelectItem value="staff">Staff/Team</SelectItem>
+                 </SelectContent>
+              </Select>
+           </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default AddSectionTrigger
+
+
+
+================================================================================
+LOCATION: components\platform\AdminToolbar.tsx
+================================================================================
+
+"use client"
+import React from 'react'
+import axios from 'axios'
+import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { Button } from '@/components/ui/button'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { PlusCircle, Settings as SettingsIcon, Layout, Palette, Globe, Package, Users, FileText, BarChart3, Home as HomeIcon, Trash2, CreditCard } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import ProductForm from '@/prisma/forms/ProductForm'
+import StaffForm from '@/prisma/forms/StaffForm'
+import PostForm from '@/prisma/forms/PostForm'
+import { DEFAULT_PAGE_TEMPLATES } from '@/lib/storeTemplates'
+
+const AdminToolbar = ({
+  business,
+  onUpdateSettings,
+  onCreatePage,
+  isOpen,
+  onOpenChange,
+  initialTab = "pages"
+}: {
+  business: any,
+  onUpdateSettings: (data: any) => void,
+  onCreatePage: (name: string, slug: string, template?: string) => void,
+  isOpen: boolean,
+  onOpenChange: (open: boolean) => void,
+  initialTab?: string | null
+}) => {
+  const [currency, setCurrency] = React.useState(business.settings?.currency || "USD");
+  const [rate, setRate] = React.useState(business.settings?.exchangeRate?.toString() || "1.0");
+  const [facebook, setFacebook] = React.useState(business.siteSettings?.facebook || "");
+  const [instagram, setInstagram] = React.useState(business.siteSettings?.instagram || "");
+  const [twitter, setTwitter] = React.useState(business.siteSettings?.twitter || "");
+  const [linkedin, setLinkedin] = React.useState(business.siteSettings?.linkedin || "");
+  const [contactPhone, setContactPhone] = React.useState(business.siteSettings?.contactPhone || "");
+  const [contactEmail, setContactEmail] = React.useState(business.siteSettings?.contactEmail || "");
+
+  const [newPageName, setNewPageName] = React.useState("");
+  const [selectedTemplate, setSelectedTemplate] = React.useState<string>("home");
+  const [activeTab, setActiveTab] = React.useState(initialTab || "pages");
+
+  React.useEffect(() => {
+   if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
+
+  const handleAddPage = () => {
+    if (!newPageName) return;
+    const slug = newPageName.toLowerCase().replace(/\s+/g, '-');
+    onCreatePage(newPageName, slug, selectedTemplate);
+    setNewPageName("");
+  };
+
+  const deletePage = async (id: string) => {
+    if (confirm("Delete this page and all its sections?")) {
+      await axios.delete(`/api/dbhandler?model=page&id=${id}`);
+      toast.success("Page deleted");
+      window.location.href = `/${business.slug}`;
+    }
+  };
+
+  return (
+   <div className="fixed bottom-6 left-6 z-[100]">
+     <Dialog open={isOpen} onOpenChange={onOpenChange}>
+       <DialogTrigger asChild>
+         <Button className="rounded-full h-14 w-14 shadow-2xl bg-black text-white hover:bg-gray-800 transition-all hover:scale-110 border-2 border-white/20">
+           <SettingsIcon className="h-6 w-6" />
+         </Button>
+       </DialogTrigger>
+       <DialogContent className="max-w-2xl w-[95vw] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+         <div className="bg-accent p-6 text-white">
+           <DialogTitle className="text-2xl font-black flex items-center gap-2">
+             <div className="bg-white/20 p-2 rounded-xl"><SettingsIcon className="h-5 w-5" /></div>
+             Store Control Center
+           </DialogTitle>
+           <p className="text-white/70 text-sm mt-1">Manage your pages, design, and world settings.</p>
+         </div>
+
+         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+           <div className="px-6 border-b bg-muted/30">
+             <TabsList className="bg-transparent h-14 w-full justify-start gap-4 p-0">
+               <TabsTrigger value="pages" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                 <Layout className="h-4 w-4 mr-2" /> Pages
+               </TabsTrigger>
+               <TabsTrigger value="design" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                 <Palette className="h-4 w-4 mr-2" /> Design
+               </TabsTrigger>
+                <TabsTrigger value="settings" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                  <Globe className="h-4 w-4 mr-2" /> Settings
+                </TabsTrigger>
+                <TabsTrigger value="inventory" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                  <Package className="h-4 w-4 mr-2" /> Inventory
+                </TabsTrigger>
+                <TabsTrigger value="team" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                  <Users className="h-4 w-4 mr-2" /> Team
+                </TabsTrigger>
+                <TabsTrigger value="posts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                  <FileText className="h-4 w-4 mr-2" /> Posts
+                </TabsTrigger>
+             </TabsList>
+           </div>
+
+           <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+             <TabsContent value="pages" className="mt-0 space-y-6">
+               <div className="space-y-4">
+                 <div className="p-4 bg-accent/5 rounded-2xl space-y-4 border-2 border-accent/10">
+                   <h4 className="text-sm font-black uppercase tracking-widest text-accent">Create New Page</h4>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div className="space-y-2">
+                       <Label className="text-[10px] font-black uppercase tracking-widest">Page Name</Label>
+                       <Input
+                        placeholder="e.g. Services"
+                        className="font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors h-11"
+                        value={newPageName}
+                        onChange={(e) => setNewPageName(e.target.value)}
+                       />
+                     </div>
+                     <div className="space-y-2">
+                       <Label className="text-[10px] font-black uppercase tracking-widest">Starting Template</Label>
+                       <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                         <SelectTrigger className="h-11 border-2">
+                           <SelectValue placeholder="Choose template..." />
+                         </SelectTrigger>
+                         <SelectContent>
+                           {Object.entries(DEFAULT_PAGE_TEMPLATES).map(([slug, tpl]) => (
+                             <SelectItem key={slug} value={slug}>{tpl.name} Layout</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     </div>
+                   </div>
+                   <Button onClick={handleAddPage} className="w-full font-black bg-accent hover:bg-accent/90 h-12 shadow-lg shadow-accent/20">
+                     <PlusCircle className="h-4 w-4 mr-2" /> Launch New Page
+                   </Button>
+                 </div>
+
+                 <div className="grid grid-cols-1 gap-3">
+                   {business.settings?.pages?.map((p: any) => (
+                     <div key={p.id} className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border-2 border-transparent hover:border-accent/10 hover:bg-white transition-all group shadow-sm">
+                       <div className="flex items-center gap-4">
+                         <div className={`h-12 w-12 flex items-center justify-center rounded-xl border-2 transition-colors ${p.slug === 'home' ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-background border-muted text-muted-foreground'}`}>
+                           {p.slug === 'home' ? <HomeIcon className="h-5 w-5" /> : <Layout className="h-5 w-5" />}
+                         </div>
+                         <div>
+                           <div className="font-black text-[15px] flex items-center gap-2">
+                             {p.name}
+                             {p.slug === 'home' && <Badge className="text-[9px] h-4 bg-accent/20 text-accent hover:bg-accent/30 border-none px-1">HOME</Badge>}
+                           </div>
+                           <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60">/{p.slug}</div>
+                         </div>
+                       </div>
+                       <div className="flex gap-2">
+                         <Button size="sm" variant="outline" className="h-9 font-black text-[10px] border-2 px-3 tracking-tighter" onClick={() => window.location.href=`/${business.slug}/${p.slug === 'home' ? '' : p.slug}`}>
+                           EDIT
+                         </Button>
+                         {p.slug !== 'home' && (
+                           <Button size="icon" variant="destructive" className="h-9 w-9 text-white shrink-0 shadow-lg shadow-red-500/10" onClick={() => deletePage(p.id)}>
+                             <Trash2 className="h-4 w-4" />
+                           </Button>
+                         )}
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+             </TabsContent>
+
+             <TabsContent value="design" className="mt-0 space-y-6">
+               <div className="p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-4 bg-muted/20">
+                 <Palette className="h-12 w-12 text-accent/40" />
+                 <div>
+                   <h4 className="font-bold text-lg">Visual Customizer</h4>
+                   <p className="text-sm text-muted-foreground">Coming soon! You'll be able to change colors, fonts, and themes globally.</p>
+                 </div>
+                 <Button disabled variant="outline" className="font-bold border-2">Launch Designer</Button>
+               </div>
+             </TabsContent>
+
+             <TabsContent value="settings" className="mt-0 space-y-6">
+               <div className="space-y-6">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                   <div className="space-y-2">
+                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Store Currency</Label>
+                     <div className="relative">
+                       <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                       <Input value={currency} onChange={(e) => setCurrency(e.target.value)} className="font-black border-2 pl-10 h-11" />
+                     </div>
+                   </div>
+                   <div className="space-y-2">
+                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Exchange Rate</Label>
+                     <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} step="0.01" className="font-black border-2 h-11" />
+                   </div>
+                   <div className="space-y-2">
+                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Email</Label>
+                     <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="font-black border-2 h-11" />
+                   </div>
+                   <div className="space-y-2">
+                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Phone</Label>
+                     <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="font-black border-2 h-11" />
+                   </div>
+                 </div>
+
+                 <div className="space-y-4 pt-4 border-t">
+                   <h4 className="text-sm font-black uppercase tracking-widest text-accent">Social Links</h4>
+                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                     <div className="space-y-1">
+                       <Label className="text-[9px] uppercase font-bold text-muted-foreground">Facebook URL</Label>
+                       <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                     </div>
+                     <div className="space-y-1">
+                       <Label className="text-[9px] uppercase font-bold text-muted-foreground">Instagram URL</Label>
+                       <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                     </div>
+                     <div className="space-y-1">
+                       <Label className="text-[9px] uppercase font-bold text-muted-foreground">Twitter URL</Label>
+                       <Input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                     </div>
+                     <div className="space-y-1">
+                       <Label className="text-[9px] uppercase font-bold text-muted-foreground">LinkedIn URL</Label>
+                       <Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                     </div>
+                   </div>
+                 </div>
+
+                  <Button
+                   onClick={() => onUpdateSettings({
+                    currency,
+                    exchangeRate: parseFloat(rate),
+                    siteSettings: {
+                      facebook,
+                      instagram,
+                      twitter,
+                      linkedin,
+                      contactPhone,
+                      contactEmail
+                    }
+                   })}
+                   className="w-full font-black bg-accent shadow-lg shadow-accent/20 h-12 transition-all hover:scale-[1.01]"
+                  >
+                    Commit All Changes
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="inventory" className="mt-0">
+                <ProductForm />
+              </TabsContent>
+
+              <TabsContent value="team" className="mt-0">
+                <StaffForm />
+              </TabsContent>
+
+              <TabsContent value="posts" className="mt-0">
+                <PostForm />
+              </TabsContent>
+            </div>
+         </Tabs>
+       </DialogContent>
+     </Dialog>
+   </div>
+  );
+}
+
+export default AdminToolbar
+
+
+
+================================================================================
 LOCATION: components\platform\PlatformHome.tsx
 ================================================================================
 
@@ -20938,6 +21288,187 @@ export const PlatformStore = () => {
 
 
 ================================================================================
+LOCATION: components\platform\SectionConfigDialog.tsx
+================================================================================
+
+"use client"
+import React from 'react'
+import axios from 'axios'
+import { toast } from 'sonner'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
+import { Settings as SettingsIcon } from 'lucide-react'
+
+const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: () => void }) => {
+  const [configData, setConfigData] = React.useState(section.data || {});
+  const [categories, setCategories] = React.useState<any[]>([]);
+
+  React.useEffect(() => {
+    const fetchCats = async () => {
+      const res = await axios.get('/api/dbhandler?model=category');
+      setCategories(res.data);
+    };
+    if (section.type === 'products') fetchCats();
+  }, [section.type]);
+
+  const handleSave = async () => {
+    try {
+      await axios.put(`/api/dbhandler?model=section`, {
+        id: section.id,
+        data: configData
+      });
+      toast.success("Section updated");
+      onUpdate();
+    } catch (err) {
+      toast.error("Update failed");
+    }
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button size="icon" variant="secondary" className="h-8 w-8">
+          <SettingsIcon className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Configure Section: {section.type}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          {section.type === 'products' && (
+            <div className="space-y-2">
+              <Label>Product Category</Label>
+              <Select
+               value={configData.categoryId || "featured"}
+               onValueChange={(v) => setConfigData({ ...configData, categoryId: v === 'featured' ? null : v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Featured Products" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="featured">Featured (Global)</SelectItem>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>Section Title (Overlay)</Label>
+            <Input
+             value={configData.title || ""}
+             onChange={(e) => setConfigData({ ...configData, title: e.target.value })}
+            />
+          </div>
+        </div>
+        <Button onClick={handleSave} className="w-full border-2 border-accent text-accent hover:bg-accent hover:text-white font-bold">Save Changes</Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default SectionConfigDialog
+
+
+
+================================================================================
+LOCATION: components\platform\StoreFooter.tsx
+================================================================================
+
+"use client"
+import React from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { AdminEditable } from '@/components/utility/AdminEditable'
+import { Button } from '@/components/ui/button'
+import { MapPin, MessageCircle, Instagram, Globe } from 'lucide-react'
+
+interface Business {
+  id: string
+  name: string
+  settings?: any
+  siteSettings?: any
+}
+
+const StoreFooter = ({ business }: { business: Business }) => {
+   const { storeName } = useParams();
+   const pages = business.settings?.pages || [];
+
+   return (
+     <footer className="w-full bg-slate-50 border-t py-12 px-6 md:px-12 mt-20">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+           <div className="space-y-4">
+              <Link href={`/${storeName}`} className="text-xl font-black tracking-tighter text-accent flex items-center gap-2">
+                 <div className="h-8 w-8 bg-accent rounded-lg flex items-center justify-center text-white font-bold shadow-md">
+                    {business.name.charAt(0)}
+                 </div>
+                 <span>{business.name}</span>
+              </Link>
+              <AdminEditable as="p" value={business.siteSettings?.footerText || `Experience premium quality products and world-class service tailored just for you. Shop with ${business.name} today.`} model="siteSettings" id={business.siteSettings?.id || ''} field="footerText" className="text-sm text-muted-foreground leading-relaxed" />
+              {business.siteSettings?.address && <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> {business.siteSettings.address}</p>}
+           </div>
+
+           <div>
+              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Navigation</h4>
+              <ul className="space-y-3">
+                 {pages.map((page: any) => (
+                    <li key={page.id}>
+                       <Link
+                         href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
+                         className="text-sm text-muted-foreground hover:text-accent transition-colors"
+                       >
+                          {page.name}
+                       </Link>
+                    </li>
+                 ))}
+              </ul>
+           </div>
+
+           <div>
+              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Support</h4>
+              <ul className="space-y-3">
+                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">FAQ</Link></li>
+                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">Shipping Policy</Link></li>
+                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">Return Policy</Link></li>
+                 <li><Link href="/contact" className="text-sm text-muted-foreground hover:text-accent font-medium">Contact Us</Link></li>
+              </ul>
+           </div>
+
+           <div className="space-y-6">
+              <h4 className="font-bold text-sm uppercase tracking-widest mb-2">Connect</h4>
+               <div className="flex gap-4">
+                  <Link href={business.siteSettings?.facebook || "#"} target="_blank">
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><MessageCircle className="h-5 w-5" /></Button>
+                  </Link>
+                  <Link href={business.siteSettings?.instagram || "#"} target="_blank">
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Instagram className="h-5 w-5" /></Button>
+                  </Link>
+                  {business.siteSettings?.twitter && (
+                    <Link href={business.siteSettings.twitter} target="_blank">
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Globe className="h-5 w-5" /></Button>
+                    </Link>
+                  )}
+               </div>
+              <p className="text-xs text-muted-foreground"> Powered by <span className="font-bold text-accent">VendorPort</span> Platforms </p>
+           </div>
+        </div>
+        <div className="max-w-7xl mx-auto pt-12 mt-12 border-t text-center text-xs text-muted-foreground">
+           &copy; {new Date().getFullYear()} {business.name}. All rights reserved.
+        </div>
+     </footer>
+   );
+}
+
+export default StoreFooter
+
+
+
+================================================================================
 LOCATION: components\platform\StoreHome.tsx
 ================================================================================
 
@@ -21030,6 +21561,12 @@ import ProductDetailView from "@/components/myComponents/subs/ProductDetailView"
 import ProductForm from "@/prisma/forms/ProductForm";
 import StaffForm from "@/prisma/forms/StaffForm";
 import PostForm from "@/prisma/forms/PostForm";
+import StoreFooter from './StoreFooter'
+import SectionConfigDialog from './SectionConfigDialog'
+import StoreNavbar from './StoreNavbar'
+import AddSectionTrigger from './AddSectionTrigger'
+import AdminToolbar from './AdminToolbar'
+import { useStoreActions } from '@/hooks/useStoreActions'
 
 interface Section {
   id: string
@@ -21043,32 +21580,7 @@ interface Page {
   id: string
   name: string
   slug: string
-  sections: Section[]
-}
-
-interface Business {
-  id: string
-  name: string
-  template: string
-  ownerId: string
-  settings?: {
-    id: string
-    currency: string
-    exchangeRate: number
-    pages: Page[]
-  }
-  siteSettings?: {
-    id: string
-    aboutText: string
-    contactEmail: string
-    contactPhone: string
-    helpText: string
-    facebook?: string
-    instagram?: string
-    twitter?: string
-    linkedin?: string
-  }
-  staff?: Staff[]
+  sections: any[]
 }
 
 interface Staff {
@@ -21077,6 +21589,80 @@ interface Staff {
   role: string
   bio?: string
   image?: string
+}
+
+interface Promotion {
+  id: string
+  title: string
+  description?: string
+  image?: string
+  discount?: number
+}
+
+interface BusinessStat {
+  id: string
+  label: string
+  value: string
+  icon?: string
+}
+
+interface Partner {
+  id: string
+  name: string
+  logo?: string
+  website?: string
+}
+
+interface HelpArticle {
+  id: string
+  title: string
+  content: string
+  category?: string
+}
+
+interface Business {
+  id: string
+  name: string
+  slug: string
+  logo?: string
+  ownerId: string
+  template: string
+  settings?: {
+    id: string
+    currency: string
+    exchangeRate: number
+    pages: any[]
+  }
+  siteSettings?: {
+    id: string
+    aboutText: string
+    contactEmail: string
+    contactPhone: string
+    contactDesc?: string
+    helpText: string
+    facebook?: string
+    instagram?: string
+    twitter?: string
+    linkedin?: string
+    headerCTA?: string
+    footerText?: string
+    address?: string
+    newsletterTitle?: string
+    newsletterText?: string
+    heroTitle?: string
+    heroSubtitle?: string
+    heroCTA?: string
+    heroCTALink?: string
+    heroImage?: string
+    addToHome?: string
+  }
+  staff?: Staff[]
+  promotions?: Promotion[]
+  stats?: BusinessStat[]
+  partners?: Partner[]
+  helpArticles?: HelpArticle[]
+  reviews?: any[]
+  posts?: any[]
 }
 
 const StoreHome = ({
@@ -21109,113 +21695,13 @@ const StoreHome = ({
   const activePage = settings?.pages?.find(p => p.slug === activePageSlug) || (activePageSlug === 'home' && settings?.pages?.[0]?.slug === 'home' ? settings.pages[0] : null);
   const sections = activePage?.sections || [];
 
-  const handleAddSection = async (type: string, layout: string) => {
-    if (!activePage) return;
-    try {
-      const newSection = {
-        pageId: activePage.id,
-        type,
-        layout,
-        order: sections.length,
-        data: { title: `New ${type}`, text: "Add your text here..." }
-      };
-      await axios.post('/api/dbhandler?model=section', newSection);
-      toast.success("Section added!");
-      window.location.reload();
-    } catch (err) {
-      toast.error("Failed to add section");
-    }
-  };
-
-  const handleCreatePage = async (name: string, slug: string, templateSlug?: string) => {
-     try {
-        const res = await axios.post('/api/dbhandler?model=page', {
-           name,
-           slug,
-           projectSettingsId: settings?.id
-        });
-
-        if (templateSlug) {
-           const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
-           if (template) {
-              for (const s of template.sections) {
-                 await axios.post('/api/dbhandler?model=section', {
-                    pageId: res.data.id,
-                    type: s.type,
-                    layout: s.layout,
-                    order: s.order,
-                    data: (s as any).data
-                 });
-              }
-           }
-        }
-
-        toast.success("Page created!");
-        window.location.href = `/${storeName}/${slug}`;
-     } catch (err) {
-        toast.error("Failed to create page");
-     }
-  };
-
-  const handleRemoveSection = async (id: string) => {
-    try {
-      await axios.delete(`/api/dbhandler?model=section&id=${id}`);
-      toast.success("Section removed");
-      window.location.reload();
-    } catch (err) {
-      toast.error("Failed to remove section");
-    }
-  };
-
-  const handleApplyTemplate = async (templateSlug: string) => {
-    if (!activePage) return;
-    const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
-    if (!template) return;
-
-    try {
-      for (const s of template.sections) {
-         await axios.post('/api/dbhandler?model=section', {
-            pageId: activePage.id,
-            type: s.type,
-            layout: s.layout,
-            order: s.order,
-            data: (s as any).data
-         });
-      }
-      toast.success(`Applied ${template.name} template!`);
-      window.location.reload();
-    } catch (err) {
-      toast.error("Failed to apply template");
-    }
-  };
-
-  const updateGlobalSettings = async (data: any) => {
-    try {
-       // Update SiteSettings if present
-       if (data.siteSettings) {
-          await axios.put(`/api/dbhandler?model=siteSettings`, {
-             id: business.siteSettings?.id,
-             ...data.siteSettings
-          });
-       }
-
-       // Update ProjectSettings if present (currency, etc)
-       const projectData = { ...data };
-       delete projectData.siteSettings;
-
-       if (Object.keys(projectData).length > 0) {
-          await axios.put(`/api/dbhandler?model=projectSettings`, {
-             id: settings?.id,
-             ...projectData
-          });
-       }
-
-       toast.success("Settings updated!");
-       window.location.reload();
-    } catch (err) {
-       toast.error("Failed to update settings");
-    }
-  };
+  const {
+    handleAddSection,
+    handleCreatePage,
+    handleRemoveSection,
+    handleApplyTemplate,
+    updateGlobalSettings,
+  } = useStoreActions({ activePage, sections, settings, storeName, business });
 
   // If page doesn't exist, show helper
   if (!activePage) {
@@ -21302,515 +21788,6 @@ const StoreHome = ({
   );
 }
 
-const StoreFooter = ({ business }: { business: Business }) => {
-   const { storeName } = useParams();
-   const pages = business.settings?.pages || [];
-
-   return (
-     <footer className="w-full bg-slate-50 border-t py-12 px-6 md:px-12 mt-20">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
-           <div className="space-y-4">
-              <Link href={`/${storeName}`} className="text-xl font-black tracking-tighter text-accent flex items-center gap-2">
-                 <div className="h-8 w-8 bg-accent rounded-lg flex items-center justify-center text-white font-bold shadow-md">
-                    {business.name.charAt(0)}
-                 </div>
-                 <span>{business.name}</span>
-              </Link>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                 Experience premium quality products and world-class service tailored just for you. Shop with {business.name} today.
-              </p>
-           </div>
-
-           <div>
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Navigation</h4>
-              <ul className="space-y-3">
-                 {pages.map(page => (
-                    <li key={page.id}>
-                       <Link
-                         href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
-                         className="text-sm text-muted-foreground hover:text-accent transition-colors"
-                       >
-                          {page.name}
-                       </Link>
-                    </li>
-                 ))}
-              </ul>
-           </div>
-
-           <div>
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Support</h4>
-              <ul className="space-y-3">
-                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">FAQ</Link></li>
-                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">Shipping Policy</Link></li>
-                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">Return Policy</Link></li>
-                 <li><Link href="/contact" className="text-sm text-muted-foreground hover:text-accent font-medium">Contact Us</Link></li>
-              </ul>
-           </div>
-
-           <div className="space-y-6">
-              <h4 className="font-bold text-sm uppercase tracking-widest mb-2">Connect</h4>
-               <div className="flex gap-4">
-                  <Link href={business.siteSettings?.facebook || "#"} target="_blank">
-                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><MessageCircle className="h-5 w-5" /></Button>
-                  </Link>
-                  <Link href={business.siteSettings?.instagram || "#"} target="_blank">
-                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Instagram className="h-5 w-5" /></Button>
-                  </Link>
-                  {business.siteSettings?.twitter && (
-                    <Link href={business.siteSettings.twitter} target="_blank">
-                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Globe className="h-5 w-5" /></Button>
-                    </Link>
-                  )}
-               </div>
-              <p className="text-xs text-muted-foreground"> Powered by <span className="font-bold text-accent">VendorPort</span> Platforms </p>
-           </div>
-        </div>
-        <div className="max-w-7xl mx-auto pt-12 mt-12 border-t text-center text-xs text-muted-foreground">
-           &copy; {new Date().getFullYear()} {business.name}. All rights reserved.
-        </div>
-     </footer>
-   );
-}
-
-const SectionConfigDialog = ({ section, onUpdate }: { section: Section, onUpdate: () => void }) => {
-   const [configData, setConfigData] = React.useState(section.data || {});
-   const [categories, setCategories] = React.useState<any[]>([]);
-
-   React.useEffect(() => {
-     const fetchCats = async () => {
-        const res = await axios.get('/api/dbhandler?model=category');
-        setCategories(res.data);
-     };
-     if (section.type === 'products') fetchCats();
-   }, [section.type]);
-
-   const handleSave = async () => {
-      try {
-         await axios.put(`/api/dbhandler?model=section`, {
-            id: section.id,
-            data: configData
-         });
-         toast.success("Section updated");
-         onUpdate();
-      } catch (err) {
-         toast.error("Update failed");
-      }
-   };
-
-   return (
-     <Dialog>
-        <DialogTrigger asChild>
-           <Button size="icon" variant="secondary" className="h-8 w-8">
-              <SettingsIcon className="h-4 w-4" />
-           </Button>
-        </DialogTrigger>
-        <DialogContent>
-           <DialogHeader>
-              <DialogTitle>Configure Section: {section.type}</DialogTitle>
-           </DialogHeader>
-           <div className="space-y-4 py-4">
-              {section.type === 'products' && (
-                 <div className="space-y-2">
-                    <Label>Product Category</Label>
-                    <Select
-                      value={configData.categoryId || "featured"}
-                      onValueChange={(v) => setConfigData({ ...configData, categoryId: v === 'featured' ? null : v })}
-                    >
-                       <SelectTrigger>
-                          <SelectValue placeholder="Featured Products" />
-                       </SelectTrigger>
-                       <SelectContent>
-                          <SelectItem value="featured">Featured (Global)</SelectItem>
-                          {categories.map(cat => (
-                             <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                          ))}
-                       </SelectContent>
-                    </Select>
-                 </div>
-              )}
-              <div className="space-y-2">
-                 <Label>Section Title (Overlay)</Label>
-                 <Input
-                   value={configData.title || ""}
-                   onChange={(e) => setConfigData({ ...configData, title: e.target.value })}
-                 />
-              </div>
-           </div>
-           <Button onClick={handleSave} className="w-full border-2 border-accent text-accent hover:bg-accent hover:text-white font-bold">Save Changes</Button>
-        </DialogContent>
-     </Dialog>
-   );
-}
-
-const StoreNavbar = ({ business }: { business: Business }) => {
-   const { storeName } = useParams();
-   const isAdmin = useIsBusinessAdmin();
-   const pages = business.settings?.pages || [];
-
-   return (
-     <nav className="w-full border-b sticky top-0 z-[50] py-4 px-4 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
-        <Link href={`/${storeName}`} className="text-xl md:text-2xl font-black tracking-tighter text-accent flex items-center gap-2">
-           <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
-              {business.name.charAt(0)}
-           </div>
-           <span className="truncate max-w-[120px] md:max-w-none">{business.name}</span>
-        </Link>
-        <div className="hidden md:flex items-center gap-8">
-           {pages.map(page => (
-              <Link
-                key={page.id}
-                href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
-                className="font-bold text-sm uppercase tracking-widest hover:text-accent transition-colors"
-              >
-                {page.name}
-              </Link>
-           ))}
-        </div>
-        <div className="flex items-center gap-2 md:gap-4">
-           {isAdmin && (
-              <Link href={`/${storeName}/analytics`}>
-                <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2 hidden sm:flex">
-                   ADMIN <Layout className="h-3 w-3 ml-1" />
-                </Badge>
-              </Link>
-           )}
-           <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
-           <GlobalCart />
-           <Button variant="outline" className="rounded-full font-bold md:flex hidden">Join Platform</Button>
-
-           <Sheet>
-              <SheetTrigger asChild>
-                 <Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-5 w-5" /></Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[400px] border-l-4 border-accent">
-                 <SheetHeader className="text-left mb-8">
-                    <SheetTitle className="text-2xl font-black flex items-center gap-2">
-                       <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shrink-0">
-                          {business.name.charAt(0)}
-                       </div>
-                       <span>{business.name}</span>
-                    </SheetTitle>
-                 </SheetHeader>
-                 <div className="flex flex-col gap-6">
-                    {pages.map(page => (
-                       <Link
-                         key={page.id}
-                         href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
-                         className="font-bold text-lg uppercase tracking-widest hover:text-accent transition-colors flex items-center justify-between group"
-                       >
-                         {page.name}
-                         <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                       </Link>
-                    ))}
-                    <div className="h-px bg-border my-4" />
-                    {isAdmin && (
-                       <Link href={`/${storeName}/analytics`} className="flex items-center gap-3 text-accent font-black">
-                          <BarChart3 className="h-5 w-5" /> OWNER ANALYTICS
-                       </Link>
-                    )}
-                    <Button className="w-full bg-accent hover:bg-accent/90 text-white font-bold h-12 rounded-xl">Visit Platform</Button>
-                 </div>
-              </SheetContent>
-           </Sheet>
-        </div>
-     </nav>
-   );
-}
-
-const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) => void }) => {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="border-2 border-accent text-accent font-black hover:bg-accent hover:text-white transition-all scale-90 hover:scale-100 shadow-sm px-4">
-           <PlusCircle className="h-4 w-4 mr-2" /> Add Section Here
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Section</DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-           <div className="space-y-2">
-              <Label>Section Type</Label>
-              <Select onValueChange={(v) => onAdd(v, `UI of ${v}`)}>
-                 <SelectTrigger>
-                    <SelectValue placeholder="Select type..." />
-                 </SelectTrigger>
-                 <SelectContent>
-                    <SelectItem value="hero">Hero Section</SelectItem>
-                    <SelectItem value="products">Products Display</SelectItem>
-                    <SelectItem value="categories">Categories Grid</SelectItem>
-                    <SelectItem value="description">Text/About Section</SelectItem>
-                    <SelectItem value="features">Trust Features</SelectItem>
-                    <SelectItem value="chat">Chat Button</SelectItem>
-                    <SelectItem value="notifications">Announcement Bar</SelectItem>
-                    <SelectItem value="contact-form">Contact Form</SelectItem>
-                    <SelectItem value="chat-interface">Chat Interface</SelectItem>
-                    <SelectItem value="blog-posts">Blog Posts</SelectItem>
-                    <SelectItem value="product-list">Product List</SelectItem>
-                    <SelectItem value="newsletter">Newsletter</SelectItem>
-                    <SelectItem value="cart">Cart Details</SelectItem>
-                    <SelectItem value="product-details">Product Details</SelectItem>
-                    <SelectItem value="staff">Staff/Team</SelectItem>
-                 </SelectContent>
-              </Select>
-           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-const AdminToolbar = ({
-  business,
-  onUpdateSettings,
-  onCreatePage,
-  isOpen,
-  onOpenChange,
-  initialTab = "pages"
-}: {
-  business: Business,
-  onUpdateSettings: (data: any) => void,
-  onCreatePage: (name: string, slug: string, template?: string) => void,
-  isOpen: boolean,
-  onOpenChange: (open: boolean) => void,
-  initialTab?: string | null
-}) => {
-  const [currency, setCurrency] = React.useState(business.settings?.currency || "USD");
-  const [rate, setRate] = React.useState(business.settings?.exchangeRate?.toString() || "1.0");
-  const [facebook, setFacebook] = React.useState(business.siteSettings?.facebook || "");
-  const [instagram, setInstagram] = React.useState(business.siteSettings?.instagram || "");
-  const [twitter, setTwitter] = React.useState(business.siteSettings?.twitter || "");
-  const [linkedin, setLinkedin] = React.useState(business.siteSettings?.linkedin || "");
-  const [contactPhone, setContactPhone] = React.useState(business.siteSettings?.contactPhone || "");
-  const [contactEmail, setContactEmail] = React.useState(business.siteSettings?.contactEmail || "");
-
-  const [newPageName, setNewPageName] = React.useState("");
-  const [selectedTemplate, setSelectedTemplate] = React.useState<string>("home");
-  const [activeTab, setActiveTab] = React.useState(initialTab || "pages");
-  const { storeName } = useParams();
-
-  React.useEffect(() => {
-    if (initialTab) setActiveTab(initialTab);
-  }, [initialTab]);
-
-  const handleAddPage = () => {
-     if (!newPageName) return;
-     const slug = newPageName.toLowerCase().replace(/\s+/g, '-');
-     onCreatePage(newPageName, slug, selectedTemplate);
-     setNewPageName("");
-  };
-
-  const deletePage = async (id: string) => {
-     if (confirm("Delete this page and all its sections?")) {
-        await axios.delete(`/api/dbhandler?model=page&id=${id}`);
-        toast.success("Page deleted");
-        window.location.href = `/${storeName}`;
-     }
-  };
-
-  return (
-    <div className="fixed bottom-6 left-6 z-[100]">
-       <Dialog open={isOpen} onOpenChange={onOpenChange}>
-          <DialogTrigger asChild>
-             <Button className="rounded-full h-14 w-14 shadow-2xl bg-black text-white hover:bg-gray-800 transition-all hover:scale-110 border-2 border-white/20">
-                <SettingsIcon className="h-6 w-6" />
-             </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl w-[95vw] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-             <div className="bg-accent p-6 text-white">
-                <DialogTitle className="text-2xl font-black flex items-center gap-2">
-                   <div className="bg-white/20 p-2 rounded-xl"><SettingsIcon className="h-5 w-5" /></div>
-                   Store Control Center
-                </DialogTitle>
-                <p className="text-white/70 text-sm mt-1">Manage your pages, design, and world settings.</p>
-             </div>
-
-             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <div className="px-6 border-b bg-muted/30">
-                   <TabsList className="bg-transparent h-14 w-full justify-start gap-4 p-0">
-                      <TabsTrigger value="pages" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                         <Layout className="h-4 w-4 mr-2" /> Pages
-                      </TabsTrigger>
-                      <TabsTrigger value="design" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                         <Palette className="h-4 w-4 mr-2" /> Design
-                      </TabsTrigger>
-                       <TabsTrigger value="settings" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                          <Globe className="h-4 w-4 mr-2" /> Settings
-                       </TabsTrigger>
-                       <TabsTrigger value="inventory" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                          <Package className="h-4 w-4 mr-2" /> Inventory
-                       </TabsTrigger>
-                       <TabsTrigger value="team" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                          <Users className="h-4 w-4 mr-2" /> Team
-                       </TabsTrigger>
-                       <TabsTrigger value="posts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                          <FileText className="h-4 w-4 mr-2" /> Posts
-                       </TabsTrigger>
-                   </TabsList>
-                </div>
-
-                <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                   <TabsContent value="pages" className="mt-0 space-y-6">
-                      <div className="space-y-4">
-                         <div className="p-4 bg-accent/5 rounded-2xl space-y-4 border-2 border-accent/10">
-                            <h4 className="text-sm font-black uppercase tracking-widest text-accent">Create New Page</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                               <div className="space-y-2">
-                                  <Label className="text-[10px] font-black uppercase tracking-widest">Page Name</Label>
-                                  <Input
-                                    placeholder="e.g. Services"
-                                    className="font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors h-11"
-                                    value={newPageName}
-                                    onChange={(e) => setNewPageName(e.target.value)}
-                                  />
-                               </div>
-                               <div className="space-y-2">
-                                  <Label className="text-[10px] font-black uppercase tracking-widest">Starting Template</Label>
-                                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                                     <SelectTrigger className="h-11 border-2">
-                                        <SelectValue placeholder="Choose template..." />
-                                     </SelectTrigger>
-                                     <SelectContent>
-                                        {Object.entries(DEFAULT_PAGE_TEMPLATES).map(([slug, tpl]) => (
-                                           <SelectItem key={slug} value={slug}>{tpl.name} Layout</SelectItem>
-                                        ))}
-                                     </SelectContent>
-                                  </Select>
-                               </div>
-                            </div>
-                            <Button onClick={handleAddPage} className="w-full font-black bg-accent hover:bg-accent/90 h-12 shadow-lg shadow-accent/20">
-                               <PlusCircle className="h-4 w-4 mr-2" /> Launch New Page
-                            </Button>
-                         </div>
-
-                         <div className="grid grid-cols-1 gap-3">
-                            {business.settings?.pages?.map(p => (
-                               <div key={p.id} className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border-2 border-transparent hover:border-accent/10 hover:bg-white transition-all group shadow-sm">
-                                  <div className="flex items-center gap-4">
-                                     <div className={`h-12 w-12 flex items-center justify-center rounded-xl border-2 transition-colors ${p.slug === 'home' ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-background border-muted text-muted-foreground'}`}>
-                                        {p.slug === 'home' ? <HomeIcon className="h-5 w-5" /> : <Layout className="h-5 w-5" />}
-                                     </div>
-                                     <div>
-                                        <div className="font-black text-[15px] flex items-center gap-2">
-                                           {p.name}
-                                           {p.slug === 'home' && <Badge className="text-[9px] h-4 bg-accent/20 text-accent hover:bg-accent/30 border-none px-1">HOME</Badge>}
-                                        </div>
-                                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60">/{p.slug}</div>
-                                     </div>
-                                  </div>
-                                  <div className="flex gap-2">
-                                     <Button size="sm" variant="outline" className="h-9 font-black text-[10px] border-2 px-3 tracking-tighter" onClick={() => window.location.href=`/${storeName}/${p.slug === 'home' ? '' : p.slug}`}>
-                                        EDIT
-                                     </Button>
-                                     {p.slug !== 'home' && (
-                                        <Button size="icon" variant="destructive" className="h-9 w-9 text-white shrink-0 shadow-lg shadow-red-500/10" onClick={() => deletePage(p.id)}>
-                                           <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                     )}
-                                  </div>
-                               </div>
-                            ))}
-                         </div>
-                      </div>
-                   </TabsContent>
-
-                   <TabsContent value="design" className="mt-0 space-y-6">
-                      <div className="p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-4 bg-muted/20">
-                         <Palette className="h-12 w-12 text-accent/40" />
-                         <div>
-                            <h4 className="font-bold text-lg">Visual Customizer</h4>
-                            <p className="text-sm text-muted-foreground">Coming soon! You'll be able to change colors, fonts, and themes globally.</p>
-                         </div>
-                         <Button disabled variant="outline" className="font-bold border-2">Launch Designer</Button>
-                      </div>
-                   </TabsContent>
-
-                   <TabsContent value="settings" className="mt-0 space-y-6">
-                      <div className="space-y-6">
-                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div className="space-y-2">
-                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Store Currency</Label>
-                               <div className="relative">
-                                  <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                  <Input value={currency} onChange={(e) => setCurrency(e.target.value)} className="font-black border-2 pl-10 h-11" />
-                               </div>
-                            </div>
-                            <div className="space-y-2">
-                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Exchange Rate</Label>
-                               <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} step="0.01" className="font-black border-2 h-11" />
-                            </div>
-                            <div className="space-y-2">
-                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Email</Label>
-                               <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="font-black border-2 h-11" />
-                            </div>
-                            <div className="space-y-2">
-                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Phone</Label>
-                               <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="font-black border-2 h-11" />
-                            </div>
-                         </div>
-
-                         <div className="space-y-4 pt-4 border-t">
-                            <h4 className="text-sm font-black uppercase tracking-widest text-accent">Social Links</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                               <div className="space-y-1">
-                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Facebook URL</Label>
-                                  <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="https://..." className="h-10 border-2" />
-                               </div>
-                               <div className="space-y-1">
-                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Instagram URL</Label>
-                                  <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="https://..." className="h-10 border-2" />
-                               </div>
-                               <div className="space-y-1">
-                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Twitter URL</Label>
-                                  <Input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="https://..." className="h-10 border-2" />
-                               </div>
-                               <div className="space-y-1">
-                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">LinkedIn URL</Label>
-                                  <Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://..." className="h-10 border-2" />
-                               </div>
-                            </div>
-                         </div>
-
-                          <Button
-                            onClick={() => onUpdateSettings({
-                              currency,
-                              exchangeRate: parseFloat(rate),
-                              siteSettings: {
-                                facebook,
-                                instagram,
-                                twitter,
-                                linkedin,
-                                contactPhone,
-                                contactEmail
-                              }
-                            })}
-                            className="w-full font-black bg-accent shadow-lg shadow-accent/20 h-12 transition-all hover:scale-[1.01]"
-                          >
-                             Commit All Changes
-                          </Button>
-                       </div>
-                    </TabsContent>
-
-                    <TabsContent value="inventory" className="mt-0">
-                       <ProductForm />
-                    </TabsContent>
-
-                    <TabsContent value="team" className="mt-0">
-                       <StaffForm />
-                    </TabsContent>
-
-                    <TabsContent value="posts" className="mt-0">
-                       <PostForm />
-                    </TabsContent>
-                 </div>
-             </Tabs>
-          </DialogContent>
-       </Dialog>
-    </div>
-  );
-}
-
 
 // Component to render custom UI based on ProjectSettings section definition
 const RenderSection = ({ section, business }: { section: any, business: Business }) => {
@@ -21820,7 +21797,14 @@ const RenderSection = ({ section, business }: { section: any, business: Business
    
    switch (type) {
      case 'hero':
-        return <Hero variant={layout as any || 'modern-split'} title={data?.title} subtitle={data?.text} sectionId={id} />;
+        return (
+          <Hero 
+            variant={layout as any || 'modern-split'} 
+            title={<AdminEditable value={business.siteSettings?.heroTitle || 'Welcome'} model="siteSettings" id={business.siteSettings?.id || ''} field="heroTitle">{business.siteSettings?.heroTitle || 'Welcome'}</AdminEditable>}
+            subtitle={<AdminEditable value={business.siteSettings?.heroSubtitle || ''} model="siteSettings" id={business.siteSettings?.id || ''} field="heroSubtitle">{business.siteSettings?.heroSubtitle || ''}</AdminEditable>}
+            sectionId={id} 
+          />
+        );
      case 'products':
         if (layout === 'carousel of products') {
           return (
@@ -21844,7 +21828,7 @@ const RenderSection = ({ section, business }: { section: any, business: Business
                 <Info className="h-12 w-12 text-accent mx-auto" strokeWidth={3} />
                 <AdminEditable as="h2" value={data?.title || 'Our Philosophy'} model="section" id={id} field="data.title" data={data} className="text-4xl font-extrabold tracking-tight underline decoration-accent/40" />
                 <div className="w-full">
-                  <AdminEditable as="p" value={data?.text || 'This store provides the best service for all customers around the globe.'} model="section" id={id} field="data.text" data={data} className="text-xl text-muted-foreground leading-loose italic" />
+                  <AdminEditable as="p" value={business.siteSettings?.aboutText || 'This store provides the best service for all customers around the globe.'} model="siteSettings" id={business.siteSettings?.id || ''} field="aboutText" className="text-xl text-muted-foreground leading-loose italic" />
                 </div>
              </div>
           </ScrollScaleWrapper>
@@ -21861,15 +21845,15 @@ const RenderSection = ({ section, business }: { section: any, business: Business
                    <div className="space-y-6">
                       <div className="flex gap-4 items-center">
                          <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><Mail /></div>
-                         <div><p className="text-xs font-black uppercase text-muted-foreground">Email</p><p className="font-bold">{business.siteSettings?.contactEmail || `support@${storeName}.com`}</p></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Email</p><AdminEditable value={business.siteSettings?.contactEmail || `support@${storeName}.com`} model="siteSettings" id={business.siteSettings?.id || ''} field="contactEmail" className="font-bold" /></div>
                       </div>
                       <div className="flex gap-4 items-center">
                          <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><Phone /></div>
-                         <div><p className="text-xs font-black uppercase text-muted-foreground">Phone</p><p className="font-bold">{business.siteSettings?.contactPhone || '+234 (0) 000 000 0000'}</p></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Phone</p><AdminEditable value={business.siteSettings?.contactPhone || '+234 (0) 000 000 0000'} model="siteSettings" id={business.siteSettings?.id || ''} field="contactPhone" className="font-bold" /></div>
                       </div>
                       <div className="flex gap-4 items-center">
                          <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><MapPin /></div>
-                         <div><p className="text-xs font-black uppercase text-muted-foreground">Office</p><p className="font-bold">Global Presence</p></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Office</p><AdminEditable value={business.siteSettings?.address || 'Global Presence'} model="siteSettings" id={business.siteSettings?.id || ''} field="address" className="font-bold" /></div>
                       </div>
                    </div>
                 </div>
@@ -21897,7 +21881,7 @@ const RenderSection = ({ section, business }: { section: any, business: Business
              <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
                 <div className="space-y-2 text-center md:text-left">
                    <AdminEditable as="h2" value={data?.title || 'Latest Insights'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black" />
-                   <p className="text-muted-foreground">Knowledge base and updates from our experts.</p>
+                   <AdminEditable as="p" value={data?.text || 'Knowledge base and updates from our experts.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
                 </div>
                 <Button variant="outline" className="font-bold rounded-full border-2 h-12 px-8">View All Posts</Button>
              </div>
@@ -21927,8 +21911,8 @@ const RenderSection = ({ section, business }: { section: any, business: Business
            <div className="w-full py-20 px-4 md:px-0">
               <div className="max-w-4xl mx-auto px-6 py-12 bg-accent rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-accent/20">
                  <div className="space-y-2 flex-1 text-center md:text-left">
-                    <h3 className="text-2xl font-black uppercase tracking-widest">Join our Newsletter</h3>
-                    <p className="text-white/80 font-medium">Be the first to know about new arrivals and exclusive offers.</p>
+                    <AdminEditable as="h3" value={business.siteSettings?.newsletterTitle || 'Join our Newsletter'} model="siteSettings" id={business.siteSettings?.id || ''} field="newsletterTitle" className="text-2xl font-black uppercase tracking-widest" />
+                    <AdminEditable as="p" value={business.siteSettings?.newsletterText || 'Be the first to know about new arrivals and exclusive offers.'} model="siteSettings" id={business.siteSettings?.id || ''} field="newsletterText" className="text-white/80 font-medium" />
                  </div>
                  <div className="flex w-full md:w-auto gap-3 items-center">
                     <Input placeholder="your@email.com" className="bg-white/10 border-white/20 h-12 rounded-2xl w-full md:w-64 placeholder:text-white/50 font-bold" />
@@ -21937,6 +21921,97 @@ const RenderSection = ({ section, business }: { section: any, business: Business
               </div>
            </div>
         );
+     case 'stats': {
+        const stats = business.stats || [];
+        return (
+           <div className="w-full py-20 bg-accent text-white">
+              <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+                 {stats.map(stat => (
+                    <div key={stat.id} className="space-y-2">
+                       <AdminEditable 
+                          as="h4" 
+                          value={stat.value} 
+                          model="businessStat" 
+                          id={stat.id} 
+                          field="value" 
+                          className="text-5xl font-black" 
+                       />
+                       <AdminEditable 
+                          as="p" 
+                          value={stat.label} 
+                          model="businessStat" 
+                          id={stat.id} 
+                          field="label" 
+                          className="text-sm font-bold uppercase tracking-widest opacity-70" 
+                       />
+                    </div>
+                 ))}
+              </div>
+           </div>
+        );
+     }
+     case 'partners': {
+        const partners = business.partners || [];
+        return (
+           <div className="w-full py-20 bg-muted/30">
+              <div className="max-w-7xl mx-auto px-6 text-center space-y-12">
+                 <AdminEditable as="h2" value={data?.title || 'Our Trusted Partners'} model="section" id={id} field="data.title" data={data} className="text-sm font-black uppercase tracking-widest text-muted-foreground" />
+                 <div className="flex flex-wrap justify-center items-center gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+                    {partners.map(partner => (
+                       <div key={partner.id} className="flex flex-col items-center gap-2">
+                          <img src={partner.logo || ''} alt={partner.name} className="h-12 object-contain" />
+                          <AdminEditable 
+                             as="p" 
+                             value={partner.name} 
+                             model="partner" 
+                             id={partner.id} 
+                             field="name" 
+                             className="text-[10px] font-bold uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity" 
+                          />
+                       </div>
+                    ))}
+                 </div>
+              </div>
+           </div>
+        );
+     }
+     case 'promotions': {
+        const promos = business.promotions || [];
+        return (
+           <div className="w-full py-20 overflow-hidden">
+              <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                 {promos.map(promo => (
+                    <div key={promo.id} className="relative h-[300px] rounded-[3rem] overflow-hidden group">
+                       <img
+                         src={promo.image || ''}
+                         alt={promo.title || 'Promotion image'}
+                         className="absolute inset-0 h-full w-full object-cover group-hover:scale-110 transition-transform duration-700"
+                       />
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-10 flex flex-col justify-end">
+                          <AdminEditable 
+                             as="h4" 
+                             value={promo.title} 
+                             model="promotion" 
+                             id={promo.id} 
+                             field="title" 
+                             className="text-3xl font-black text-white" 
+                          />
+                          <AdminEditable 
+                             as="p" 
+                             value={promo.description || ''} 
+                             model="promotion" 
+                             id={promo.id} 
+                             field="description" 
+                             className="text-white/70 font-medium mb-4" 
+                          />
+                          {promo.discount && <Badge className="w-fit bg-red-600 font-black">{promo.discount}% OFF</Badge>}
+                       </div>
+                    </div>
+                 ))}
+              </div>
+           </div>
+        );
+     }
      case 'cart':
         return (
           <div className="w-full py-20 px-4 max-w-7xl mx-auto">
@@ -21965,8 +22040,22 @@ const RenderSection = ({ section, business }: { section: any, business: Business
                       <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-all duration-300 shadow-xl group-hover:shadow-accent/20">
                          <img src={member.image || 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png'} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
                       </div>
-                      <h4 className="font-bold text-lg group-hover:text-accent transition-colors">{member.name}</h4>
-                      <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]">{member.role}</p>
+                      <AdminEditable 
+                         as="h4" 
+                         value={member.name} 
+                         model="staff" 
+                         id={member.id} 
+                         field="name" 
+                         className="font-bold text-lg group-hover:text-accent transition-colors" 
+                      />
+                      <AdminEditable 
+                         as="p" 
+                         value={member.role} 
+                         model="staff" 
+                         id={member.id} 
+                         field="role" 
+                         className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]" 
+                      />
                    </div>
                 )) : (
                    <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
@@ -21998,12 +22087,135 @@ const RenderSection = ({ section, business }: { section: any, business: Business
              </div>
           </div>
         );
+     case 'help': {
+        const articles = business.helpArticles || [];
+        return (
+           <div className="w-full py-20 px-6 max-w-5xl mx-auto space-y-12">
+              <div className="text-center space-y-4">
+                 <AdminEditable as="h2" value={data?.title || 'Help Center'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
+                 <AdminEditable as="p" value={data?.text || 'Find answers to common questions.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {articles.map(article => (
+                    <div key={article.id} className="p-8 bg-muted/20 rounded-[2rem] border-2 border-transparent hover:border-accent/10 transition-all group">
+                       <AdminEditable as="h4" value={article.title} model="helpArticle" id={article.id} field="title" className="text-lg font-bold mb-3 group-hover:text-accent transition-colors" />
+                       <AdminEditable as="p" value={article.content} model="helpArticle" id={article.id} field="content" className="text-sm text-muted-foreground line-clamp-3" />
+                       <Button variant="link" className="px-0 h-auto mt-4 text-accent font-black">Read More</Button>
+                    </div>
+                 ))}
+              </div>
+           </div>
+        );
+     }
      default:
         return <div className="p-10 text-center text-muted-foreground">Unknown section type: {type}</div>;
    }
 }
 
 export default StoreHome;
+
+
+
+================================================================================
+LOCATION: components\platform\StoreNavbar.tsx
+================================================================================
+
+"use client"
+import React from 'react'
+import Link from 'next/link'
+import { useParams } from 'next/navigation'
+import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search } from 'lucide-react'
+import { GlobalCart } from '@/components/utility/GlobalCart'
+
+interface Business {
+  id: string
+  name: string
+  settings?: any
+  siteSettings?: any
+}
+
+const StoreNavbar = ({ business }: { business: Business }) => {
+  const { storeName } = useParams();
+  const isAdmin = useIsBusinessAdmin();
+  const pages = business.settings?.pages || [];
+
+  return (
+   <nav className="w-full border-b sticky top-0 z-[50] py-4 px-4 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
+     <Link href={`/${storeName}`} className="text-xl md:text-2xl font-black tracking-tighter text-accent flex items-center gap-2">
+       <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
+         {business.name.charAt(0)}
+       </div>
+       <span className="truncate max-w-[120px] md:max-w-none">{business.name}</span>
+     </Link>
+     <div className="hidden md:flex items-center gap-8">
+       {pages.map(page => (
+         <Link
+          key={page.id}
+          href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
+          className="font-bold text-sm uppercase tracking-widest hover:text-accent transition-colors"
+         >
+          {page.name}
+         </Link>
+       ))}
+     </div>
+     <div className="flex items-center gap-2 md:gap-4">
+       {isAdmin && (
+         <Link href={`/${storeName}/analytics`}>
+          <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2 hidden sm:flex">
+            ADMIN <Layout className="h-3 w-3 ml-1" />
+          </Badge>
+         </Link>
+       )}
+       <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
+       <GlobalCart />
+       <Button variant="outline" className="rounded-full font-bold md:flex hidden">
+         {business.siteSettings?.headerCTA || 'Join Platform'}
+       </Button>
+
+       <Sheet>
+         <SheetTrigger asChild>
+           <Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-5 w-5" /></Button>
+         </SheetTrigger>
+         <SheetContent side="right" className="w-[300px] sm:w-[400px] border-l-4 border-accent">
+           <SheetHeader className="text-left mb-8">
+             <SheetTitle className="text-2xl font-black flex items-center gap-2">
+               <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shrink-0">
+                 {business.name.charAt(0)}
+               </div>
+               <span>{business.name}</span>
+             </SheetTitle>
+           </SheetHeader>
+           <div className="flex flex-col gap-6">
+             {pages.map(page => (
+               <Link
+                key={page.id}
+                href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
+                className="font-bold text-lg uppercase tracking-widest hover:text-accent transition-colors flex items-center justify-between group"
+               >
+                {page.name}
+                <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+               </Link>
+             ))}
+             <div className="h-px bg-border my-4" />
+             {isAdmin && (
+               <Link href={`/${storeName}/analytics`} className="flex items-center gap-3 text-accent font-black">
+                 <BarChart3 className="h-5 w-5" /> OWNER ANALYTICS
+               </Link>
+             )}
+             <Button className="w-full bg-accent hover:bg-accent/90 text-white font-bold h-12 rounded-xl">Visit Platform</Button>
+           </div>
+         </SheetContent>
+       </Sheet>
+     </div>
+   </nav>
+  )
+}
+
+export default StoreNavbar
 
 
 
@@ -27419,7 +27631,8 @@ interface AdminEditableProps {
   data?: any   // The whole data object if field is nested in data
   onSave?: (newValue: string) => void
   className?: string
-  as?: 'h1' | 'h2' | 'h3' | 'p' | 'span' | 'div'
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'span' | 'div'
+  children?: React.ReactNode
 }
 
 export const AdminEditable = ({ 
@@ -27430,7 +27643,8 @@ export const AdminEditable = ({
   data,
   onSave, 
   className = "", 
-  as: Component = 'span' 
+  as: Component = 'span',
+  children
 }: AdminEditableProps) => {
   const isAdmin = useIsBusinessAdmin();
   const [isEditing, setIsEditing] = useState(false);
@@ -27463,7 +27677,7 @@ export const AdminEditable = ({
   };
 
   if (!isAdmin) {
-    return <Component className={className}>{value}</Component>;
+    return <Component className={className}>{children || value}</Component>;
   }
 
   return (
@@ -27485,7 +27699,7 @@ export const AdminEditable = ({
         </div>
       ) : (
         <>
-          <Component className={className}>{value}</Component>
+          <Component className={className}>{children || value}</Component>
           <Button 
             size="icon" 
             variant="ghost" 
@@ -30530,6 +30744,156 @@ export function useMessageNotifications() {
 
         return () => clearInterval(interval);
     }, [session, router]);
+}
+
+
+
+================================================================================
+LOCATION: hooks\useStoreActions.ts
+================================================================================
+
+"use client";
+
+import axios from 'axios';
+import { toast } from 'sonner';
+import { DEFAULT_PAGE_TEMPLATES } from '@/lib/storeTemplates';
+
+interface Params {
+  activePage: any;
+  sections: any[];
+  settings?: any;
+  storeName?: string | string[];
+  business?: any;
+}
+
+export function useStoreActions({
+  activePage,
+  sections,
+  settings,
+  storeName,
+  business,
+}: Params) {
+  const handleAddSection = async (type: string, layout: string) => {
+    if (!activePage) return;
+    try {
+      const newSection = {
+        pageId: activePage.id,
+        type,
+        layout,
+        order: sections.length,
+        data: { title: `New ${type}`, text: 'Add your text here...' },
+      };
+      await axios.post('/api/dbhandler?model=section', newSection);
+      toast.success('Section added!');
+      window.location.reload();
+    } catch (err) {
+      toast.error('Failed to add section');
+    }
+  };
+
+  const handleCreatePage = async (
+    name: string,
+    slug: string,
+    templateSlug?: string
+  ) => {
+    try {
+      const res = await axios.post('/api/dbhandler?model=page', {
+        name,
+        slug,
+        projectSettingsId: settings?.id,
+      });
+
+      if (templateSlug) {
+        const template =
+          DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
+        if (template) {
+          for (const s of template.sections) {
+            await axios.post('/api/dbhandler?model=section', {
+              pageId: res.data.id,
+              type: s.type,
+              layout: s.layout,
+              order: s.order,
+              data: (s as any).data,
+            });
+          }
+        }
+      }
+
+      toast.success('Page created!');
+      window.location.href = `/${storeName}/${slug}`;
+    } catch (err) {
+      toast.error('Failed to create page');
+    }
+  };
+
+  const handleRemoveSection = async (id: string) => {
+    try {
+      await axios.delete(`/api/dbhandler?model=section&id=${id}`);
+      toast.success('Section removed');
+      window.location.reload();
+    } catch (err) {
+      toast.error('Failed to remove section');
+    }
+  };
+
+  const handleApplyTemplate = async (templateSlug: string) => {
+    if (!activePage) return;
+    const template =
+      DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
+    if (!template) return;
+
+    try {
+      for (const s of template.sections) {
+        await axios.post('/api/dbhandler?model=section', {
+          pageId: activePage.id,
+          type: s.type,
+          layout: s.layout,
+          order: s.order,
+          data: (s as any).data,
+        });
+      }
+      toast.success(`Applied ${template.name} template!`);
+      window.location.reload();
+    } catch (err) {
+      toast.error('Failed to apply template');
+    }
+  };
+
+  const updateGlobalSettings = async (data: any) => {
+    try {
+      // Update SiteSettings if present
+      if (data.siteSettings) {
+        await axios.put(`/api/dbhandler?model=siteSettings`, {
+          id: business?.siteSettings?.id,
+          ...data.siteSettings,
+        });
+      }
+
+      // Update ProjectSettings if present (currency, etc)
+      const projectData = { ...data };
+      delete projectData.siteSettings;
+
+      if (Object.keys(projectData).length > 0) {
+        await axios.put(`/api/dbhandler?model=projectSettings`, {
+          id: settings?.id,
+          ...projectData,
+        });
+      }
+
+      toast.success('Settings updated!');
+      window.location.reload();
+    } catch (err) {
+      toast.error('Failed to update settings');
+    }
+  };
+
+  return {
+    handleAddSection,
+    handleCreatePage,
+    handleRemoveSection,
+    handleApplyTemplate,
+    updateGlobalSettings,
+  };
 }
 
 
@@ -34938,6 +35302,7 @@ model User {
   messages      Message[]
   lunches       Lunch[]
   businesses    Business[]        @relation("UserBusinesses")
+  chatThreads   ChatThread[]      @relation("UserChatThreads")
 }
 
 model Business {
@@ -34968,6 +35333,12 @@ model Business {
   lunches          Lunch[]
   payments         Payment[]
   refunds          Refund[]
+  promotions       Promotion[]
+  subscribers      Subscriber[]
+  stats            BusinessStat[]
+  partners         Partner[]
+  helpArticles     HelpArticle[]
+  chatThreads      ChatThread[]      @relation("BusinessChatThreads")
 }
 
 model ProjectSettings {
@@ -35011,22 +35382,83 @@ model Staff {
 }
 
 model SiteSettings {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  businessId   String   @unique @db.ObjectId
-  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  aboutText    String   @default("Write about your business here")
-  addToHome    String   @default("Add our app to your home screen for a better experience!")
-  heroTitle    String   @default("Welcome to our store")
-  heroSubtitle String   @default("Browse our products and enjoy great deals")
-  contactDesc  String   @default("Contact us today for product inquiries, order support, or business collaborations.")
-  contactEmail String?  @default("support@example.com")
-  contactPhone String?  @default("000-000-0000")
-  helpText     String   @default("How can we assist you?")
-  facebook     String?
-  instagram    String?
-  twitter      String?
-  linkedin     String?
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId      String   @unique @db.ObjectId
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  aboutText       String   @default("Write about your business here")
+  addToHome       String   @default("Add our app to your home screen for a better experience!")
+  heroTitle       String   @default("Welcome to our store")
+  heroSubtitle    String   @default("Browse our products and enjoy great deals")
+  heroCTA         String?  @default("Shop Now")
+  heroCTALink     String?  @default("/store")
+  heroImage       String?
+  contactDesc     String   @default("Contact us today for product inquiries, order support, or business collaborations.")
+  contactEmail    String?  @default("support@example.com")
+  contactPhone    String?  @default("000-000-0000")
+  helpText        String   @default("How can we assist you?")
+  facebook        String?
+  instagram       String?
+  twitter         String?
+  linkedin        String?
+  headerCTA       String?  @default("Join Now")
+  footerText      String?  @default("Your trusted partner in quality products.")
+  address         String?
+  newsletterTitle String?  @default("Join our Newsletter")
+  newsletterText  String?  @default("Be the first to know about new arrivals and exclusive offers.")
+  updatedAt       DateTime @updatedAt
+}
+
+model Promotion {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  image       String?
+  discount    Float?
+  startDate   DateTime?
+  endDate     DateTime?
+  businessId  String    @db.ObjectId
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Subscriber {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  email      String
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([email, businessId])
+}
+
+model BusinessStat {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  label      String
+  value      String
+  icon       String?
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model Partner {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  logo       String?
+  website    String?
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model HelpArticle {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  title      String
+  content    String
+  category   String?
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Account {
@@ -35382,6 +35814,33 @@ model Wishlist {
   updatedAt  DateTime  @updatedAt
 
   @@unique([userId, productId, businessId])
+}
+
+model ChatThread {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  user       User         @relation("UserChatThreads", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String       @db.ObjectId
+  business   Business     @relation("BusinessChatThreads", fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String       @db.ObjectId
+  messages   ChatMessage[]
+  status     String       @default("active") // active, closed
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([userId, businessId])
+}
+
+model ChatMessage {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  thread     ChatThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId   String       @db.ObjectId
+  sender     String       // "user" or "admin"
+  senderName String?
+  message    String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([threadId, createdAt])
 }
 
 // model Comment {
@@ -41101,5 +41560,5 @@ export const normalizeDateTime = (dateTime?: string): string => {
 
 
 ================================================================================
-TOTAL FILES CONSOLIDATED: 346
+TOTAL FILES CONSOLIDATED: 352
 ================================================================================

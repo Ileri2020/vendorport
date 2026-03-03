@@ -20,16 +20,33 @@ export function useStoreActions({
   business,
 }: Params) {
   const handleAddSection = async (type: string, layout: string) => {
-    if (!activePage) return;
+    // Determine whether we are using the new master BusinessSection system
+    const useMaster = Boolean(business && business.sections);
     try {
-      const newSection = {
-        pageId: activePage.id,
-        type,
-        layout,
-        order: sections.length,
-        data: { title: `New ${type}`, text: 'Add your text here...' },
-      };
-      await axios.post('/api/dbhandler?model=section', newSection);
+      if (useMaster) {
+        const newSection = {
+          businessId: business.id,
+          page: activePage?.slug || 'home',
+          key: layout, // store the layout as the key for now
+          type: 'static',
+          position: sections.length,
+          heading: `New ${type}`,
+          subHeading: '',
+          content: {},
+          settings: { layout },
+        };
+        await axios.post('/api/dbhandler?model=businessSection', newSection);
+      } else {
+        if (!activePage) return;
+        const newSection = {
+          pageId: activePage.id,
+          type,
+          layout,
+          order: sections.length,
+          data: { title: `New ${type}`, text: 'Add your text here...' },
+        };
+        await axios.post('/api/dbhandler?model=section', newSection);
+      }
       toast.success('Section added!');
       window.location.reload();
     } catch (err) {
@@ -74,7 +91,12 @@ export function useStoreActions({
 
   const handleRemoveSection = async (id: string) => {
     try {
-      await axios.delete(`/api/dbhandler?model=section&id=${id}`);
+      const useMaster = Boolean(business && business.sections);
+      if (useMaster) {
+        await axios.delete(`/api/dbhandler?model=businessSection&id=${id}`);
+      } else {
+        await axios.delete(`/api/dbhandler?model=section&id=${id}`);
+      }
       toast.success('Section removed');
       window.location.reload();
     } catch (err) {
@@ -83,20 +105,34 @@ export function useStoreActions({
   };
 
   const handleApplyTemplate = async (templateSlug: string) => {
-    if (!activePage) return;
+    if (!activePage && !(business && business.sections)) return;
     const template =
       DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
     if (!template) return;
 
     try {
+      const useMaster = Boolean(business && business.sections);
       for (const s of template.sections) {
-        await axios.post('/api/dbhandler?model=section', {
-          pageId: activePage.id,
-          type: s.type,
-          layout: s.layout,
-          order: s.order,
-          data: (s as any).data,
-        });
+        if (useMaster) {
+          await axios.post('/api/dbhandler?model=businessSection', {
+            businessId: business.id,
+            page: activePage?.slug || 'home',
+            key: s.layout,
+            type: 'static',
+            position: s.order,
+            heading: (s as any).data?.title || '',
+            content: (s as any).data || {},
+            settings: { layout: s.layout },
+          });
+        } else {
+          await axios.post('/api/dbhandler?model=section', {
+            pageId: activePage.id,
+            type: s.type,
+            layout: s.layout,
+            order: s.order,
+            data: (s as any).data,
+          });
+        }
       }
       toast.success(`Applied ${template.name} template!`);
       window.location.reload();

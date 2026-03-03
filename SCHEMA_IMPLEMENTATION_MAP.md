@@ -29,6 +29,17 @@ This document maps all page sections to their database storage and AdminEditable
 
 ## Implementation Checklist
 
+### MASTER SECTION MODEL
+- [x] `BusinessSection` stores reusable sections across pages
+  - page: home/about/shop/footer/etc
+  - key: hero, stats, testimonials, etc.
+  - type: static|dynamic|collection
+  - position: ordering
+  - heading/subHeading/content: editable text
+  - settings: layout/config JSON
+  - items: relation to SectionItem for collection references
+
+
 ### Page: HOME
 - [x] Hero: siteSettings (heroTitle, heroSubtitle, heroCTA, heroCTALink, heroImage)
 - [x] Featured Products: Product + FeaturedProduct models

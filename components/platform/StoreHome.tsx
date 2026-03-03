@@ -159,6 +159,7 @@ interface Business {
     exchangeRate: number
     pages: any[]
   }
+  sections?: any[]
   siteSettings?: {
     id: string
     aboutText: string
@@ -218,8 +219,18 @@ const StoreHome = ({
   }, [initialAdminTab]);
 
   const settings = business.settings;
-  const activePage = settings?.pages?.find(p => p.slug === activePageSlug) || (activePageSlug === 'home' && settings?.pages?.[0]?.slug === 'home' ? settings.pages[0] : null);
-  const sections = activePage?.sections || [];
+  const activePage = settings?.pages?.find(p => p.slug === activePageSlug) ||
+    (activePageSlug === 'home' && settings?.pages?.[0]?.slug === 'home' ? settings.pages[0] : null);
+
+  // if business.sections exists (master section system), filter by page slug and sort by position
+  let sections: any[] = [];
+  if (business.sections && business.sections.length) {
+    sections = business.sections
+      .filter((s: any) => s.page === activePageSlug)
+      .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
+  } else {
+    sections = activePage?.sections || [];
+  }
 
   const {
     handleAddSection,
@@ -317,7 +328,12 @@ const StoreHome = ({
 
 // Component to render custom UI based on ProjectSettings section definition
 const RenderSection = ({ section, business }: { section: any, business: Business }) => {
-   const { id, type, layout, data } = section;
+   // old schema: { id, type, layout, data }
+   // new schema: { id, key, type, settings, content }
+   const { id } = section;
+   const type = section.type || section.key || '';
+   const layout = section.layout || section.settings?.layout || section.key || '';
+   const data = section.data || section.content || {};
    const { storeName } = useParams();
    const searchParams = useSearchParams();
    

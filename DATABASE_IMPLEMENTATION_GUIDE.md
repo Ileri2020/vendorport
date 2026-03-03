@@ -10,6 +10,20 @@ This document provides a complete reference for how each page section is linked 
 ### Core Principle: Multi-Tenant Scoping
 Every piece of business content is scoped by `businessId` to support multiple independent businesses on one platform.
 
+### New Master Section System (BusinessSection)
+To provide a unified list of layout sections that can be reused across any page or part of the store, we introduced the `BusinessSection` model. This acts as a "master" section registry allowing admins to define content once and attach it to one or more pages.  Key fields:
+
+- `businessId` – tenant scope
+- `page` – one of `home`, `about`, `shop`, `footer`, etc.
+- `key` – identifier for the section type (e.g. `hero`, `stats`, `testimonials`)
+- `type` – `static`, `dynamic`, or `collection` (controls rendering logic)
+- `position` – ordering within the page
+- `heading`, `subHeading`, `content` – editable text
+- `settings` – layout/display JSON (previously `layout` in old sections)
+
+When present, frontend components will prefer `business.sections` over `settings.pages[].sections` and admin actions (add/remove/update) automatically operate on `businessSection` records. This gives maximum flexibility for rendering sections anywhere on the site.
+
+
 ### Storage Categories
 
 #### A. Static Settings (siteSettings model)
