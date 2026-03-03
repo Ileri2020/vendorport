@@ -6,8 +6,9 @@ import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search } from 'lucide-react'
+import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search, Camera } from 'lucide-react'
 import { GlobalCart } from '@/components/utility/GlobalCart'
+import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 
 interface Business {
   id: string
@@ -17,7 +18,7 @@ interface Business {
   siteSettings?: any
 }
 
-const StoreNavbar = ({ business }: { business: Business }) => {
+const StoreNavbar = ({ business, businessId }: { business: Business, businessId?: string }) => {
   const { storeName } = useParams();
   const isAdmin = useIsBusinessAdmin();
   const pages = business.settings?.pages || [];
@@ -49,6 +50,13 @@ const StoreNavbar = ({ business }: { business: Business }) => {
           </Badge>
          </Link>
        )}
+       {businessId && (
+         <AIProductSearch businessId={businessId}>
+           <Button variant="ghost" size="icon" title="AI Product Search" className="hover:bg-accent/10 hover:text-accent">
+             <Camera className="h-5 w-5" />
+           </Button>
+         </AIProductSearch>
+       )}
        <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
        <GlobalCart />
        <Button variant="outline" className="rounded-full font-bold md:flex hidden">
@@ -69,6 +77,14 @@ const StoreNavbar = ({ business }: { business: Business }) => {
              </SheetTitle>
            </SheetHeader>
            <div className="flex flex-col gap-6">
+             {businessId && (
+               <AIProductSearch businessId={businessId}>
+                 <Button className="w-full h-12 bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90 text-white font-bold rounded-xl gap-2">
+                   <Camera className="h-5 w-5" />
+                   AI Product Search
+                 </Button>
+               </AIProductSearch>
+             )}
              {pages.map(page => (
                <Link
                 key={page.id}

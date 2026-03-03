@@ -3,15 +3,16 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import axios from 'axios'
-import { 
-  AiOutlineSearch, 
-  AiOutlineFilter, 
-  AiOutlineClear,
-  AiOutlineShoppingCart,
-  AiOutlineStar,
-  AiOutlineArrowRight,
-  AiOutlineRobot
+import {
+   AiOutlineSearch, 
+   AiOutlineFilter, 
+   AiOutlineClear,
+   AiOutlineShoppingCart,
+   AiOutlineStar,
+   AiOutlineArrowRight,
+   AiOutlineRobot
 } from 'react-icons/ai'
+import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 import { 
   Search, 
   Filter, 
@@ -153,7 +154,7 @@ export const PlatformStore = () => {
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-8 py-12 px-6">
          {/* Sidebar Navigation & Filters */}
-         <aside className="w-full md:w-80 flex flex-col gap-8 sticky top-24 h-fit">
+         <aside className="w-full md:w-80 flex flex-col gap-8 md:sticky md:top-24 h-fit">
             
             {/* AI Assistant CTA */}
             <div className="bg-gradient-to-br from-accent to-primary rounded-3xl p-6 text-white shadow-xl shadow-accent/20 group cursor-pointer relative overflow-hidden" onClick={() => setIsFilterOpen(true)}>
@@ -164,9 +165,11 @@ export const PlatformStore = () => {
                   <div className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest">Powered by AI</div>
                   <h3 className="text-xl font-black">Smart Shopping Assistant</h3>
                   <p className="text-xs text-white/80 font-medium">Upload a list or just tell the AI what you want, and it will find the best items across all stores for you.</p>
-                  <Button className="w-full bg-white text-accent hover:bg-white/90 font-black rounded-xl h-12 gap-2">
-                     Start AI Shop <Sparkles className="h-4 w-4" />
-                  </Button>
+                  <AIProductSearch>
+                    <Button className="w-full bg-white text-accent hover:bg-white/90 font-black rounded-xl h-12 gap-2">
+                       Start AI Shop <Sparkles className="h-4 w-4" />
+                    </Button>
+                  </AIProductSearch>
                </div>
             </div>
 

@@ -76,6 +76,34 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
               </Select>
             </div>
           )}
+          {/* Layout options for dynamic sections */}
+          {['products','product-list','categories','posts','staff','partners'].includes(section.type) && (
+            <div className="space-y-2">
+              <Label>Layout</Label>
+              <Select
+                value={(configData.settings && configData.settings.layout) || configData.layout || 'grid'}
+                onValueChange={(v) => {
+                  const next = { ...configData };
+                  if (!next.settings) next.settings = {};
+                  next.settings.layout = v;
+                  next.layout = v;
+                  setConfigData(next);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select layout" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="grid">Grid</SelectItem>
+                  <SelectItem value="flex">Flex Box</SelectItem>
+                  <SelectItem value="auto-carousel">Auto Carousel</SelectItem>
+                  <SelectItem value="manual-carousel">Manual Carousel</SelectItem>
+                  <SelectItem value="two-layer-auto-carousel">2-Layer Auto Carousel</SelectItem>
+                  <SelectItem value="stack">Stack Layout</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Section Title (Overlay)</Label>
             <Input

@@ -60,10 +60,10 @@ export const AdminEditable = ({ value, field, children }: AdminEditableProps) =>
 
   return (
     <div className="relative group cursor-pointer" onClick={() => setIsEditing(true)}>
-      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-white p-1 rounded-full shadow-lg z-10">
+      <div className="absolute -top-2 -right-2 opacity-100 transition-opacity bg-primary text-white p-1 rounded-full shadow-lg z-10">
         <Edit2 className="h-3 w-3" />
       </div>
-      <div className="group-hover:ring-2 group-hover:ring-primary/50 group-hover:rounded-md transition-all p-1">
+      <div className="transition-all p-1">
         {children}
       </div>
     </div>

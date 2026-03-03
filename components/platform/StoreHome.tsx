@@ -93,8 +93,10 @@ import StoreNavbar from './StoreNavbar'
 import AddSectionTrigger from './AddSectionTrigger'
 import AdminToolbar from './AdminToolbar'
 import { useStoreActions } from '@/hooks/useStoreActions'
+import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 
 interface Section {
+@@import { BusinessProductSearch } from '@/components/utility/BusinessProductSearch'
   id: string
   type: string
   layout: string
@@ -265,7 +267,7 @@ const StoreHome = ({
 
   return (
     <div className="flex flex-col items-center w-full relative">
-       <StoreNavbar business={business} />
+       <StoreNavbar business={business} businessId={business.id} />
 
        {isAdmin && (
          <AdminToolbar
@@ -304,7 +306,7 @@ const StoreHome = ({
           {sections.sort((a,b) => a.order - b.order).map((section, idx) => (
             <div key={section.id} className="w-full group/section relative">
                {isAdmin && (
-                  <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-2">
+                  <div className="absolute right-4 top-4 z-40 opacity-100 transition-opacity flex gap-2">
                      <SectionConfigDialog section={section} onUpdate={() => window.location.reload()} />
                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleRemoveSection(section.id)}>
                         <Trash2 className="h-4 w-4" />
@@ -339,15 +341,34 @@ const RenderSection = ({ section, business }: { section: any, business: Business
    const { storeName } = useParams();
    const searchParams = useSearchParams();
    
+   // Auto-inject AI search section after hero
+   const isHeroSection = type === 'hero';
+   
    switch (type) {
      case 'hero':
         return (
-          <Hero 
-            variant={layout as any || 'modern-split'} 
-            title={<AdminEditable value={business.siteSettings?.heroTitle || 'Welcome'} model="siteSettings" id={business.siteSettings?.id || ''} field="heroTitle">{business.siteSettings?.heroTitle || 'Welcome'}</AdminEditable>}
-            subtitle={<AdminEditable value={business.siteSettings?.heroSubtitle || ''} model="siteSettings" id={business.siteSettings?.id || ''} field="heroSubtitle">{business.siteSettings?.heroSubtitle || ''}</AdminEditable>}
-            sectionId={id} 
-          />
+          <>
+            <Hero 
+              variant={layout as any || 'modern-split'} 
+              title={<AdminEditable value={business.siteSettings?.heroTitle || 'Welcome'} model="siteSettings" id={business.siteSettings?.id || ''} field="heroTitle">{business.siteSettings?.heroTitle || 'Welcome'}</AdminEditable>}
+              subtitle={<AdminEditable value={business.siteSettings?.heroSubtitle || ''} model="siteSettings" id={business.siteSettings?.id || ''} field="heroSubtitle">{business.siteSettings?.heroSubtitle || ''}</AdminEditable>}
+              sectionId={id} 
+            />
+            {/* AI Product Search Section Below Hero */}
+            <section className="w-full py-12 px-4 md:px-8 bg-gradient-to-br from-background via-muted/30 to-background">
+              <div className="max-w-7xl mx-auto">
+                <AIProductSearch businessId={business.id}>
+                  <Button 
+                    className="w-full md:w-auto h-14 px-8 bg-accent hover:bg-accent/90 text-white font-black text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all group"
+                  >
+                    <Search className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                    Find Products with AI
+                  </Button>
+                </AIProductSearch>
+                <p className="text-sm text-muted-foreground mt-3 text-center md:text-left">Snap a photo or upload a list of products you want to find</p>
+              </div>
+            </section>
+          </>
         );
      case 'products':
         if (layout === 'carousel of products') {
@@ -657,3 +678,15 @@ const RenderSection = ({ section, business }: { section: any, business: Business
 }
 
 export default StoreHome;
+
+@@                <Stocks />
+@@             </div>
+@@          </div>
+@@        );
+@@     case 'shop':
+@@        return (
+@@          <div className="w-full bg-background">
+@@             <BusinessProductSearch businessId={business.id} />
+@@          </div>
+@@        );
+@@     case 'newsletter':

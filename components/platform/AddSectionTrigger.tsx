@@ -51,3 +51,8 @@ const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) =>
 }
 
 export default AddSectionTrigger
+
+@@                    <SelectItem value="shop">AI Product Shop</SelectItem>
+@@                    <SelectItem value="product-list">Product List</SelectItem>
+@@                    <SelectItem value="newsletter">Newsletter</SelectItem>
+@@                    <SelectItem value="cart">Cart Details</SelectItem>
