@@ -195,11 +195,13 @@ interface Business {
 const StoreHome = ({
   business: initialBusiness,
   activePageSlug = 'home',
-  initialAdminTab = null
+  initialAdminTab = null,
+  onDataChange
 }: {
   business: Business,
   activePageSlug?: string,
-  initialAdminTab?: 'pages' | 'settings' | null
+  initialAdminTab?: 'pages' | 'settings' | null,
+  onDataChange?: () => void
 }) => {
   const { setCurrentBusiness, currentBusiness } = useAppContext();
   const isAdmin = useIsBusinessAdmin();
@@ -238,7 +240,7 @@ const StoreHome = ({
     handleRemoveSection,
     handleApplyTemplate,
     updateGlobalSettings,
-  } = useStoreActions({ activePage, sections, settings, storeName, business });
+  } = useStoreActions({ activePage, sections, settings, storeName, business, onDataChange });
 
   // If page doesn't exist, show helper
   if (!activePage) {

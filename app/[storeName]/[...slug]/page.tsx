@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
+import { usePageCache } from '@/hooks/usePageCache'
 import StoreHome from '@/components/platform/StoreHome'
 import { toast } from 'sonner'
 
@@ -18,42 +19,14 @@ const DynamicStorePage = () => {
   
   const router = useRouter();
   const { user, setCurrentBusiness } = useAppContext();
-  const [business, setBusiness] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { business, isLoading, error, invalidateCache } = usePageCache(storeName, pageSlug);
   const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
   useEffect(() => {
-    const fetchBusiness = async () => {
-      try {
-        const res = await axios.get(`/api/dbhandler?model=business`);
-        const businesses = res.data;
-        
-        // Find by slug-ified name
-        const biz = businesses.find((b: any) => 
-          b.name.toLowerCase().replace(/\s+/g, '-') === storeName
-        );
-
-        if (!biz) {
-          setError("Store not found");
-          setIsLoading(false);
-          return;
-        }
-
-        setBusiness(biz);
-        setCurrentBusiness(biz); // Sync context
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Error fetching business:", err);
-        setError("Failed to load store");
-        setIsLoading(false);
-      }
-    };
-
-    if (storeName) {
-      fetchBusiness();
+    if (business) {
+      setCurrentBusiness(business);
     }
-  }, [storeName, setCurrentBusiness]);
+  }, [business, setCurrentBusiness]);
 
   const handleOpenAdmin = (tab: 'pages' | 'settings') => {
     setAdminTab(null);
@@ -111,7 +84,7 @@ const DynamicStorePage = () => {
          </div>
        )}
 
-       <StoreHome business={business} activePageSlug={pageSlug} initialAdminTab={adminTab} />
+       <StoreHome business={business} activePageSlug={pageSlug} initialAdminTab={adminTab} onDataChange={invalidateCache} />
     </div>
   );
 }

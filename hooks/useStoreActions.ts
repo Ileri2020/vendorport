@@ -10,6 +10,7 @@ interface Params {
   settings?: any;
   storeName?: string | string[];
   business?: any;
+  onDataChange?: () => void;
 }
 
 export function useStoreActions({
@@ -18,6 +19,7 @@ export function useStoreActions({
   settings,
   storeName,
   business,
+  onDataChange,
 }: Params) {
   const handleAddSection = async (type: string, layout: string) => {
     // Determine whether we are using the new master BusinessSection system
@@ -48,6 +50,7 @@ export function useStoreActions({
         await axios.post('/api/dbhandler?model=section', newSection);
       }
       toast.success('Section added!');
+      onDataChange?.();
       window.location.reload();
     } catch (err) {
       toast.error('Failed to add section');
@@ -83,6 +86,7 @@ export function useStoreActions({
       }
 
       toast.success('Page created!');
+      onDataChange?.();
       window.location.href = `/${storeName}/${slug}`;
     } catch (err) {
       toast.error('Failed to create page');
@@ -98,6 +102,7 @@ export function useStoreActions({
         await axios.delete(`/api/dbhandler?model=section&id=${id}`);
       }
       toast.success('Section removed');
+      onDataChange?.();
       window.location.reload();
     } catch (err) {
       toast.error('Failed to remove section');
@@ -135,6 +140,7 @@ export function useStoreActions({
         }
       }
       toast.success(`Applied ${template.name} template!`);
+      onDataChange?.();
       window.location.reload();
     } catch (err) {
       toast.error('Failed to apply template');
@@ -163,6 +169,7 @@ export function useStoreActions({
       }
 
       toast.success('Settings updated!');
+      onDataChange?.();
       window.location.reload();
     } catch (err) {
       toast.error('Failed to update settings');

@@ -7,47 +7,21 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
+import { usePageCache } from '@/hooks/usePageCache'
 import StoreHome from '@/components/platform/StoreHome'
 
 const DynamicStorePage = () => {
   const { storeName } = useParams();
   const router = useRouter();
   const { user, setCurrentBusiness } = useAppContext();
-  const [business, setBusiness] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { business, isLoading, error, invalidateCache } = usePageCache(storeName as string, 'home');
   const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
   useEffect(() => {
-    const fetchBusiness = async () => {
-      try {
-        const res = await axios.get(`/api/dbhandler?model=business`);
-        const businesses = res.data;
-        
-        // Find by slug-ified name
-        const biz = businesses.find((b: any) => 
-          b.name.toLowerCase().replace(/\s+/g, '-') === storeName
-        );
-
-        if (!biz) {
-          setError("Store not found");
-          setIsLoading(false);
-          return;
-        }
-
-        setBusiness(biz);
-        setCurrentBusiness(biz); // Sync context
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Error fetching business:", err);
-        setError("Failed to load store");
-        setIsLoading(false);
-      }
-    };
-
-    if (storeName) {
-      fetchBusiness();
+    if (business) {
+      setCurrentBusiness(business);
     }
+  }, [business, setCurrentBusiness]);
   }, [storeName, setCurrentBusiness]);
 
   const handleOpenAdmin = (tab: 'pages' | 'settings') => {
@@ -106,7 +80,7 @@ const DynamicStorePage = () => {
          </div>
        )}
 
-       <StoreHome business={business} initialAdminTab={adminTab} />
+       <StoreHome business={business} activePageSlug="home" initialAdminTab={adminTab} onDataChange={invalidateCache} />
     </div>
   );
 }
