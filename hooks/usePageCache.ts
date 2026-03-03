@@ -4,19 +4,22 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 interface CachedPageData {
-  business: any;
+  pageData: any;
   timestamp: number;
   version: string;
 }
 
-export function usePageCache(storeName: string, pageSlug: string = 'home') {
-  const [business, setBusiness] = useState<any>(null);
+export function usePageCache(storeNameOrId: string, pageSlug: string = 'home') {
+  const [pageData, setPageData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const CACHE_KEY = `page_cache_${storeName}_${pageSlug}`;
+  // Determine if input is businessId (24-char MongoDB ID) or storeName (slug format)
+  const isBusinessId = storeNameOrId.length === 24 && /^[a-f0-9]{24}$/i.test(storeNameOrId);
+  const cacheKeyId = isBusinessId ? storeNameOrId : `store_${storeNameOrId}`;
+  const CACHE_KEY = `page_cache_${cacheKeyId}_${pageSlug}`;
   const CACHE_DURATION = 1000 * 60 * 10; // 10 minutes
-  const CACHE_VERSION = '1.0'; // Increment when schema changes
+  const CACHE_VERSION = '2.0'; // Increment when schema changes
 
   const getCachedData = () => {
     try {
@@ -32,17 +35,17 @@ export function usePageCache(storeName: string, pageSlug: string = 'home') {
         return null;
       }
 
-      return data.business;
+      return data.pageData;
     } catch (e) {
       console.warn('Cache read error:', e);
       return null;
     }
   };
 
-  const setCachedData = (businessData: any) => {
+  const setCachedData = (data: any) => {
     try {
       const cacheData: CachedPageData = {
-        business: businessData,
+        pageData: data,
         timestamp: Date.now(),
         version: CACHE_VERSION,
       };
@@ -55,7 +58,6 @@ export function usePageCache(storeName: string, pageSlug: string = 'home') {
   const invalidateCache = () => {
     try {
       localStorage.removeItem(CACHE_KEY);
-      localStorage.removeItem(`${CACHE_KEY}_all_businesses`);
     } catch (e) {
       console.warn('Cache invalidation error:', e);
     }
@@ -68,52 +70,58 @@ export function usePageCache(storeName: string, pageSlug: string = 'home') {
         setError(null);
 
         // Try to get from cache first
-        const cachedBusiness = getCachedData();
-        if (cachedBusiness) {
-          setBusiness(cachedBusiness);
+        const cachedData = getCachedData();
+        if (cachedData) {
+          setPageData(cachedData);
           setIsLoading(false);
           return;
         }
 
-        // Fetch all businesses with full data
-        const res = await axios.get(`/api/dbhandler?model=business`);
-        const businesses = res.data;
-
-        if (!Array.isArray(businesses) || businesses.length === 0) {
-          throw new Error('No businesses found');
-        }
-
-        // Find by slug-ified name
-        const biz = businesses.find((b: any) =>
-          b.name.toLowerCase().replace(/\s+/g, '-') === storeName
+        // Fetch page data from the optimized pagehandler endpoint
+        // Single request gets ALL data needed to render the page
+        const queryParam = isBusinessId ? 'businessId' : 'storeName';
+        const response = await axios.get(
+          `/api/pagehandler?${queryParam}=${storeNameOrId}&pageSlug=${pageSlug}`
         );
 
-        if (!biz) {
-          setError('Store not found');
-          setIsLoading(false);
-          return;
+        if (!response.data) {
+          throw new Error('Invalid page data received');
         }
 
-        // Cache the business data
-        setCachedData(biz);
-        setBusiness(biz);
+        // Cache the complete page data
+        setCachedData(response.data);
+        setPageData(response.data);
         setIsLoading(false);
       } catch (err) {
         console.error('Error fetching page data:', err);
         setError(
-          err instanceof Error ? err.message : 'Failed to load store'
+          err instanceof Error ? err.message : 'Failed to load page'
         );
         setIsLoading(false);
       }
     };
 
-    if (storeName) {
+    if (storeNameOrId && pageSlug) {
       fetchPageData();
     }
-  }, [storeName, pageSlug]);
+  }, [storeNameOrId, pageSlug]);
 
   return {
-    business,
+    pageData,
+    business: pageData?.business,
+    sections: pageData?.sections || [],
+    masterSections: pageData?.masterSections || [],
+    products: pageData?.products || [],
+    categories: pageData?.categories || [],
+    posts: pageData?.posts || [],
+    staff: pageData?.staff || [],
+    promotions: pageData?.promotions || [],
+    stats: pageData?.stats || [],
+    partners: pageData?.partners || [],
+    helpArticles: pageData?.helpArticles || [],
+    reviews: pageData?.reviews || [],
+    chatThreads: pageData?.chatThreads || [],
+    siteSettings: pageData?.siteSettings,
     isLoading,
     error,
     invalidateCache,

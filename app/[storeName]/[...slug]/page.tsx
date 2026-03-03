@@ -19,7 +19,7 @@ const DynamicStorePage = () => {
   
   const router = useRouter();
   const { user, setCurrentBusiness } = useAppContext();
-  const { business, isLoading, error, invalidateCache } = usePageCache(storeName, pageSlug);
+  const { pageData, business, isLoading, error, invalidateCache } = usePageCache(storeName, pageSlug);
   const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
   useEffect(() => {
