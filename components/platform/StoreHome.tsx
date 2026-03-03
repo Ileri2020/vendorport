@@ -163,6 +163,7 @@ interface Business {
     aboutText: string
     contactEmail: string
     contactPhone: string
+    contactDesc?: string
     helpText: string
     facebook?: string
     instagram?: string
@@ -178,12 +179,15 @@ interface Business {
     heroCTA?: string
     heroCTALink?: string
     heroImage?: string
+    addToHome?: string
   }
   staff?: Staff[]
   promotions?: Promotion[]
   stats?: BusinessStat[]
   partners?: Partner[]
   helpArticles?: HelpArticle[]
+  reviews?: any[]
+  posts?: any[]
 }
 
 const StoreHome = ({

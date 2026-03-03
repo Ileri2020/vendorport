@@ -36,6 +36,7 @@ model User {
   messages      Message[]
   lunches       Lunch[]
   businesses    Business[]        @relation("UserBusinesses")
+  chatThreads   ChatThread[]      @relation("UserChatThreads")
 }
 
 model Business {
@@ -71,6 +72,7 @@ model Business {
   stats            BusinessStat[]
   partners         Partner[]
   helpArticles     HelpArticle[]
+  chatThreads      ChatThread[]      @relation("BusinessChatThreads")
 }
 
 model ProjectSettings {
@@ -546,6 +548,33 @@ model Wishlist {
   updatedAt  DateTime  @updatedAt
 
   @@unique([userId, productId, businessId])
+}
+
+model ChatThread {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  user       User         @relation("UserChatThreads", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String       @db.ObjectId
+  business   Business     @relation("BusinessChatThreads", fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String       @db.ObjectId
+  messages   ChatMessage[]
+  status     String       @default("active") // active, closed
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([userId, businessId])
+}
+
+model ChatMessage {
+  id         String       @id @default(auto()) @map("_id") @db.ObjectId
+  thread     ChatThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId   String       @db.ObjectId
+  sender     String       // "user" or "admin"
+  senderName String?
+  message    String
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  @@index([threadId, createdAt])
 }
 
 // model Comment {
