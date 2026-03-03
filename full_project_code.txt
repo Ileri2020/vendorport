@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-02 12:34:39
+Generated: 2026-03-03 00:05:25
 ================================================================================
 
 
@@ -2845,13 +2845,12 @@ export default dbHandler;
 LOCATION: app\api\dbhandler\route.ts
 ================================================================================
 
-;
-
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import cloudinary from "cloudinary";
 import path from "path";
+import { auth } from "@/auth";
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -2884,6 +2883,8 @@ const modelMap: Record<string, any> = {
   projectSettings: prisma.projectSettings,
   page: prisma.page,
   section: prisma.section,
+  siteSettings: prisma.siteSettings,
+  staff: prisma.staff,
 };
 
 // =====================
@@ -3031,6 +3032,8 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      siteSettings: true,
+      staff: true,
     },
     projectSettings: {
       business: true,
@@ -3044,6 +3047,9 @@ export async function GET(req: NextRequest) {
     },
     section: {
       page: true,
+    },
+    staff: {
+      business: true,
     },
   };
 
@@ -3780,6 +3786,16 @@ export async function DELETE(req: NextRequest) {
   const prismaModel = modelMap[model];
 
   try {
+    const session = await auth();
+    const userRole = session?.user?.role || "";
+
+    if (model === "business" && userRole !== "supreme") {
+      return NextResponse.json(
+        { error: "Only Supreme admins can delete businesses" },
+        { status: 403 }
+      );
+    }
+
     await prismaModel.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -5451,43 +5467,19 @@ import { useAppContext } from "@/hooks/useAppContext"
 import { useEffect, useState } from "react"
 import Social from "@/components/utility/social"
 import ContactForm from "@/components/utility/contactForm"
-import MessageHistory from "@/components/utility/MessageHistory"
-import { Badge } from "@/components/ui/badge"
 import { useSession } from "next-auth/react"
-import axios from "axios"
 import { FaEnvelope } from "react-icons/fa"
 import { MdOutlinePhone } from "react-icons/md"
+import { ChatInterface } from "@/components/myComponents/subs/ChatInterface"
 
 const Contact = () => {
   const { data: session } = useSession();
-  const [unseenCount, setUnseenCount] = useState(0);
   const { currentBusiness } = useAppContext();
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
     getSiteSettings(currentBusiness?.id).then(setSettings);
   }, [currentBusiness]);
-
-  useEffect(() => {
-    const fetchUnseenCount = async () => {
-      if (!session?.user?.email) return;
-
-      try {
-        const res = await axios.get("/api/dbhandler?model=message");
-        const userMessages = res.data.filter(
-          (msg: any) => msg.senderEmail === session.user.email && !msg.isSeen && msg.adminResponse
-        );
-        setUnseenCount(userMessages.length);
-      } catch (error) {
-        console.error("Failed to fetch unseen count:", error);
-      }
-    };
-
-    fetchUnseenCount();
-    // Poll every 30 seconds for new messages
-    const interval = setInterval(fetchUnseenCount, 30000);
-    return () => clearInterval(interval);
-  }, [session]);
 
   return (
     <motion.section
@@ -5496,81 +5488,67 @@ const Contact = () => {
         opacity: 1,
         transition: { delay: 0.5, duration: 0.6, ease: "easeIn" }
       }}
-      className="w-[100vw] overflow-clip py-6 relative"
+      className="w-full overflow-hidden py-12 relative"
     >
-      {/* Unseen Messages Badge */}
-      {unseenCount > 0 && (
-        <div className="fixed top-20 right-4 z-50 md:top-24 md:right-8">
-          <Badge variant="destructive" className="text-sm px-3 py-1 shadow-lg animate-pulse">
-            {unseenCount} New Message{unseenCount > 1 ? "s" : ""}
-          </Badge>
-        </div>
-      )}
+      <div className="container mx-auto px-4">
+        <div className="max-w-6xl mx-auto space-y-16">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
+            {/* Left Box: Contact Form */}
+            <div className="order-2 lg:order-1 bg-card rounded-[2.5rem] shadow-2xl overflow-hidden border">
+              <ContactForm />
+            </div>
 
-      <div className="container mx-auto">
-        <div className="flex flex-col xl:flex-row gap-[30px]">
-          <div className="xl:h-[54%] order-2 xl:order-none">
-            <ContactForm />
-          </div>
-          <div className="flex flex-col flex-1 max-w-[480px] mx-3">
-            <div className="text-2xl font-semibold my-3 text-center md:text-start">Let's talk</div>
-            <AdminEditable value={settings?.contactDesc || contact.description} field="contactDesc">
-              <div className="my-5">
-                {settings?.contactDesc || contact.description}
+            {/* Right Box: Info */}
+            <div className="order-1 lg:order-2 flex flex-col space-y-8 p-6">
+              <div>
+                <h1 className="text-5xl font-black tracking-tighter mb-4">Let's Connect</h1>
+                <AdminEditable value={settings?.contactDesc || contact.description} field="contactDesc">
+                  <p className="text-xl text-muted-foreground leading-relaxed italic">
+                    {settings?.contactDesc || contact.description}
+                  </p>
+                </AdminEditable>
               </div>
-            </AdminEditable>
-            <div className="flex flex-col">
-              {/* show email and phone if settings exist, otherwise fall back to static list */}
-              {settings ? (
-                <>
-                  <div className="flex flex-row m-2">
-                    <div className="p-2 text-3xl"><FaEnvelope/></div>
-                    <div className="flex flex-col mx-5">
-                      <div className="text-lg my-1">Email</div>
-                      <AdminEditable value={settings.contactEmail || ""} field="contactEmail">
-                        <div>{settings.contactEmail}</div>
-                      </AdminEditable>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-6">
+                 <div className="flex gap-6 items-center p-4 bg-accent/5 rounded-3xl border border-accent/10">
+                    <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent text-2xl shadow-inner"><FaEnvelope/></div>
+                    <div>
+                       <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Email Us</p>
+                       <AdminEditable value={settings?.contactEmail || "support@vendorport.com"} field="contactEmail">
+                          <p className="font-bold text-lg">{settings?.contactEmail || "support@vendorport.com"}</p>
+                       </AdminEditable>
                     </div>
-                  </div>
-                  <div className="flex flex-row m-2">
-                    <div className="p-2 text-3xl"><MdOutlinePhone/></div>
-                    <div className="flex flex-col mx-5">
-                      <div className="text-lg my-1">Phone</div>
-                      <AdminEditable value={settings.contactPhone || ""} field="contactPhone">
-                        <div>{settings.contactPhone}</div>
-                      </AdminEditable>
+                 </div>
+                 <div className="flex gap-6 items-center p-4 bg-accent/5 rounded-3xl border border-accent/10">
+                    <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center text-accent text-2xl shadow-inner"><MdOutlinePhone/></div>
+                    <div>
+                       <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Call Us</p>
+                       <AdminEditable value={settings?.contactPhone || "+234 800 000 0000"} field="contactPhone">
+                          <p className="font-bold text-lg">{settings?.contactPhone || "+234 800 000 0000"}</p>
+                       </AdminEditable>
                     </div>
-                  </div>
-                </>
-              ) : (
-                contact.contact.map((contact, index) => {
-                  return (
-                    <div className="flex flex-row m-2" key={index}>
-                      <div className="p-2 text-3xl">{contact.icon}</div>
-                      <div className="flex flex-col mx-5">
-                        <div className="text-lg my-1">{contact.text}</div>
-                        <div>{contact.value}</div>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
+                 </div>
+              </div>
+
+              <div className="pt-6 border-t border-dashed">
+                <p className="text-sm font-black uppercase tracking-[0.2em] mb-4 text-center lg:text-left">Follow Our Journey</p>
+                <Social
+                  containerStyles='flex gap-4'
+                  iconStyles='w-12 h-12 border-2 border-accent rounded-2xl flex justify-center items-center text-accent text-xl hover:bg-accent hover:text-white transition-all duration-500 shadow-lg shadow-accent/10'
+                />
+              </div>
             </div>
-            <div className="w-full mx-2 my-10 flex justify-center items-center">
-              <Social
-                containerStyles='flex gap-4 md:gap-6 mx-auto'
-                iconStyles='w-9 h-9 border border-accent rounded-full flex justify-center items-center text-accent text-base hover:bg-accent hover:text-background/80 hover:transition-all duration-500'
-              />
-            </div>
+          </div>
+
+          {/* Chat Section */}
+          <div className="pt-16 border-t">
+             <div className="text-center mb-12">
+                <h2 className="text-3xl font-black tracking-tight mb-2">Live Support</h2>
+                <p className="text-muted-foreground">Chat with our dedicated support team in real-time.</p>
+             </div>
+             <ChatInterface />
           </div>
         </div>
-
-        {/* Message History Section */}
-        {session && (
-          <div className="mt-12">
-            <MessageHistory />
-          </div>
-        )}
       </div>
     </motion.section>
   )
@@ -6234,6 +6212,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/getSession";
 import { FaGithub } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
+import { Button } from "@/components/ui/button";
 
 const Login = async () => {
   const session = await getSession();
@@ -6265,9 +6244,9 @@ const Login = async () => {
           className="mb-6"
         />
 
-        <button className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset]">
+        <Button className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset]">
           Login &rarr;
-        </button>
+        </Button>
 
         <p className="text-right text-neutral-600 text-sm max-w-sm mt-4 dark:text-neutral-300">
           Don't have account? <Link href="/register">Register</Link>
@@ -6279,7 +6258,7 @@ const Login = async () => {
       <form
         action={googleSignIn}
       >
-        <button
+        <Button
           className=" relative group/btn flex space-x-2 items-center justify-start px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50 dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_var(--neutral-800)]"
           type="submit"
         >
@@ -6287,7 +6266,7 @@ const Login = async () => {
           <span className="text-neutral-700 dark:text-neutral-300 text-sm">
             Google
           </span>
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -6375,18 +6354,18 @@ export function LunchList({ initialLunches }: LunchListProps) {
     return (
         <div className="space-y-6">
              <div className="flex gap-4 border-b">
-                <button 
+                <Button 
                     className={cn("pb-2 px-4 transition-colors", activeTab === "templates" ? "border-b-2 border-primary font-bold" : "text-muted-foreground")}
                     onClick={() => setActiveTab("templates")}
                 >
                     Saved Templates
-                </button>
-                <button 
+                </Button>
+                <Button 
                     className={cn("pb-2 px-4 transition-colors", activeTab === "schedules" ? "border-b-2 border-primary font-bold" : "text-muted-foreground")}
                     onClick={() => setActiveTab("schedules")}
                 >
                     Active Schedules
-                </button>
+                </Button>
             </div>
 
             {activeTab === "templates" ? (
@@ -6590,9 +6569,9 @@ function LunchItem({ item }: { item: CartItem & { product: Product } }) {
                 <div className="text-xs text-muted-foreground">₦{item.product.price}</div>
             </div>
             <div className="flex items-center gap-1 bg-background border rounded-md h-7">
-                <button className="px-2 hover:bg-muted h-full" onClick={() => handleQuantityChange(-1)}>-</button>
+                <Button className="px-2 hover:bg-muted h-full" onClick={() => handleQuantityChange(-1)}>-</Button>
                 <span className="text-xs w-4 text-center">{item.quantity}</span>
-                <button className="px-2 hover:bg-muted h-full" onClick={() => handleQuantityChange(1)}>+</button>
+                <Button className="px-2 hover:bg-muted h-full" onClick={() => handleQuantityChange(1)}>+</Button>
             </div>
         </div>
     )
@@ -6777,6 +6756,7 @@ LOCATION: app\signup\page.tsx
 ================================================================================
 
 import { register } from "@/action/user";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getSession } from "@/lib/getSession";
@@ -6840,9 +6820,9 @@ const Register = async () => {
           className="mb-5"
         />
 
-        <button className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset]">
+        <Button className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset]">
           Sign up &rarr;
-        </button>
+        </Button>
 
         <p className="text-neutral-600 text-sm max-w-sm mt-2 dark:text-neutral-300">
           Already have an account? <Link href="/login">Login</Link>
@@ -7242,18 +7222,18 @@ export default function ProductDetailPage() {
           {/* Navigation Arrows */}
           {product.image.length > 1 && (
             <>
-              <button 
+              <Button 
                 onClick={(e) => { e.preventDefault(); prevImage(); }} 
                 className="absolute left-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 backdrop-blur-sm text-white rounded-full hover:bg-black/50 transition-all opacity-0 group-hover:opacity-100 z-10"
               >
                 <ChevronLeft size={24} />
-              </button>
-              <button 
+              </Button>
+              <Button 
                 onClick={(e) => { e.preventDefault(); nextImage(); }} 
                 className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-black/30 backdrop-blur-sm text-white rounded-full hover:bg-black/50 transition-all opacity-0 group-hover:opacity-100 z-10"
               >
                 <ChevronRight size={24} />
-              </button>
+              </Button>
 
               {/* Dots / Thumbnails Overlay */}
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10">
@@ -7495,132 +7475,11 @@ import StoreHome from '@/components/platform/StoreHome'
 const DynamicStorePage = () => {
   const { storeName } = useParams();
   const router = useRouter();
-  const { user } = useAppContext();
-  const [business, setBusiness] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchBusiness = async () => {
-      try {
-        const res = await axios.get(`/api/dbhandler?model=business`);
-        const businesses = res.data;
-        
-        // Find by slug-ified name
-        const biz = businesses.find((b: any) => 
-          b.name.toLowerCase().replace(/\s+/g, '-') === storeName
-        );
-
-        if (!biz) {
-          setError("Store not found");
-          setIsLoading(false);
-          return;
-        }
-
-        setBusiness(biz);
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Error fetching business:", err);
-        setError("Failed to load store");
-        setIsLoading(false);
-      }
-    };
-
-    if (storeName) {
-      fetchBusiness();
-    }
-  }, [storeName]);
-
-  if (isLoading) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-accent" />
-        <p className="text-xl font-bold animate-pulse text-muted-foreground uppercase tracking-widest">Entering {storeName}...</p>
-      </div>
-    );
-  }
-
-  if (error || !business) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6 text-center px-4">
-        <AlertCircle className="h-20 w-20 text-destructive" />
-        <div className="space-y-2">
-           <h1 className="text-4xl font-extrabold tracking-tight">Oops! That store doesn't exist.</h1>
-           <p className="text-xl text-muted-foreground">It seems you've followed a broken link or the store has been renamed.</p>
-        </div>
-        <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
-           Back to Platform Home
-        </Button>
-      </div>
-    );
-  }
-
-  // Redirect to StoreHome component or render it here
-  return (
-    <div className="min-h-screen bg-background relative">
-       {/* Admin Toolbar (only if owner/staff) */}
-       {(user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
-         <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
-            <div className="flex items-center gap-2">
-               <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>
-               <span className="font-bold hidden md:inline">Admin Mode: {business.name}</span>
-            </div>
-            <div className="flex gap-2">
-               <Link href={`/${storeName}/analytics`}>
-                 <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
-                    <BarChart3 className="h-4 w-4" /> Insights
-                 </Button>
-               </Link>
-               <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
-                  <PlusCircle className="h-4 w-4" /> Add Page
-               </Button>
-               <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/10 flex items-center gap-1">
-                  <Settings className="h-4 w-4" /> Edit Layout
-               </Button>
-            </div>
-         </div>
-       )}
-
-       <StoreHome business={business} />
-    </div>
-  );
-}
-
-// Inline helper for PlusCircle since I missed importing it
-const PlusCircle = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
-)
-
-export default DynamicStorePage
-
-
-
-================================================================================
-LOCATION: app\[storeName]\[...slug]\page.tsx
-================================================================================
-
-"use client"
-import React, { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import axios from 'axios'
-import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings as SettingsIcon, PlusCircle, Layout } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useAppContext } from '@/hooks/useAppContext'
-import StoreHome from '@/components/platform/StoreHome'
-import { toast } from 'sonner'
-
-const DynamicStorePage = () => {
-  const params = useParams();
-  const storeName = params.storeName as string;
-  const slugArray = params.slug as string[] | undefined;
-  const pageSlug = slugArray?.[0] || 'home';
-  
-  const router = useRouter();
   const { user, setCurrentBusiness } = useAppContext();
   const [business, setBusiness] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
   useEffect(() => {
     const fetchBusiness = async () => {
@@ -7654,6 +7513,143 @@ const DynamicStorePage = () => {
     }
   }, [storeName, setCurrentBusiness]);
 
+  const handleOpenAdmin = (tab: 'pages' | 'settings') => {
+    // We set it to null first then the tab to trigger the effect in StoreHome if it's already set
+    setAdminTab(null);
+    setTimeout(() => setAdminTab(tab), 10);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
+        <Loader2 className="h-12 w-12 animate-spin text-accent" />
+        <p className="text-xl font-bold animate-pulse text-muted-foreground uppercase tracking-widest">Entering {storeName}...</p>
+      </div>
+    );
+  }
+
+  if (error || !business) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6 text-center px-4">
+        <AlertCircle className="h-20 w-20 text-destructive" />
+        <div className="space-y-2">
+           <h1 className="text-4xl font-extrabold tracking-tight">Oops! That store doesn't exist.</h1>
+           <p className="text-xl text-muted-foreground">It seems you've followed a broken link or the store has been renamed.</p>
+        </div>
+        <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
+           Back to Platform Home
+        </Button>
+      </div>
+    );
+  }
+
+  // Redirect to StoreHome component or render it here
+  return (
+    <div className="min-h-screen bg-background relative">
+       {/* Admin Toolbar (only if owner/staff) */}
+       {(user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
+         <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+               <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>
+               <span className="font-bold hidden md:inline uppercase tracking-tighter text-sm">Owner Mode: {business.name}</span>
+            </div>
+            <div className="flex gap-2">
+               <Link href={`/${storeName}/analytics`}>
+                 <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
+                    <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Insights</span>
+                 </Button>
+               </Link>
+               <Button onClick={() => handleOpenAdmin('pages')} size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
+                  <PlusCircle className="h-4 w-4" /> <span className="hidden sm:inline">Add Page</span>
+               </Button>
+               <Button onClick={() => handleOpenAdmin('settings')} size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
+                  <Settings className="h-4 w-4" /> <span className="hidden sm:inline">Edit Layout</span>
+               </Button>
+            </div>
+         </div>
+       )}
+
+       <StoreHome business={business} initialAdminTab={adminTab} />
+    </div>
+  );
+}
+
+
+// Inline helper for PlusCircle since I missed importing it
+const PlusCircle = ({ className }: { className?: string }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+)
+
+export default DynamicStorePage
+
+
+
+================================================================================
+LOCATION: app\[storeName]\[...slug]\page.tsx
+================================================================================
+
+"use client"
+import React, { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import axios from 'axios'
+import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3, PlusCircle } from 'lucide-react'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { motion, AnimatePresence } from 'framer-motion'
+import { useAppContext } from '@/hooks/useAppContext'
+import StoreHome from '@/components/platform/StoreHome'
+import { toast } from 'sonner'
+
+const DynamicStorePage = () => {
+  const params = useParams();
+  const storeName = params.storeName as string;
+  const slugArray = params.slug as string[] | undefined;
+  const pageSlug = slugArray?.[0] || 'home';
+  
+  const router = useRouter();
+  const { user, setCurrentBusiness } = useAppContext();
+  const [business, setBusiness] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
+
+  useEffect(() => {
+    const fetchBusiness = async () => {
+      try {
+        const res = await axios.get(`/api/dbhandler?model=business`);
+        const businesses = res.data;
+        
+        // Find by slug-ified name
+        const biz = businesses.find((b: any) => 
+          b.name.toLowerCase().replace(/\s+/g, '-') === storeName
+        );
+
+        if (!biz) {
+          setError("Store not found");
+          setIsLoading(false);
+          return;
+        }
+
+        setBusiness(biz);
+        setCurrentBusiness(biz); // Sync context
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Error fetching business:", err);
+        setError("Failed to load store");
+        setIsLoading(false);
+      }
+    };
+
+    if (storeName) {
+      fetchBusiness();
+    }
+  }, [storeName, setCurrentBusiness]);
+
+  const handleOpenAdmin = (tab: 'pages' | 'settings') => {
+    setAdminTab(null);
+    setTimeout(() => setAdminTab(tab), 10);
+  };
+
   if (isLoading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
@@ -7680,13 +7676,32 @@ const DynamicStorePage = () => {
     );
   }
 
-  // Find the current page in business settings
-  const currentPage = business.settings?.pages?.find((p: any) => p.slug === pageSlug) || (pageSlug === 'home' ? business.settings?.pages?.[0] : null);
-
   return (
     <div className="min-h-screen bg-background relative flex flex-col">
-       {/* Store Header / Sticky Nav could go here if business wants one */}
-       <StoreHome business={business} activePageSlug={pageSlug} />
+       {/* Admin Toolbar (only if owner/staff) */}
+       {(user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
+         <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
+            <div className="flex items-center gap-2">
+               <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>
+               <span className="font-bold hidden md:inline uppercase tracking-tighter text-sm">Owner Mode: {business.name}</span>
+            </div>
+            <div className="flex gap-2">
+               <Link href={`/${storeName}/analytics`}>
+                 <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
+                    <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Insights</span>
+                 </Button>
+               </Link>
+               <Button onClick={() => handleOpenAdmin('pages')} size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
+                  <PlusCircle className="h-4 w-4" /> <span className="hidden sm:inline">Add Page</span>
+               </Button>
+               <Button onClick={() => handleOpenAdmin('settings')} size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
+                  <Settings className="h-4 w-4" /> <span className="hidden sm:inline">Edit Layout</span>
+               </Button>
+            </div>
+         </div>
+       )}
+
+       <StoreHome business={business} activePageSlug={pageSlug} initialAdminTab={adminTab} />
     </div>
   );
 }
@@ -9100,7 +9115,7 @@ import { Edit2, Check, X } from "lucide-react"
 
 interface AdminEditableProps {
   value: string
-  field: "aboutText" | "addToHome" | "heroTitle" | "heroSubtitle" | "contactDesc" | "contactEmail" | "contactPhone" | "helpText"
+  field: "aboutText" | "addToHome" | "heroTitle" | "heroSubtitle" | "contactDesc" | "contactEmail" | "contactPhone" | "helpText" | "facebook" | "instagram" | "twitter" | "linkedin"
   children: React.ReactNode
 }
 
@@ -9272,6 +9287,7 @@ LOCATION: components\myComponents\subs\carrousels.tsx
 ================================================================================
 
 
+import { Button } from '@/components/ui/button';
 import React, { useEffect, useState } from 'react';
 
 interface CarouselProps {
@@ -9305,18 +9321,18 @@ export const CoverCarousel: React.FC<CarouselProps> = ({ numCards }) => {
       <div className="absolute w-full h-full transform-3d rotate-y-0 transition-transform duration-1000">
         {cards}
       </div>
-      <button
+      <Button
         onClick={handlePrev}
         className="absolute top-1/2 left-0 transform -translate-y-1/2 bg-gray-200 p-2 rounded-full"
       >
         Prev
-      </button>
-      <button
+      </Button>
+      <Button
         onClick={handleNext}
         className="absolute top-1/2 right-0 transform -translate-y-1/2 bg-gray-200 p-2 rounded-full"
       >
         Next
-      </button>
+      </Button>
     </div>
   );
 };
@@ -9619,27 +9635,27 @@ export function CartClient({ className }: CartProps) {
                                                 <Link href={`/store/${item.id}`} className="text-sm font-medium">
                                                     {item.name ?? "Unnamed product"}
                                                 </Link>
-                                                <button onClick={() => removeItem(item.id)}>
+                                                <Button onClick={() => removeItem(item.id)}>
                                                     <X className="h-4 w-4" />
-                                                </button>
+                                                </Button>
                                             </div>
 
                                             <div className="mt-2 flex justify-between items-center">
                                                 <div className="flex items-center border rounded">
-                                                    <button
+                                                    <Button
                                                         disabled={item.quantity <= 1}
                                                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
                                                         className="px-2"
                                                     >
                                                         <Minus size={12} />
-                                                    </button>
+                                                    </Button>
                                                     <span className="px-3 text-sm">{item.quantity}</span>
-                                                    <button
+                                                    <Button
                                                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
                                                         className="px-2"
                                                     >
                                                         <Plus size={12} />
-                                                    </button>
+                                                    </Button>
                                                 </div>
                                                 <span className="text-sm font-medium">
                                                     ₦{(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
@@ -10097,27 +10113,27 @@ export function CartClient({ className }: CartProps) {
                         <Link href={`/store/${item.id}`} className="text-sm font-medium">
                           {item.name ?? "Unnamed product"}
                         </Link>
-                        <button onClick={() => removeItem(item.id)}>
+                        <Button onClick={() => removeItem(item.id)}>
                           <X className="h-4 w-4" />
-                        </button>
+                        </Button>
                       </div>
 
                       <div className="mt-2 flex justify-between items-center">
                         <div className="flex items-center border rounded">
-                          <button
+                          <Button
                             disabled={item.quantity <= 1}
                             onClick={() => updateQuantity(item.id, item.quantity - 1)}
                             className="px-2"
                           >
                             <Minus size={12} />
-                          </button>
+                          </Button>
                           <span className="px-3 text-sm">{item.quantity}</span>
-                          <button
+                          <Button
                             onClick={() => updateQuantity(item.id, item.quantity + 1)}
                             className="px-2"
                           >
                             <Plus size={12} />
-                          </button>
+                          </Button>
                         </div>
                         <span className="text-sm font-medium">
                           ₦{(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
@@ -10898,6 +10914,393 @@ const Cartitem = (props:{name: string, price: number, qty: number, totalPrice: n
 }
 
 export default Cartitem
+
+
+
+================================================================================
+LOCATION: components\myComponents\subs\ChatInterface.tsx
+================================================================================
+
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import axios from "axios";
+import { format } from "date-fns";
+import { Send, User as UserIcon, Check, CheckCheck, Loader2, ArrowLeft, MessageSquare, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAppContext } from "@/hooks/useAppContext";
+import { Badge } from "@/components/ui/badge";
+
+interface Message {
+  id: string;
+  content: string;
+  senderId: string;
+  receiverId: string;
+  createdAt: string;
+  isRead: boolean;
+  sender: {
+    name: string;
+    avatarUrl: string;
+    role: string;
+  };
+}
+
+interface UserListItem {
+  id: string;
+  name: string;
+  avatarUrl: string;
+  role: string;
+  email: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  unreadCount?: number;
+}
+
+export const ChatInterface = () => {
+  const { user } = useAppContext();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [allUsers, setAllUsers] = useState<UserListItem[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [newMessage, setNewMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [adminUser, setAdminUser] = useState<any>(null);
+  const [search, setSearch] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const isAdmin = user?.role === "admin" || user?.role === "professional" || user?.role === "staff";
+
+  // ── For Customers: auto-select admin ──────────────────────────────
+  useEffect(() => {
+    if (user?.id !== "nil" && !isAdmin) {
+      axios.get("/api/dbhandler?model=user").then((res) => {
+        const admins = res.data.filter((u: any) => u.role === "admin" || u.role === "staff");
+        if (admins.length > 0) {
+          setAdminUser(admins[0]);
+          setSelectedUserId(admins[0].id);
+        }
+      }).catch(console.error);
+    }
+  }, [isAdmin, user?.id]);
+
+  // ── For Admin: fetch ALL non-admin users + their message metadata ──
+  const fetchUsersWithMessages = async () => {
+    if (!isAdmin || !user?.id || user.id === "nil") return;
+    try {
+      const [usersRes, msgsRes] = await Promise.all([
+        axios.get("/api/dbhandler?model=user"),
+        axios.get("/api/dbhandler?model=message"),
+      ]);
+
+      const nonAdminUsers: UserListItem[] = usersRes.data
+        .filter((u: any) => u.role !== "admin" && u.role !== "staff" && u.role !== "professional")
+        .map((u: any) => ({ ...u, lastMessage: undefined, lastMessageTime: undefined, unreadCount: 0 }));
+
+      const allMessages = msgsRes.data as Message[];
+
+      // Attach last-message info to each user
+      const enriched = nonAdminUsers.map((u) => {
+        const convo = allMessages.filter(
+          (m) => m.senderId === u.id || m.receiverId === u.id
+        );
+        const sorted = [...convo].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        const last = sorted[0];
+        const unread = convo.filter((m) => m.receiverId === user.id && !m.isRead).length;
+
+        return {
+          ...u,
+          lastMessage: last?.content,
+          lastMessageTime: last?.createdAt,
+          unreadCount: unread,
+        };
+      });
+
+      // Sort: users with recent messages first, then alphabetically
+      enriched.sort((a, b) => {
+        if (a.lastMessageTime && b.lastMessageTime) {
+          return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime();
+        }
+        if (a.lastMessageTime) return -1;
+        if (b.lastMessageTime) return 1;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      setAllUsers(enriched);
+    } catch (e) {
+      console.error("Error loading users/messages", e);
+    }
+  };
+
+  // ── Fetch messages for selected conversation ───────────────────────
+  const fetchMessages = async () => {
+    if (!selectedUserId || !user?.id || user.id === "nil") return;
+    try {
+      const res = await axios.get(`/api/dbhandler?model=message`);
+      const filtered = res.data
+        .filter((msg: any) => {
+          if (isAdmin) {
+            return msg.senderId === selectedUserId || msg.receiverId === selectedUserId;
+          } else {
+            return msg.senderId === user.id || msg.receiverId === user.id;
+          }
+        })
+        .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+
+      setMessages(filtered);
+
+      // Mark unread incoming as read
+      const unreadIncoming = filtered.filter((msg: any) => msg.receiverId === user.id && !msg.isRead);
+      if (unreadIncoming.length > 0) {
+        await Promise.all(
+          unreadIncoming.map((msg: any) =>
+            axios.put(`/api/dbhandler?model=message&id=${msg.id}`, { isRead: true })
+          )
+        );
+        fetchUsersWithMessages(); // refresh unread counts
+      }
+    } catch (e) {
+      console.error("Error fetching messages", e);
+    }
+  };
+
+  // Initial load + polling
+  useEffect(() => {
+    if (user?.id && user.id !== "nil") {
+      fetchUsersWithMessages();
+      fetchMessages();
+      const interval = setInterval(() => {
+        fetchUsersWithMessages();
+        fetchMessages();
+      }, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedUserId, user?.id]);
+
+  // Auto-scroll
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    }
+  }, [messages]);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedUserId || !user?.id) return;
+    setLoading(true);
+    try {
+      await axios.post("/api/dbhandler?model=message", {
+        content: newMessage,
+        senderId: user.id,
+        receiverId: selectedUserId,
+      });
+      setNewMessage("");
+      fetchMessages();
+      fetchUsersWithMessages();
+    } catch (e) {
+      console.error("Error sending message", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const selectedUser = allUsers.find((u) => u.id === selectedUserId) || adminUser;
+
+  const filteredUsers = allUsers.filter(
+    (u) =>
+      (u.name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (u.email || "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Not logged in
+  if (!user || user.email === "nil") {
+    return (
+      <div className="flex flex-col items-center justify-center h-[500px] w-full max-w-5xl mx-auto border-2 border-dashed rounded-3xl bg-muted/20 gap-6 p-10 text-center">
+        <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
+          <MessageSquare size={48} className="text-primary opacity-40" />
+        </div>
+        <div className="space-y-3">
+          <h2 className="text-2xl font-black tracking-tight">Login Required</h2>
+          <p className="text-muted-foreground max-w-xs mx-auto">
+            You need to be logged in to chat with our licensed professionals and staff.
+          </p>
+        </div>
+        <Link href="/account">
+          <Button size="lg" className="h-14 px-8 rounded-xl text-lg font-bold shadow-xl shadow-primary/20">
+            Sign In to Chat
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-[600px] w-full max-w-5xl mx-auto border rounded-3xl overflow-hidden bg-background shadow-2xl">
+      {/* Sidebar — always visible for admin */}
+      {isAdmin && (
+        <div className={`w-full md:w-80 border-r bg-muted/10 flex flex-col ${selectedUserId && "hidden md:flex"}`}>
+          <div className="p-4 border-b bg-background space-y-3">
+            <h2 className="text-xl font-bold text-primary">Conversations</h2>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search users..."
+                className="pl-9 h-9 rounded-full text-xs"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="flex flex-col">
+              {filteredUsers.length === 0 ? (
+                <div className="p-8 text-center text-muted-foreground italic text-sm">No users found</div>
+              ) : (
+                filteredUsers.map((u) => (
+                  <div
+                    key={u.id}
+                    onClick={() => setSelectedUserId(u.id)}
+                    className={`flex items-center gap-3 p-3 cursor-pointer transition-colors border-b hover:bg-accent/50 ${
+                      selectedUserId === u.id ? "bg-accent/30 border-l-4 border-l-primary" : ""
+                    }`}
+                  >
+                    <Avatar className="h-10 w-10 border shrink-0">
+                      <AvatarImage src={u.avatarUrl} />
+                      <AvatarFallback><UserIcon className="h-4 w-4" /></AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 overflow-hidden">
+                      <div className="flex justify-between items-center mb-0.5">
+                        <span className="font-bold text-xs truncate">{u.name || "Anonymous"}</span>
+                        {u.lastMessageTime && (
+                          <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
+                            {format(new Date(u.lastMessageTime), "HH:mm")}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] text-muted-foreground truncate italic flex-1">
+                          {u.lastMessage || <span className="text-primary/60">No messages yet</span>}
+                        </p>
+                        {(u.unreadCount ?? 0) > 0 && (
+                          <Badge className="h-4 w-4 p-0 flex items-center justify-center text-[9px] font-black bg-primary ml-1 shrink-0">
+                            {u.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+
+      {/* Main Chat Area */}
+      <div className={`flex-1 flex flex-col ${isAdmin && !selectedUserId && "hidden md:flex"}`}>
+        {selectedUserId ? (
+          <>
+            {/* Header */}
+            <div className="p-4 border-b flex items-center gap-4 bg-background">
+              {isAdmin && (
+                <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedUserId(null)}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+              )}
+              <Avatar className="h-10 w-10 border shadow-sm">
+                <AvatarImage src={selectedUser?.avatarUrl} />
+                <AvatarFallback><UserIcon /></AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="font-bold text-sm">{selectedUser?.name || "Support"}</h3>
+                {isAdmin && (
+                  <p className="text-[10px] text-muted-foreground capitalize">{selectedUser?.role} · {selectedUser?.email}</p>
+                )}
+                {!isAdmin && (
+                  <p className="text-[10px] text-green-500 flex items-center gap-1 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    Active now
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Messages */}
+            <ScrollArea className="flex-1 p-6 bg-muted/5 shadow-inner" ref={scrollRef}>
+              <div className="flex flex-col gap-4">
+                {messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-4">
+                    <MessageSquare size={40} className="opacity-20" />
+                    <p className="text-sm">
+                      {isAdmin
+                        ? `No messages with ${selectedUser?.name || "this user"} yet. Say hello!`
+                        : `Start your conversation with the support team`}
+                    </p>
+                  </div>
+                ) : (
+                  messages.map((msg, idx) => {
+                    const isOwn = msg.senderId === user.id;
+
+                    const prevMsg = messages[idx - 1];
+                    const showTime = !prevMsg || new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() > 300000;
+
+                    return (
+                      <div key={msg.id} className="flex flex-col">
+                        {showTime && (
+                          <div className="flex justify-center my-4">
+                            <span className="text-[10px] bg-muted px-2 py-1 rounded-full text-muted-foreground font-medium uppercase tracking-wider">
+                              {format(new Date(msg.createdAt), "MMM d, HH:mm")}
+                            </span>
+                          </div>
+                        )}
+                        <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
+                          <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${isOwn ? "bg-accent text-white rounded-tr-none" : "bg-white border rounded-tl-none"}`}>
+                            {msg.content}
+                            <div className={`text-[9px] mt-1 flex justify-end gap-1 ${isOwn ? "text-white/70" : "text-muted-foreground"}`}>
+                              {format(new Date(msg.createdAt), "HH:mm")}
+                              {isOwn && <CheckCheck className="h-3 w-3" />}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </ScrollArea>
+
+            {/* Input */}
+            <form onSubmit={handleSendMessage} className="p-4 border-t bg-background flex items-center gap-2">
+              <Input
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                placeholder="Type your message..."
+                className="flex-1 h-12 rounded-full px-6 border-2 focus-visible:ring-accent"
+              />
+              <Button type="submit" size="icon" className="h-12 w-12 rounded-full shrink-0 shadow-lg bg-accent hover:bg-accent/90" disabled={loading || !newMessage.trim()}>
+                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+              </Button>
+            </form>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-10 text-center gap-6">
+            <div className="w-32 h-32 rounded-full bg-muted/30 flex items-center justify-center">
+              <MessageSquare size={64} className="opacity-10" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-foreground mb-2">Select a user to chat</h3>
+              <p className="max-w-xs mx-auto">Click any user on the left to start or continue a conversation.</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 
 
@@ -12554,6 +12957,7 @@ LOCATION: components\myComponents\subs\googlesignin.tsx
 import { signIn } from "@/auth";
 import { FcGoogle } from "react-icons/fc";
 import { FaFacebook } from "react-icons/fa";
+import { Button } from "@/components/ui/button";
 
 /* ================= GOOGLE ================= */
 
@@ -12566,13 +12970,13 @@ export const GoogleSignIn = async () => {
   return (
     <div className="m-2">
       <form action={googleSignInAction}>
-        <button
+        <Button
           type="submit"
           className="relative group/btn flex space-x-2 items-center justify-start px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50 dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_var(--neutral-800)]"
         >
           <FcGoogle className="h-4 w-4" />
           <span className="text-sm">Google</span>
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -12594,13 +12998,13 @@ export const FacebookSignIn = async () => {
   return (
     <div className="m-2">
       <form action={facebookSignInAction}>
-        <button
+        <Button
           type="submit"
           className="relative group/btn flex space-x-2 items-center justify-start px-4 w-full text-white rounded-md h-10 font-medium shadow-input bg-blue-600 hover:bg-blue-700"
         >
           <FaFacebook className="h-4 w-4" />
           <span className="text-sm">Facebook</span>
-        </button>
+        </Button>
       </form>
     </div>
   );
@@ -12738,7 +13142,7 @@ const CarouselHero = () => {
           className="fixed top-16 left-0 right-0 z-40 bg-accent text-white py-2 px-4 text-center text-sm"
         >
           Free delivery on orders over ₦5,000
-          <button onClick={() => setShowNotification(false)} className="ml-4 underline">Dismiss</button>
+          <Button onClick={() => setShowNotification(false)} className="ml-4 underline">Dismiss</Button>
         </motion.div>
       )}
 
@@ -12761,18 +13165,18 @@ const CarouselHero = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
 
         {/* Carousel Controls */}
-        <button
+        <Button
           onClick={prevSlide}
           className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full p-3 z-20"
         >
           <ChevronLeft className="h-6 w-6 text-white" />
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={nextSlide}
           className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 backdrop-blur-sm rounded-full p-3 z-20"
         >
           <ChevronRight className="h-6 w-6 text-white" />
-        </button>
+        </Button>
 
         {/* Pagination Dots */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2 z-20">
@@ -13435,6 +13839,9 @@ type HeroVariant = 'modern-split' | 'immersive' | 'carousel' | 'story' | 'menu' 
 
 interface HeroProps {
   variant?: HeroVariant;
+  title?: string;
+  subtitle?: string;
+  sectionId?: string;
 }
 
 // --- Shared Components ---
@@ -13500,15 +13907,17 @@ const IconMarquee = () => {
 
 // --- Main Component ---
 
-const Hero = ({ variant = 'modern-split' }: HeroProps) => {
+const Hero = ({ variant = 'modern-split', title, subtitle, sectionId }: HeroProps) => {
   const { user, currentBusiness } = useAppContext();
   const [settings, setSettings] = useState<any>(null);
 
   useEffect(() => {
-    getSiteSettings(currentBusiness?.id).then(setSettings);
+    if (currentBusiness?.id) {
+       getSiteSettings(currentBusiness.id).then(setSettings);
+    }
   }, [currentBusiness]);
 
-  // Carousel/Slide Logic (Used in multiple variants, must be global/hook order)
+  // Carousel/Slide Logic
   const slides = ['/small chops 1.jpg', '/small chops 3.jpg', '/small chops 4.jpg'];
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isFloating, setIsFloating] = useState(false);
@@ -13521,25 +13930,19 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
   }, [variant, slides.length]);
 
   useEffect(() => {
-    if (variant === 'carousel') {
-      const handleScroll = () => setIsFloating(window.scrollY > 400);
-      window.addEventListener('scroll', handleScroll);
-      return () => window.removeEventListener('scroll', handleScroll);
-    }
-  }, [variant]);
+    const handleScroll = () => setIsFloating(window.scrollY > 400);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Shared Logic
   const DynamicText = () => (
     <RiseAndFadeText
       texts={
         settings?.heroDynamicTexts || [
-          "From Succo Stores", "Card & Bank Transfer Payments", "Login With Google or Facebook",
+          "From " + (currentBusiness?.name || "Our Store"), "Card & Bank Transfer Payments", "Login With Google or Facebook",
           "Naturally Processed Spices", "Quality You Can Trust", "Trusted by Homes and Businesses",
           "Fast & Reliable Delivery", "Carefully Packed for Freshness", "Customer Satisfaction Guaranteed",
-          "Premium Products, Fair Prices", "Authentic Nigerian Spice Blends", "Locally Sourced, Globally Delivered",
-          "Traditional Taste, Modern Quality", "Export-Standard Food Products", "Crafted for Every Kitchen",
-          "Pure. Natural. Flavorful.", "Freshness in Every Pack", "Spices That Elevate Your Meals",
-          "Taste You Can Trust", "Quality Without Compromise",
         ]
       }
       className="text-xl md:text-2xl mt-2 font-semibold text-muted-foreground overflow-hidden"
@@ -13551,9 +13954,11 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
     transition: { duration: 2, repeat: Infinity, ease: "easeInOut" }
   };
 
+  const storeBase = currentBusiness?.name ? `/${currentBusiness.name.toLowerCase().replace(/\s+/g, '-')}` : '/store';
+
   const CTAButtons = ({ className = "" }: { className?: string }) => (
     <div className={`flex flex-col gap-3 sm:flex-row z-10 ${className}`}>
-      <Link href="/store" className='w-full max-w-52'>
+      <Link href={`${storeBase}/store`} className='w-full max-w-52'>
         <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={buttonBounce}>
           <Button className={`h-12 gap-1.5 px-8 transition-all duration-200 bg-accent hover:bg-accent/90 w-full text-white font-bold text-lg shadow-xl shadow-accent/20`} size="lg">
             Shop Now <ArrowRight className="h-5 w-5 animate-pulse" />
@@ -13576,7 +13981,7 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
     <div className={`flex flex-wrap gap-5 text-sm ${className} mt-4`}>
       <div className="flex items-center gap-1.5">
         <Truck className="h-5 w-5 text-primary" />
-        <span>Free shipping over ₦200,000</span>
+        <span>Free shipping available</span>
       </div>
       <div className="flex items-center gap-1.5">
         <Clock className="h-5 w-5 text-primary" />
@@ -13584,6 +13989,44 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
       </div>
     </div>
   );
+
+  const editableTitle = (defaultVal: string) => {
+    const val = title || (sectionId ? defaultVal : (settings?.heroTitle || defaultVal));
+    const model = sectionId ? "section" : "siteSettings";
+    const field = sectionId ? "data.title" : "heroTitle";
+    const id = sectionId || settings?.id || "";
+
+    return (
+      <AdminEditable 
+        value={val} 
+        field={field} 
+        model={model} 
+        id={id} 
+        as="span" 
+        className="relative z-10" 
+        data={sectionId ? { title: val, text: subtitle } : undefined}
+      />
+    );
+  };
+
+  const editableSubtitle = (defaultVal: string) => {
+    const val = subtitle || (sectionId ? defaultVal : (settings?.heroSubtitle || defaultVal));
+    const model = sectionId ? "section" : "siteSettings";
+    const field = sectionId ? "data.text" : "heroSubtitle";
+    const id = sectionId || settings?.id || "";
+
+    return (
+      <AdminEditable 
+        value={val} 
+        field={field} 
+        model={model} 
+        id={id} 
+        as="p" 
+        className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed" 
+        data={sectionId ? { title, text: val } : undefined}
+      />
+    );
+  };
 
   // --- VARIANTS ---
 
@@ -13597,28 +14040,14 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
               <div className="flex z-50 md:hidden w-full justify-center items-center"><SearchInput /></div>
               <div className="space-y-4">
                 <div className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-accent/10 text-accent hover:bg-accent/20">
-                  <Star className="mr-1 h-3 w-3 fill-accent" /> #1 Choice
+                  <Star className="mr-1 h-3 w-3 fill-accent" /> Top Rated
                 </div>
                 <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl lg:text-7xl">
-                  <AdminEditable
-                    value={settings?.heroTitle || "World of flavors! 🍴"}
-                    field="heroTitle"
-                    model="siteSettings"
-                    id={settings?.id || ""}
-                    as="span"
-                    className="block text-foreground"
-                  />
-                   <span className="block text-accent">Succo</span>
+                   <div className="block text-foreground">{editableTitle("World of flavors!")}</div>
+                   <span className="block text-accent uppercase tracking-tighter">{currentBusiness?.name || "Our Store"}</span>
                  </h1>
                   <DynamicText />
-                  <AdminEditable
-                    value={settings?.heroSubtitle || "Discover premium products at competitive prices, with fast shipping and exceptional customer service."}
-                    field="heroSubtitle"
-                    model="siteSettings"
-                    id={settings?.id || ""}
-                    as="p"
-                    className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed"
-                  />
+                  {editableSubtitle("Discover premium products at competitive prices, with fast shipping and exceptional customer service.")}
               </div>
               <ProductCarousel />
               <CTAButtons />
@@ -13628,7 +14057,7 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative w-[400px] h-[400px] bg-accent/10 rounded-full animate-blob mix-blend-multiply filter blur-xl opacity-70"></div>
                 <div className="relative w-[400px] h-[400px] bg-primary/10 rounded-full animate-blob animation-delay-2000 mix-blend-multiply filter blur-xl opacity-70 -ml-20"></div>
-                <img src="/mission-burrito-fast-food-shawarma-kati-roll-breakfast-6dd86711999109a88eae948201cd24bf.png" alt="Delicious Food" className="relative z-10 w-[450px] h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+                <img src="/mission-burrito-fast-food-shawarma-kati-roll-breakfast-6dd86711999109a88eae948201cd24bf.png" alt="Featured" className="relative z-10 w-[450px] h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
               </div>
             </motion.div>
           </div>
@@ -13649,9 +14078,10 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="backdrop-blur-md bg-black/30 p-8 md:p-10 rounded-2xl border border-white/10 shadow-2xl">
               <div className="flex z-50 md:hidden w-full justify-center items-center mb-6"><SearchInput /></div>
               <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight mb-4 drop-shadow-md">
-                Indulge in a world of flavors! 🍴 <br /><span className="text-accent">Succo</span>
+                {editableTitle("Exclusive Experience")} <br />
+                <span className="text-accent">{currentBusiness?.name || "Premium Store"}</span>
               </h1>
-              <div className="text-gray-200 mb-8"><DynamicText /></div>
+              <div className="text-gray-200 mb-8">{editableSubtitle("Quality products tailored just for you.")}</div>
               <CTAButtons />
               <TrustBadges className="text-gray-300" />
             </motion.div>
@@ -13664,36 +14094,25 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
   if (variant === 'carousel') {
     return (
       <div className="relative h-screen w-full overflow-hidden">
-        {/* Nav & Notification can be part of layout, but here simplified as part of hero */}
-        <div className="absolute top-0 left-0 right-0 z-40 bg-accent text-white py-1 text-center text-sm font-bold">Free delivery on orders over ₦5,000</div>
-        
+        <div className="absolute top-0 left-0 right-0 z-40 bg-accent text-white py-1 text-center text-sm font-bold">Welcome to {currentBusiness?.name || "Our Store"}</div>
         <div className="absolute inset-0 bg-black/60 z-10" />
         <AnimatePresence mode='wait'>
             <motion.img key={currentSlide} src={slides[currentSlide]} initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} transition={{duration:1}} className="absolute inset-0 w-full h-full object-cover" />
         </AnimatePresence>
-
         <div className="relative z-20 container mx-auto h-full flex flex-col justify-center items-center text-center px-4 pt-20">
-           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">Order Fresh <span className="text-accent">Online</span></h1>
-           <div className="text-gray-200 mb-8 text-xl"><DynamicText /></div>
+           <h1 className="text-5xl md:text-7xl font-bold text-white mb-6">
+              {editableTitle("Fresh Quality")} <span className="text-accent">Online</span>
+           </h1>
+           <div className="text-gray-200 mb-8 text-xl">{editableSubtitle("Order from the comfort of your home.")}</div>
            <CTAButtons />
-           <div className="mt-8 flex gap-4 bg-white/10 backdrop-blur rounded-lg p-2 text-white">
-                <MapPin /> <span className='font-bold'>Select Location:</span> Lagos (Main)
-           </div>
-           
            <div className="absolute bottom-0 w-full bg-background/90 backdrop-blur-md py-6 border-t hidden md:block">
               <div className="container mx-auto grid grid-cols-3 gap-4">
-                  <div className='flex flex-col items-center'><Clock className="text-accent h-6 w-6"/><span className="font-bold">Mon-Sat: 8AM-8PM</span></div>
+                  <div className='flex flex-col items-center'><Clock className="text-accent h-6 w-6"/><span className="font-bold">24/7 Support</span></div>
                   <div className='flex flex-col items-center'><Truck className="text-accent h-6 w-6"/><span className="font-bold">Fast Delivery</span></div>
-                  <div className='flex flex-col items-center'><Star className="text-accent h-6 w-6"/><span className="font-bold">5-Star Quality</span></div>
+                  <div className='flex flex-col items-center'><Star className="text-accent h-6 w-6"/><span className="font-bold">Standard Quality</span></div>
               </div>
            </div>
         </div>
-        
-        {isFloating && (
-           <motion.div initial={{y:100}} animate={{y:0}} className="fixed bottom-6 right-6 z-50">
-              <Button size="lg" className="rounded-full h-16 w-16 shadow-2xl bg-accent text-white"><ShoppingCart /></Button>
-           </motion.div>
-        )}
       </div>
     )
   }
@@ -13704,138 +14123,28 @@ const Hero = ({ variant = 'modern-split' }: HeroProps) => {
             <div className="fixed inset-0 -z-10 bg-[url('/small%20chops%201.jpg')] bg-cover bg-center bg-fixed opacity-20" />
             <div className="container mx-auto px-4 py-20 min-h-screen grid lg:grid-cols-2 gap-12 items-center">
                 <div className="space-y-8">
-                    <h1 className="text-6xl font-bold">Crafted with <span className="text-accent">Passion</span></h1>
-                    <div className="text-muted-foreground text-xl"><DynamicText /></div>
+                    <h1 className="text-6xl font-bold">{editableTitle("Our Passion")}</h1>
+                    <div className="text-muted-foreground text-xl">{editableSubtitle("The journey of our store and vision.")}</div>
                     <Accordion type="single" collapsible className="w-full bg-background/80 backdrop-blur-sm rounded-lg p-4">
                         <AccordionItem value="story">
-                            <AccordionTrigger className='text-lg font-bold'>Our Story</AccordionTrigger>
-                            <AccordionContent>Founded in 2010... bringing authentic flavors to your table.</AccordionContent>
-                        </AccordionItem>
-                        <AccordionItem value="team">
-                            <AccordionTrigger className='text-lg font-bold'>Meet the Team</AccordionTrigger>
-                            <AccordionContent>Expert chefs and nutritionists dedicated to quality.</AccordionContent>
+                            <AccordionTrigger className='text-lg font-bold'>The Mission</AccordionTrigger>
+                            <AccordionContent>Providing high-quality products to empower our customers.</AccordionContent>
                         </AccordionItem>
                     </Accordion>
                     <CTAButtons />
                 </div>
-                <div className="bg-muted p-8 rounded-2xl space-y-6">
-                    <h3 className="text-2xl font-bold">Why Choose Us?</h3>
-                    <TrustBadges className="" />
-                    <div className="flex gap-2 mt-4">
-                        <Instagram className="text-accent" /> Follow our journey
-                    </div>
-                </div>
-            </div>
-            <div className="fixed bottom-6 right-6 z-40">
-                <Button className="bg-accent text-white shadow-xl rounded-full px-6 py-4 font-bold">Join us for dinner</Button>
             </div>
         </div>
     )
   }
 
-  if (variant === 'menu') {
-      return (
-          <div className="min-h-screen bg-secondary/10 flex flex-col items-center py-20 px-4">
-               <div className="text-center mb-12">
-                   <h1 className="text-5xl font-bold mb-4">Our <span className="text-accent">Menu</span> Highlights</h1>
-                   <DynamicText />
-               </div>
-               
-               <div className="flex gap-4 mb-8 overflow-x-auto w-full justify-center">
-                   {['Starters', 'Mains', 'Desserts', 'Drinks'].map(c => (
-                       <Button key={c} variant="outline" className="rounded-full px-6">{c}</Button>
-                   ))}
-               </div>
-               
-               <div className="grid md:grid-cols-3 gap-6 max-w-6xl w-full">
-                   {[1,2,3].map(i => (
-                       <div key={i} className="bg-card rounded-xl overflow-hidden shadow-lg group">
-                           <div className="h-48 bg-muted relative overflow-hidden">
-                               <img src={`/small chops ${i}.jpg`} className="object-cover w-full h-full group-hover:scale-110 transition duration-500" />
-                           </div>
-                           <div className="p-6">
-                               <h3 className="text-xl font-bold">Special Delicacy {i}</h3>
-                               <p className="text-muted-foreground text-sm mb-4">Delicious and spicy...</p>
-                               <div className="flex justify-between items-center">
-                                   <span className="text-accent font-bold text-lg">₦2,500</span>
-                                   <Button size="sm">Add to Cart</Button>
-                               </div>
-                           </div>
-                       </div>
-                   ))}
-               </div>
-               
-               <div className="mt-12 w-full max-w-4xl bg-background rounded-xl p-8 shadow-sm flex flex-col md:flex-row items-center justify-between">
-                   <div>
-                       <h3 className="text-2xl font-bold">Chef's Picks</h3>
-                       <p className="text-muted-foreground">Hand-picked favorites for you.</p>
-                   </div>
-                   <div className="mt-4 md:mt-0"><CTAButtons /></div>
-               </div>
-          </div>
-      )
-  }
-
-  if (variant === 'experience') {
-      return (
-          <div className="min-h-screen container mx-auto py-20 px-4 grid lg:grid-cols-2 gap-12">
-              <div className="space-y-6">
-                  <h1 className="text-5xl font-bold">Experience the <span className="text-accent">Ambiance</span></h1>
-                  <DynamicText />
-                  <div className="grid grid-cols-2 gap-4">
-                       <img src="/small chops 1.jpg" className="rounded-lg shadow hover:scale-105 transition cursor-pointer" />
-                       <img src="/small chops 3.jpg" className="rounded-lg shadow hover:scale-105 transition cursor-pointer" />
-                       <img src="/shawama pics 1.jpg" className="rounded-lg shadow hover:scale-105 transition cursor-pointer col-span-2 h-40 object-cover" />
-                  </div>
-              </div>
-              <div className="flex flex-col justify-center space-y-8">
-                  <div className="bg-accent/10 p-6 rounded-lg text-center">
-                      <h3 className="text-xl font-bold">Special Offer Ends In:</h3>
-                      <div className="text-4xl font-mono font-bold text-accent mt-2">12:34:56</div>
-                  </div>
-                  <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="event"><AccordionTrigger>Events</AccordionTrigger><AccordionContent>Book your events...</AccordionContent></AccordionItem>
-                        <AccordionItem value="private"><AccordionTrigger>Private Dining</AccordionTrigger><AccordionContent>Exclusive dining...</AccordionContent></AccordionItem>
-                  </Accordion>
-                  <CTAButtons />
-                  <TrustBadges />
-              </div>
-          </div>
-      )
-  }
-
-  if (variant === 'local') {
-      return (
-          <div className="min-h-screen flex flex-col lg:flex-row">
-              <div className="lg:w-1/2 bg-muted relative min-h-[400px]">
-                 <div className="absolute inset-0 bg-secondary/20 flex items-center justify-center">
-                     <span className="text-muted-foreground font-bold">[Map Embed Placeholder]</span>
-                 </div>
-                 <div className="absolute bottom-4 left-4 bg-card p-4 rounded shadow-lg max-w-xs">
-                     <h4 className="font-bold">Visit Us</h4>
-                     <p className="text-sm">123 Food Street, Lagos</p>
-                 </div>
-              </div>
-              <div className="lg:w-1/2 p-12 flex flex-col justify-center space-y-8">
-                  <h1 className="text-5xl font-bold">Local & <span className="text-accent">Fresh</span></h1>
-                  <DynamicText />
-                  <p className="text-lg text-muted-foreground">We partner with local farmers...</p>
-                  <div className="grid grid-cols-3 gap-2">
-                       <img src="/small chops 1.jpg" className="rounded aspect-square object-cover" />
-                       <img src="/small chops 3.jpg" className="rounded aspect-square object-cover" />
-                       <img src="/shawama pics 1.jpg" className="rounded aspect-square object-cover" />
-                  </div>
-                  <CTAButtons />
-                  <div className="flex gap-2">
-                      <Input placeholder="Enter email for newsletter" />
-                      <Button>Subscribe</Button>
-                  </div>
-              </div>
-          </div>
-      )
-  }
-
-  return null;
+  return (
+    <div className="py-20 bg-background text-center space-y-6">
+       <h1 className="text-5xl font-black">{editableTitle("Our Boutique")}</h1>
+       <div className="max-w-2xl mx-auto">{editableSubtitle("Excellence in every detail.")}</div>
+       <div className="flex justify-center"><CTAButtons /></div>
+    </div>
+  );
 }
 
 export default Hero
@@ -14488,18 +14797,40 @@ LOCATION: components\myComponents\subs\posts.tsx
 import React, { useEffect, useState } from 'react';
 import Post from './post';
 import axios from 'axios';
+import { useAppContext } from '@/hooks/useAppContext';
 
 const Posts = ({ page }) => {
+  const { currentBusiness } = useAppContext();
   const [allpost, setallpost] = useState(null);
   const [sortOrder, setSortOrder] = useState('desc');
   const [postTypes, setPostTypes] = useState({ video: true, audio: true, image: true, });
 
   const fetchallpost = () =>{
-    axios.get('/api/dbhandler', { params: { model: 'posts', } })
+    if (!currentBusiness?.id) return;
+
+    axios.get('/api/dbhandler', { 
+      params: { 
+        model: 'post', 
+        businessId: currentBusiness.id 
+      } 
+    })
       .then(response => {
         const posts = response.data;
-        let filteredPosts = posts.filter(post => post.for === page && postTypes[post.type]);
-        filteredPosts = filteredPosts.sort((a, b) => sortOrder === 'asc' ? new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime() : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        let filteredPosts = posts.filter(post => post.for === page || !post.for);
+        
+        // Apply post type filter if post types are defined
+        if (postTypes) {
+           filteredPosts = filteredPosts.filter(post => {
+              if (!post.type) return true;
+              return postTypes[post.type];
+           });
+        }
+
+        filteredPosts = filteredPosts.sort((a, b) => 
+           sortOrder === 'asc' 
+           ? new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime() 
+           : new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
         setallpost(filteredPosts);
       })
       .catch(error => {
@@ -14509,7 +14840,7 @@ const Posts = ({ page }) => {
 
   useEffect(() => {
     fetchallpost();
-  }, [sortOrder, postTypes, page]);
+  }, [sortOrder, postTypes, page, currentBusiness?.id]);
 
   const handleSortChange = (e) => {
     setSortOrder(e.target.value);
@@ -14958,6 +15289,7 @@ import { toggleWishlist, checkWishlisStatus } from "@/action/wishlist"
 import { AddLunchDialog } from "./AddLunchDialog"
 import Link from "next/link"
 import { toast } from "sonner"
+import { Button } from "@/components/ui/button"
 
 export function ProductCarousel() {
     const [products, setProducts] = useState<any[]>([])
@@ -15038,16 +15370,16 @@ function CarouselCard({ product }: { product: any }) {
                 </div>
 
                 {/* Wishlist Icon */}
-                <button 
+                <Button 
                     onClick={handleWishlist}
                     className="absolute top-2 right-12 bg-background/60 backdrop-blur-sm p-1.5 rounded-full z-10 hover:bg-background transition-colors"
                 >
                     <Heart className={cn("h-4 w-4", isInWishlist ? "fill-destructive text-destructive" : "text-muted-foreground")} />
-                </button>
+                </Button>
 
                 {/* Add to Cart Overlay */}
                 <div className="absolute bottom-0 left-0 right-0 h-1/5 bg-background/60 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button 
+                    <Button 
                         className="w-full h-full flex items-center justify-center gap-2 font-bold text-sm text-primary hover:bg-primary hover:text-white transition-colors"
                         onClick={(e) => {
                             e.preventDefault();
@@ -15056,7 +15388,7 @@ function CarouselCard({ product }: { product: any }) {
                         }}
                     >
                         <ShoppingCart className="h-4 w-4" /> Add to Cart
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -15071,6 +15403,176 @@ function CarouselCard({ product }: { product: any }) {
 
 function cn(...classes: any[]) {
     return classes.filter(Boolean).join(" ")
+}
+
+
+
+================================================================================
+LOCATION: components\myComponents\subs\ProductDetailView.tsx
+================================================================================
+
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { ShoppingCart, Heart, Share2, ArrowLeft, Star, CheckCircle, Truck } from 'lucide-react';
+import { useCart } from '@/hooks/use-cart';
+import { toast } from 'sonner';
+import Link from 'next/link';
+
+interface ProductDetailViewProps {
+  productId?: string;
+  businessId?: string;
+}
+
+export default function ProductDetailView({ productId, businessId }: ProductDetailViewProps) {
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const { addItem } = useCart();
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        let url = `/api/dbhandler?model=product`;
+        if (productId) url += `&id=${productId}`;
+        else if (businessId) url += `&businessId=${businessId}&limit=1`; // fetch latest if no id
+
+        const res = await axios.get(url);
+        const data = Array.isArray(res.data) ? res.data[0] : res.data;
+        setProduct(data);
+      } catch (err) {
+        console.error("Failed to fetch product details", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [productId, businessId]);
+
+  if (loading) return <div className="py-20 text-center font-bold text-muted-foreground animate-pulse">Loading product details...</div>;
+  
+  if (!product) return (
+    <div className="py-20 text-center space-y-4">
+      <p className="text-xl font-bold">Product not found</p>
+      <Button variant="outline" asChild><Link href="./store">Back to Store</Link></Button>
+    </div>
+  );
+
+  const images = product.images?.length > 0 ? product.images : ["/logo.png"];
+  const [activeImage, setActiveImage] = useState(images[0]);
+
+  const handleAddToCart = () => {
+    addItem(product, 1);
+    toast.success(`${product.name} added to cart`);
+  };
+
+  return (
+    <div className="w-full bg-background py-10 md:py-20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <Link href="./store" className="inline-flex items-center text-sm font-bold text-muted-foreground hover:text-accent mb-8 transition-colors group">
+          <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Collection
+        </Link>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
+          {/* Gallery */}
+          <div className="space-y-4">
+            <div className="aspect-square relative rounded-[2rem] overflow-hidden border bg-muted/20 shadow-inner group">
+               <img src={activeImage} alt={product.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" />
+               {product.scarce && (
+                 <Badge className="absolute top-6 left-6 bg-destructive text-white border-none px-4 py-1.5 rounded-full font-black text-xs uppercase tracking-widest shadow-lg">
+                   Limited Stock
+                 </Badge>
+               )}
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+              {images.map((img: string, i: number) => (
+                <button 
+                  key={i} 
+                  onClick={() => setActiveImage(img)}
+                  className={`relative h-24 w-24 rounded-2xl overflow-hidden border-2 transition-all ${activeImage === img ? 'border-accent shadow-lg scale-105' : 'border-transparent opacity-60 hover:opacity-100'}`}
+                >
+                  <img src={img} className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Info */}
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2 mb-4">
+               <Badge variant="secondary" className="bg-accent/10 text-accent font-black">{product.category?.name || 'General'}</Badge>
+               <div className="flex gap-0.5 text-yellow-400">
+                  <Star className="h-4 w-4 fill-current" />
+                  <Star className="h-4 w-4 fill-current" />
+                  <Star className="h-4 w-4 fill-current" />
+                  <Star className="h-4 w-4 fill-current" />
+                  <Star className="h-4 w-4 text-muted-foreground" />
+               </div>
+            </div>
+
+            <h1 className="text-4xl md:text-5xl font-black tracking-tighter mb-4 text-foreground leading-[1.1]">{product.name}</h1>
+            
+            <div className="flex items-baseline gap-4 mb-8">
+              <span className="text-3xl font-black text-accent">₦{product.price?.toLocaleString()}</span>
+              {product.costPrice && (
+                 <span className="text-xl text-muted-foreground line-through opacity-50 font-medium">₦{(product.price * 1.2).toLocaleString()}</span>
+              )}
+            </div>
+
+            <p className="text-lg text-muted-foreground leading-relaxed mb-10 border-l-4 border-accent/20 pl-6">
+              {product.description || "No description available for this premium item."}
+            </p>
+
+            <div className="space-y-6 mb-10">
+               <div className="flex items-center gap-3 text-sm font-bold">
+                  <CheckCircle className="h-5 w-5 text-green-500" /> 
+                  <span>Quality Assured & Verified</span>
+               </div>
+               <div className="flex items-center gap-3 text-sm font-bold">
+                  <Truck className="h-5 w-5 text-accent" /> 
+                  <span>Express Delivery in 24-48 Hours</span>
+               </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-4 mt-auto">
+              <Button 
+                size="lg" 
+                onClick={handleAddToCart}
+                className="h-14 flex-1 rounded-2xl bg-accent hover:bg-accent/90 text-white font-black text-lg gap-2 shadow-xl shadow-accent/20 transition-all active:scale-95"
+              >
+                <ShoppingCart className="h-6 w-6" /> Add to Cart
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="h-14 w-14 rounded-2xl border-2 hover:bg-accent hover:text-white hover:border-accent transition-all group"
+              >
+                <Heart className="h-6 w-6 group-hover:scale-110 transition-transform" />
+              </Button>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="h-14 w-14 rounded-2xl border-2 hover:bg-accent hover:text-white hover:border-accent transition-all group"
+              >
+                <Share2 className="h-6 w-6 group-hover:scale-110 transition-transform" />
+              </Button>
+            </div>
+            
+            {product.activeIngredients && product.activeIngredients.length > 0 && (
+              <div className="mt-12 pt-10 border-t">
+                 <h3 className="font-black uppercase tracking-widest text-xs text-muted-foreground mb-4">Key Composition</h3>
+                 <div className="flex flex-wrap gap-2">
+                    {product.activeIngredients.map((ing: string) => (
+                      <Badge key={ing} variant="outline" className="rounded-full px-4 py-1 font-bold border-2">{ing}</Badge>
+                    ))}
+                 </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 
@@ -16962,6 +17464,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { Button } from "../ui/button"
 
 export const description = "An interactive bar chart"
 
@@ -17098,7 +17601,7 @@ export function ChartComponent() {
           {["desktop", "mobile"].map((key) => {
             const chart = key as keyof typeof chartConfig
             return (
-              <button
+              <Button
                 key={chart}
                 data-active={activeChart === chart}
                 className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t px-6 py-4 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0 sm:px-8 sm:py-6"
@@ -17110,7 +17613,7 @@ export function ChartComponent() {
                 <span className="text-lg font-bold leading-none sm:text-3xl">
                   {total[key as keyof typeof total].toLocaleString()}
                 </span>
-              </button>
+              </Button>
             )
           })}
         </div>
@@ -19739,6 +20242,7 @@ import React from 'react';
 import logo from './logo.svg';
 import { usePaystackPayment } from 'react-paystack';
 import './App.css';
+import { Button } from '@/components/ui/button';
 
 const config = {
     reference: (new Date()).getTime().toString(),
@@ -19763,9 +20267,9 @@ const PaystackHookExample = () => {
     const initializePayment = usePaystackPayment(config);
     return (
       <div>
-          <button onClick={() => {
+          <Button onClick={() => {
               // initializePayment(onSuccess, onClose)
-          }}>Paystack Hooks Implementation</button>
+          }}>Paystack Hooks Implementation</Button>
       </div>
     );
 };
@@ -20465,15 +20969,15 @@ import {
 } from "@/components/ui/select"
 import { Button } from '@/components/ui/button'
 import { DEFAULT_PAGE_TEMPLATES } from '@/lib/storeTemplates'
-import { 
-  PlusCircle, 
-  Trash2, 
-  MoveUp, 
-  MoveDown, 
-  Globe, 
-  Settings as SettingsIcon, 
-  Layout, 
-  ChevronRight, 
+import {
+  PlusCircle,
+  Trash2,
+  MoveUp,
+  MoveDown,
+  Globe,
+  Settings as SettingsIcon,
+  Layout,
+  ChevronRight,
   Home as HomeIcon,
   Info,
   Bell,
@@ -20483,18 +20987,49 @@ import {
   User as UserIcon,
   Menu,
   MessageCircle,
-  X
+  X,
+  Palette,
+  CreditCard,
+  Instagram,
+  BarChart3,
+  Send,
+  Mail,
+  Phone,
+  MapPin,
+  Package,
+  Users,
+  FileText
 } from 'lucide-react'
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from "@/components/ui/tabs"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 import { ScrollScaleWrapper } from '@/components/animation/ScrollScaleWrapper'
 import Hero from '@/components/myComponents/subs/hero'
 import FeaturedProducts from '@/components/myComponents/subs/featuredProducts'
 import FeaturedCategories from '@/components/myComponents/subs/featuredCategories'
 import Features from '@/components/myComponents/subs/features'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { CartDetails } from '@/components/myComponents/subs/CartDetails'
-import { Users } from 'lucide-react'
+import ContactForm from '@/components/utility/contactForm'
+import { ChatInterface } from '@/components/myComponents/subs/ChatInterface'
+import Posts from '@/components/myComponents/subs/posts'
+import Stocks from '@/components/myComponents/subs/stocks'
+import ProductDetailView from "@/components/myComponents/subs/ProductDetailView";
+import ProductForm from "@/prisma/forms/ProductForm";
+import StaffForm from "@/prisma/forms/StaffForm";
+import PostForm from "@/prisma/forms/PostForm";
 
 interface Section {
   id: string
@@ -20522,18 +21057,53 @@ interface Business {
     exchangeRate: number
     pages: Page[]
   }
+  siteSettings?: {
+    id: string
+    aboutText: string
+    contactEmail: string
+    contactPhone: string
+    helpText: string
+    facebook?: string
+    instagram?: string
+    twitter?: string
+    linkedin?: string
+  }
+  staff?: Staff[]
 }
 
-const StoreHome = ({ business: initialBusiness, activePageSlug = 'home' }: { business: Business, activePageSlug?: string }) => {
+interface Staff {
+  id: string
+  name: string
+  role: string
+  bio?: string
+  image?: string
+}
+
+const StoreHome = ({
+  business: initialBusiness,
+  activePageSlug = 'home',
+  initialAdminTab = null
+}: {
+  business: Business,
+  activePageSlug?: string,
+  initialAdminTab?: 'pages' | 'settings' | null
+}) => {
   const { setCurrentBusiness, currentBusiness } = useAppContext();
   const isAdmin = useIsBusinessAdmin();
   const [business, setBusiness] = React.useState(initialBusiness);
+  const [isAdminToolbarOpen, setIsAdminToolbarOpen] = React.useState(!!initialAdminTab);
   const { storeName } = useParams();
-  
+
   React.useEffect(() => {
     setCurrentBusiness(initialBusiness);
     setBusiness(initialBusiness);
   }, [initialBusiness, setCurrentBusiness]);
+
+  React.useEffect(() => {
+    if (initialAdminTab) {
+      setIsAdminToolbarOpen(true);
+    }
+  }, [initialAdminTab]);
 
   const settings = business.settings;
   const activePage = settings?.pages?.find(p => p.slug === activePageSlug) || (activePageSlug === 'home' && settings?.pages?.[0]?.slug === 'home' ? settings.pages[0] : null);
@@ -20557,13 +21127,29 @@ const StoreHome = ({ business: initialBusiness, activePageSlug = 'home' }: { bus
     }
   };
 
-  const handleCreatePage = async (name: string, slug: string) => {
+  const handleCreatePage = async (name: string, slug: string, templateSlug?: string) => {
      try {
         const res = await axios.post('/api/dbhandler?model=page', {
            name,
            slug,
            projectSettingsId: settings?.id
         });
+
+        if (templateSlug) {
+           const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
+           if (template) {
+              for (const s of template.sections) {
+                 await axios.post('/api/dbhandler?model=section', {
+                    pageId: res.data.id,
+                    type: s.type,
+                    layout: s.layout,
+                    order: s.order,
+                    data: (s as any).data
+                 });
+              }
+           }
+        }
+
         toast.success("Page created!");
         window.location.href = `/${storeName}/${slug}`;
      } catch (err) {
@@ -20585,7 +21171,7 @@ const StoreHome = ({ business: initialBusiness, activePageSlug = 'home' }: { bus
     if (!activePage) return;
     const template = DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
     if (!template) return;
-    
+
     try {
       for (const s of template.sections) {
          await axios.post('/api/dbhandler?model=section', {
@@ -20605,14 +21191,29 @@ const StoreHome = ({ business: initialBusiness, activePageSlug = 'home' }: { bus
 
   const updateGlobalSettings = async (data: any) => {
     try {
-      await axios.put(`/api/dbhandler?model=projectSettings`, {
-        id: settings?.id,
-        ...data
-      });
-      toast.success("Settings updated!");
-      window.location.reload();
+       // Update SiteSettings if present
+       if (data.siteSettings) {
+          await axios.put(`/api/dbhandler?model=siteSettings`, {
+             id: business.siteSettings?.id,
+             ...data.siteSettings
+          });
+       }
+
+       // Update ProjectSettings if present (currency, etc)
+       const projectData = { ...data };
+       delete projectData.siteSettings;
+
+       if (Object.keys(projectData).length > 0) {
+          await axios.put(`/api/dbhandler?model=projectSettings`, {
+             id: settings?.id,
+             ...projectData
+          });
+       }
+
+       toast.success("Settings updated!");
+       window.location.reload();
     } catch (err) {
-      toast.error("Failed to update settings");
+       toast.error("Failed to update settings");
     }
   };
 
@@ -20640,52 +21241,135 @@ const StoreHome = ({ business: initialBusiness, activePageSlug = 'home' }: { bus
   return (
     <div className="flex flex-col items-center w-full relative">
        <StoreNavbar business={business} />
-       
-       {isAdmin && <AdminToolbar business={business} onUpdateSettings={updateGlobalSettings} onCreatePage={handleCreatePage} />}
-       
-       {sections.length === 0 && (
-          <div className="w-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed border-accent/20 m-6 rounded-[3rem] bg-accent/5 p-10 text-center">
-             <Layout className="h-16 w-16 text-accent/40 mb-6" />
-             <h3 className="text-2xl font-bold text-accent mb-2">This page has no content yet.</h3>
-             <p className="max-w-md text-muted-foreground mb-8">Start from scratch or jump-start your design with one of our professional templates.</p>
-             
-             {isAdmin && (
-                <div className="flex flex-wrap justify-center gap-4">
-                   <AddSectionTrigger onAdd={handleAddSection} />
-                   <div className="h-10 w-px bg-accent/20 mx-2 hidden md:block" />
-                   <div className="flex gap-2">
-                      {Object.keys(DEFAULT_PAGE_TEMPLATES).map((key) => (
-                         <Button key={key} variant="outline" size="sm" onClick={() => handleApplyTemplate(key)} className="capitalize font-bold">
-                            Apply {key} Layout
-                         </Button>
-                      ))}
-                   </div>
-                </div>
-             )}
-          </div>
+
+       {isAdmin && (
+         <AdminToolbar
+           business={business}
+           onUpdateSettings={updateGlobalSettings}
+           onCreatePage={handleCreatePage}
+           isOpen={isAdminToolbarOpen}
+           onOpenChange={setIsAdminToolbarOpen}
+           initialTab={initialAdminTab}
+         />
        )}
 
-       {sections.sort((a,b) => a.order - b.order).map((section, idx) => (
-         <div key={section.id} className="w-full group/section relative">
-            {isAdmin && (
-               <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-2">
-                  <SectionConfigDialog section={section} onUpdate={() => window.location.reload()} />
-                  <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleRemoveSection(section.id)}>
-                     <Trash2 className="h-4 w-4" />
-                  </Button>
-               </div>
-            )}
-            {renderSection(section)}
-            
-            {isAdmin && (
-               <div className="py-2 w-full flex justify-center opacity-0 group-hover/section:opacity-100 transition-opacity bg-accent/5 border-b dash-border">
-                  <AddSectionTrigger onAdd={handleAddSection} />
-               </div>
-            )}
-         </div>
-       ))}
+       <main className="w-full flex-1">
+          {sections.length === 0 && (
+             <div className="w-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed border-accent/20 my-10 rounded-[3rem] bg-accent/5 p-10 text-center mx-auto max-w-7xl px-4">
+                <Layout className="h-16 w-16 text-accent/40 mb-6" />
+                <h3 className="text-2xl font-bold text-accent mb-2">This page has no content yet.</h3>
+                <p className="max-w-md text-muted-foreground mb-8">Start from scratch or jump-start your design with one of our professional templates.</p>
+
+                {isAdmin && (
+                   <div className="flex flex-wrap justify-center gap-4">
+                      <AddSectionTrigger onAdd={handleAddSection} />
+                      <div className="h-10 w-px bg-accent/20 mx-2 hidden md:block" />
+                      <div className="flex flex-wrap gap-2 justify-center">
+                         {Object.keys(DEFAULT_PAGE_TEMPLATES).map((key) => (
+                            <Button key={key} variant="outline" size="sm" onClick={() => handleApplyTemplate(key)} className="capitalize font-bold">
+                               Apply {key} Layout
+                            </Button>
+                         ))}
+                      </div>
+                   </div>
+                )}
+             </div>
+          )}
+
+          {sections.sort((a,b) => a.order - b.order).map((section, idx) => (
+            <div key={section.id} className="w-full group/section relative">
+               {isAdmin && (
+                  <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-2">
+                     <SectionConfigDialog section={section} onUpdate={() => window.location.reload()} />
+                     <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleRemoveSection(section.id)}>
+                        <Trash2 className="h-4 w-4" />
+                     </Button>
+                  </div>
+               )}
+               <RenderSection section={section} business={business} />
+
+               {isAdmin && (
+                  <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border">
+                     <AddSectionTrigger onAdd={handleAddSection} />
+                  </div>
+               )}
+            </div>
+          ))}
+       </main>
+
+       <StoreFooter business={business} />
     </div>
   );
+}
+
+const StoreFooter = ({ business }: { business: Business }) => {
+   const { storeName } = useParams();
+   const pages = business.settings?.pages || [];
+
+   return (
+     <footer className="w-full bg-slate-50 border-t py-12 px-6 md:px-12 mt-20">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+           <div className="space-y-4">
+              <Link href={`/${storeName}`} className="text-xl font-black tracking-tighter text-accent flex items-center gap-2">
+                 <div className="h-8 w-8 bg-accent rounded-lg flex items-center justify-center text-white font-bold shadow-md">
+                    {business.name.charAt(0)}
+                 </div>
+                 <span>{business.name}</span>
+              </Link>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                 Experience premium quality products and world-class service tailored just for you. Shop with {business.name} today.
+              </p>
+           </div>
+
+           <div>
+              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Navigation</h4>
+              <ul className="space-y-3">
+                 {pages.map(page => (
+                    <li key={page.id}>
+                       <Link
+                         href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
+                         className="text-sm text-muted-foreground hover:text-accent transition-colors"
+                       >
+                          {page.name}
+                       </Link>
+                    </li>
+                 ))}
+              </ul>
+           </div>
+
+           <div>
+              <h4 className="font-bold text-sm uppercase tracking-widest mb-6">Support</h4>
+              <ul className="space-y-3">
+                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">FAQ</Link></li>
+                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">Shipping Policy</Link></li>
+                 <li><Link href="#" className="text-sm text-muted-foreground hover:text-accent font-medium">Return Policy</Link></li>
+                 <li><Link href="/contact" className="text-sm text-muted-foreground hover:text-accent font-medium">Contact Us</Link></li>
+              </ul>
+           </div>
+
+           <div className="space-y-6">
+              <h4 className="font-bold text-sm uppercase tracking-widest mb-2">Connect</h4>
+               <div className="flex gap-4">
+                  <Link href={business.siteSettings?.facebook || "#"} target="_blank">
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><MessageCircle className="h-5 w-5" /></Button>
+                  </Link>
+                  <Link href={business.siteSettings?.instagram || "#"} target="_blank">
+                    <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Instagram className="h-5 w-5" /></Button>
+                  </Link>
+                  {business.siteSettings?.twitter && (
+                    <Link href={business.siteSettings.twitter} target="_blank">
+                      <Button variant="outline" size="icon" className="h-10 w-10 rounded-full hover:bg-accent hover:text-white transition-all"><Globe className="h-5 w-5" /></Button>
+                    </Link>
+                  )}
+               </div>
+              <p className="text-xs text-muted-foreground"> Powered by <span className="font-bold text-accent">VendorPort</span> Platforms </p>
+           </div>
+        </div>
+        <div className="max-w-7xl mx-auto pt-12 mt-12 border-t text-center text-xs text-muted-foreground">
+           &copy; {new Date().getFullYear()} {business.name}. All rights reserved.
+        </div>
+     </footer>
+   );
 }
 
 const SectionConfigDialog = ({ section, onUpdate }: { section: Section, onUpdate: () => void }) => {
@@ -20728,8 +21412,8 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: Section, onUpdate
               {section.type === 'products' && (
                  <div className="space-y-2">
                     <Label>Product Category</Label>
-                    <Select 
-                      value={configData.categoryId || "featured"} 
+                    <Select
+                      value={configData.categoryId || "featured"}
                       onValueChange={(v) => setConfigData({ ...configData, categoryId: v === 'featured' ? null : v })}
                     >
                        <SelectTrigger>
@@ -20746,13 +21430,13 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: Section, onUpdate
               )}
               <div className="space-y-2">
                  <Label>Section Title (Overlay)</Label>
-                 <Input 
-                   value={configData.title || ""} 
+                 <Input
+                   value={configData.title || ""}
                    onChange={(e) => setConfigData({ ...configData, title: e.target.value })}
                  />
               </div>
            </div>
-           <Button onClick={handleSave} className="w-full">Save Changes</Button>
+           <Button onClick={handleSave} className="w-full border-2 border-accent text-accent hover:bg-accent hover:text-white font-bold">Save Changes</Button>
         </DialogContent>
      </Dialog>
    );
@@ -20764,28 +21448,28 @@ const StoreNavbar = ({ business }: { business: Business }) => {
    const pages = business.settings?.pages || [];
 
    return (
-     <nav className="w-full border-b sticky top-0 z-[50] py-4 px-6 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
-        <Link href={`/${storeName}`} className="text-2xl font-black tracking-tighter text-accent flex items-center gap-2">
-           <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg">
+     <nav className="w-full border-b sticky top-0 z-[50] py-4 px-4 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
+        <Link href={`/${storeName}`} className="text-xl md:text-2xl font-black tracking-tighter text-accent flex items-center gap-2">
+           <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
               {business.name.charAt(0)}
            </div>
-           <span className="truncate max-w-[150px] md:max-w-none">{business.name}</span>
+           <span className="truncate max-w-[120px] md:max-w-none">{business.name}</span>
         </Link>
         <div className="hidden md:flex items-center gap-8">
            {pages.map(page => (
-              <Link 
-                key={page.id} 
-                href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`} 
+              <Link
+                key={page.id}
+                href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
                 className="font-bold text-sm uppercase tracking-widest hover:text-accent transition-colors"
               >
                 {page.name}
               </Link>
            ))}
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 md:gap-4">
            {isAdmin && (
               <Link href={`/${storeName}/analytics`}>
-                <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2">
+                <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2 hidden sm:flex">
                    ADMIN <Layout className="h-3 w-3 ml-1" />
                 </Badge>
               </Link>
@@ -20793,7 +21477,41 @@ const StoreNavbar = ({ business }: { business: Business }) => {
            <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
            <GlobalCart />
            <Button variant="outline" className="rounded-full font-bold md:flex hidden">Join Platform</Button>
-           <Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-5 w-5" /></Button>
+
+           <Sheet>
+              <SheetTrigger asChild>
+                 <Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-5 w-5" /></Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[400px] border-l-4 border-accent">
+                 <SheetHeader className="text-left mb-8">
+                    <SheetTitle className="text-2xl font-black flex items-center gap-2">
+                       <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shrink-0">
+                          {business.name.charAt(0)}
+                       </div>
+                       <span>{business.name}</span>
+                    </SheetTitle>
+                 </SheetHeader>
+                 <div className="flex flex-col gap-6">
+                    {pages.map(page => (
+                       <Link
+                         key={page.id}
+                         href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
+                         className="font-bold text-lg uppercase tracking-widest hover:text-accent transition-colors flex items-center justify-between group"
+                       >
+                         {page.name}
+                         <ChevronRight className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                       </Link>
+                    ))}
+                    <div className="h-px bg-border my-4" />
+                    {isAdmin && (
+                       <Link href={`/${storeName}/analytics`} className="flex items-center gap-3 text-accent font-black">
+                          <BarChart3 className="h-5 w-5" /> OWNER ANALYTICS
+                       </Link>
+                    )}
+                    <Button className="w-full bg-accent hover:bg-accent/90 text-white font-bold h-12 rounded-xl">Visit Platform</Button>
+                 </div>
+              </SheetContent>
+           </Sheet>
         </div>
      </nav>
    );
@@ -20803,8 +21521,8 @@ const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) =>
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2 text-accent font-bold">
-           <PlusCircle className="h-4 w-4" /> Add Section Here
+        <Button variant="ghost" size="sm" className="border-2 border-accent text-accent font-black hover:bg-accent hover:text-white transition-all scale-90 hover:scale-100 shadow-sm px-4">
+           <PlusCircle className="h-4 w-4 mr-2" /> Add Section Here
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -20826,6 +21544,14 @@ const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) =>
                     <SelectItem value="features">Trust Features</SelectItem>
                     <SelectItem value="chat">Chat Button</SelectItem>
                     <SelectItem value="notifications">Announcement Bar</SelectItem>
+                    <SelectItem value="contact-form">Contact Form</SelectItem>
+                    <SelectItem value="chat-interface">Chat Interface</SelectItem>
+                    <SelectItem value="blog-posts">Blog Posts</SelectItem>
+                    <SelectItem value="product-list">Product List</SelectItem>
+                    <SelectItem value="newsletter">Newsletter</SelectItem>
+                    <SelectItem value="cart">Cart Details</SelectItem>
+                    <SelectItem value="product-details">Product Details</SelectItem>
+                    <SelectItem value="staff">Staff/Team</SelectItem>
                  </SelectContent>
               </Select>
            </div>
@@ -20835,16 +21561,43 @@ const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) =>
   );
 }
 
-const AdminToolbar = ({ business, onUpdateSettings, onCreatePage }: { business: Business, onUpdateSettings: (data: any) => void, onCreatePage: (name: string, slug: string) => void }) => {
+const AdminToolbar = ({
+  business,
+  onUpdateSettings,
+  onCreatePage,
+  isOpen,
+  onOpenChange,
+  initialTab = "pages"
+}: {
+  business: Business,
+  onUpdateSettings: (data: any) => void,
+  onCreatePage: (name: string, slug: string, template?: string) => void,
+  isOpen: boolean,
+  onOpenChange: (open: boolean) => void,
+  initialTab?: string | null
+}) => {
   const [currency, setCurrency] = React.useState(business.settings?.currency || "USD");
   const [rate, setRate] = React.useState(business.settings?.exchangeRate?.toString() || "1.0");
+  const [facebook, setFacebook] = React.useState(business.siteSettings?.facebook || "");
+  const [instagram, setInstagram] = React.useState(business.siteSettings?.instagram || "");
+  const [twitter, setTwitter] = React.useState(business.siteSettings?.twitter || "");
+  const [linkedin, setLinkedin] = React.useState(business.siteSettings?.linkedin || "");
+  const [contactPhone, setContactPhone] = React.useState(business.siteSettings?.contactPhone || "");
+  const [contactEmail, setContactEmail] = React.useState(business.siteSettings?.contactEmail || "");
+
   const [newPageName, setNewPageName] = React.useState("");
+  const [selectedTemplate, setSelectedTemplate] = React.useState<string>("home");
+  const [activeTab, setActiveTab] = React.useState(initialTab || "pages");
   const { storeName } = useParams();
+
+  React.useEffect(() => {
+    if (initialTab) setActiveTab(initialTab);
+  }, [initialTab]);
 
   const handleAddPage = () => {
      if (!newPageName) return;
      const slug = newPageName.toLowerCase().replace(/\s+/g, '-');
-     onCreatePage(newPageName, slug);
+     onCreatePage(newPageName, slug, selectedTemplate);
      setNewPageName("");
   };
 
@@ -20858,78 +21611,216 @@ const AdminToolbar = ({ business, onUpdateSettings, onCreatePage }: { business: 
 
   return (
     <div className="fixed bottom-6 left-6 z-[100]">
-       <Dialog>
+       <Dialog open={isOpen} onOpenChange={onOpenChange}>
           <DialogTrigger asChild>
-             <Button className="rounded-full h-14 w-14 shadow-2xl bg-black text-white hover:bg-gray-800">
+             <Button className="rounded-full h-14 w-14 shadow-2xl bg-black text-white hover:bg-gray-800 transition-all hover:scale-110 border-2 border-white/20">
                 <SettingsIcon className="h-6 w-6" />
              </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-xl">
-             <DialogHeader>
-                <DialogTitle>Store Platform Settings</DialogTitle>
-             </DialogHeader>
-             <div className="space-y-6 pt-4 max-h-[70vh] overflow-y-auto pr-2">
-                <div className="space-y-4 border-b pb-6">
-                   <h3 className="font-bold flex items-center gap-2 text-accent"><Globe className="h-4 w-4" /> Currency & Exchange</h3>
-                   <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                         <Label>Store Currency</Label>
-                         <Input value={currency} onChange={(e) => setCurrency(e.target.value)} />
-                      </div>
-                      <div className="space-y-2">
-                         <Label>Exchange Rate (to Base)</Label>
-                         <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} step="0.01" />
-                      </div>
-                   </div>
-                   <Button onClick={() => onUpdateSettings({ currency, exchangeRate: parseFloat(rate) })} className="w-full">
-                      Save Currency Settings
-                   </Button>
+          <DialogContent className="max-w-2xl w-[95vw] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+             <div className="bg-accent p-6 text-white">
+                <DialogTitle className="text-2xl font-black flex items-center gap-2">
+                   <div className="bg-white/20 p-2 rounded-xl"><SettingsIcon className="h-5 w-5" /></div>
+                   Store Control Center
+                </DialogTitle>
+                <p className="text-white/70 text-sm mt-1">Manage your pages, design, and world settings.</p>
+             </div>
+
+             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <div className="px-6 border-b bg-muted/30">
+                   <TabsList className="bg-transparent h-14 w-full justify-start gap-4 p-0">
+                      <TabsTrigger value="pages" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                         <Layout className="h-4 w-4 mr-2" /> Pages
+                      </TabsTrigger>
+                      <TabsTrigger value="design" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                         <Palette className="h-4 w-4 mr-2" /> Design
+                      </TabsTrigger>
+                       <TabsTrigger value="settings" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                          <Globe className="h-4 w-4 mr-2" /> Settings
+                       </TabsTrigger>
+                       <TabsTrigger value="inventory" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                          <Package className="h-4 w-4 mr-2" /> Inventory
+                       </TabsTrigger>
+                       <TabsTrigger value="team" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                          <Users className="h-4 w-4 mr-2" /> Team
+                       </TabsTrigger>
+                       <TabsTrigger value="posts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                          <FileText className="h-4 w-4 mr-2" /> Posts
+                       </TabsTrigger>
+                   </TabsList>
                 </div>
-                
-                <div className="space-y-4">
-                   <h3 className="font-bold flex items-center gap-2 text-accent"><Layout className="h-4 w-4" /> Page Management</h3>
-                   <div className="flex gap-2">
-                      <Input 
-                        placeholder="Page Name (e.g. Services)" 
-                        className="flex-1" 
-                        value={newPageName}
-                        onChange={(e) => setNewPageName(e.target.value)}
-                      />
-                      <Button onClick={handleAddPage} variant="secondary">Add Page</Button>
-                   </div>
-                   <div className="space-y-2">
-                      {business.settings?.pages?.map(p => (
-                         <div key={p.id} className="flex justify-between items-center p-3 bg-muted/30 rounded-lg border group">
-                            <div className="flex items-center gap-2">
-                               <div className="font-medium">{p.name}</div>
-                               <div className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">/{p.slug}</div>
+
+                <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                   <TabsContent value="pages" className="mt-0 space-y-6">
+                      <div className="space-y-4">
+                         <div className="p-4 bg-accent/5 rounded-2xl space-y-4 border-2 border-accent/10">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-accent">Create New Page</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                               <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest">Page Name</Label>
+                                  <Input
+                                    placeholder="e.g. Services"
+                                    className="font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors h-11"
+                                    value={newPageName}
+                                    onChange={(e) => setNewPageName(e.target.value)}
+                                  />
+                               </div>
+                               <div className="space-y-2">
+                                  <Label className="text-[10px] font-black uppercase tracking-widest">Starting Template</Label>
+                                  <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                                     <SelectTrigger className="h-11 border-2">
+                                        <SelectValue placeholder="Choose template..." />
+                                     </SelectTrigger>
+                                     <SelectContent>
+                                        {Object.entries(DEFAULT_PAGE_TEMPLATES).map(([slug, tpl]) => (
+                                           <SelectItem key={slug} value={slug}>{tpl.name} Layout</SelectItem>
+                                        ))}
+                                     </SelectContent>
+                                  </Select>
+                               </div>
                             </div>
-                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                               <Button size="sm" variant="ghost" className="h-8 font-bold" onClick={() => window.location.href=`/${storeName}/${p.slug === 'home' ? '' : p.slug}`}>Edit</Button>
-                               {p.slug !== 'home' && (
-                                  <Button size="icon" variant="destructive" className="h-8 w-8 text-white" onClick={() => deletePage(p.id)}>
-                                     <Trash2 className="h-4 w-4" />
-                                  </Button>
-                               )}
+                            <Button onClick={handleAddPage} className="w-full font-black bg-accent hover:bg-accent/90 h-12 shadow-lg shadow-accent/20">
+                               <PlusCircle className="h-4 w-4 mr-2" /> Launch New Page
+                            </Button>
+                         </div>
+
+                         <div className="grid grid-cols-1 gap-3">
+                            {business.settings?.pages?.map(p => (
+                               <div key={p.id} className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border-2 border-transparent hover:border-accent/10 hover:bg-white transition-all group shadow-sm">
+                                  <div className="flex items-center gap-4">
+                                     <div className={`h-12 w-12 flex items-center justify-center rounded-xl border-2 transition-colors ${p.slug === 'home' ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-background border-muted text-muted-foreground'}`}>
+                                        {p.slug === 'home' ? <HomeIcon className="h-5 w-5" /> : <Layout className="h-5 w-5" />}
+                                     </div>
+                                     <div>
+                                        <div className="font-black text-[15px] flex items-center gap-2">
+                                           {p.name}
+                                           {p.slug === 'home' && <Badge className="text-[9px] h-4 bg-accent/20 text-accent hover:bg-accent/30 border-none px-1">HOME</Badge>}
+                                        </div>
+                                        <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60">/{p.slug}</div>
+                                     </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                     <Button size="sm" variant="outline" className="h-9 font-black text-[10px] border-2 px-3 tracking-tighter" onClick={() => window.location.href=`/${storeName}/${p.slug === 'home' ? '' : p.slug}`}>
+                                        EDIT
+                                     </Button>
+                                     {p.slug !== 'home' && (
+                                        <Button size="icon" variant="destructive" className="h-9 w-9 text-white shrink-0 shadow-lg shadow-red-500/10" onClick={() => deletePage(p.id)}>
+                                           <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                     )}
+                                  </div>
+                               </div>
+                            ))}
+                         </div>
+                      </div>
+                   </TabsContent>
+
+                   <TabsContent value="design" className="mt-0 space-y-6">
+                      <div className="p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-4 bg-muted/20">
+                         <Palette className="h-12 w-12 text-accent/40" />
+                         <div>
+                            <h4 className="font-bold text-lg">Visual Customizer</h4>
+                            <p className="text-sm text-muted-foreground">Coming soon! You'll be able to change colors, fonts, and themes globally.</p>
+                         </div>
+                         <Button disabled variant="outline" className="font-bold border-2">Launch Designer</Button>
+                      </div>
+                   </TabsContent>
+
+                   <TabsContent value="settings" className="mt-0 space-y-6">
+                      <div className="space-y-6">
+                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Store Currency</Label>
+                               <div className="relative">
+                                  <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                  <Input value={currency} onChange={(e) => setCurrency(e.target.value)} className="font-black border-2 pl-10 h-11" />
+                               </div>
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Exchange Rate</Label>
+                               <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} step="0.01" className="font-black border-2 h-11" />
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Email</Label>
+                               <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="font-black border-2 h-11" />
+                            </div>
+                            <div className="space-y-2">
+                               <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Phone</Label>
+                               <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="font-black border-2 h-11" />
                             </div>
                          </div>
-                      ))}
-                   </div>
-                </div>
-             </div>
+
+                         <div className="space-y-4 pt-4 border-t">
+                            <h4 className="text-sm font-black uppercase tracking-widest text-accent">Social Links</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                               <div className="space-y-1">
+                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Facebook URL</Label>
+                                  <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                               </div>
+                               <div className="space-y-1">
+                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Instagram URL</Label>
+                                  <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                               </div>
+                               <div className="space-y-1">
+                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">Twitter URL</Label>
+                                  <Input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                               </div>
+                               <div className="space-y-1">
+                                  <Label className="text-[9px] uppercase font-bold text-muted-foreground">LinkedIn URL</Label>
+                                  <Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                               </div>
+                            </div>
+                         </div>
+
+                          <Button
+                            onClick={() => onUpdateSettings({
+                              currency,
+                              exchangeRate: parseFloat(rate),
+                              siteSettings: {
+                                facebook,
+                                instagram,
+                                twitter,
+                                linkedin,
+                                contactPhone,
+                                contactEmail
+                              }
+                            })}
+                            className="w-full font-black bg-accent shadow-lg shadow-accent/20 h-12 transition-all hover:scale-[1.01]"
+                          >
+                             Commit All Changes
+                          </Button>
+                       </div>
+                    </TabsContent>
+
+                    <TabsContent value="inventory" className="mt-0">
+                       <ProductForm />
+                    </TabsContent>
+
+                    <TabsContent value="team" className="mt-0">
+                       <StaffForm />
+                    </TabsContent>
+
+                    <TabsContent value="posts" className="mt-0">
+                       <PostForm />
+                    </TabsContent>
+                 </div>
+             </Tabs>
           </DialogContent>
        </Dialog>
     </div>
   );
 }
 
-// Function to render custom UI based on ProjectSettings section definition
-const renderSection = (section: any) => {
+
+// Component to render custom UI based on ProjectSettings section definition
+const RenderSection = ({ section, business }: { section: any, business: Business }) => {
    const { id, type, layout, data } = section;
+   const { storeName } = useParams();
+   const searchParams = useSearchParams();
    
    switch (type) {
      case 'hero':
-        return <Hero variant={layout as any || 'modern-split'} />;
+        return <Hero variant={layout as any || 'modern-split'} title={data?.title} subtitle={data?.text} sectionId={id} />;
      case 'products':
         if (layout === 'carousel of products') {
           return (
@@ -20941,31 +21832,7 @@ const renderSection = (section: any) => {
             </ScrollScaleWrapper>
           );
         }
-        if (layout === 'carousel of cards') {
-           return (
-             <div className="w-full overflow-x-auto py-10 flex gap-4 px-10">
-                {[1,2,3,4,5].map(i => (
-                  <div key={i} className="min-w-[250px] h-64 bg-accent/5 border rounded-xl flex items-center justify-center font-bold text-accent"> Card {i} </div>
-                ))}
-             </div>
-           );
-        }
         return <FeaturedProducts />;
-     case 'admin':
-        if (layout === 'carousel of admin') {
-           return (
-             <div className="w-full py-10 px-4 bg-accent/5">
-                <h2 className="text-2xl font-bold mb-4">Admin Insights</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                   <div className="p-4 bg-white shadow rounded-lg text-center"><p className="text-muted-foreground">Orders</p> <p className="text-2xl font-bold">120</p></div>
-                   <div className="p-4 bg-white shadow rounded-lg text-center"><p className="text-muted-foreground">Sales</p> <PriceDisplay amount={4500000} className="text-2xl font-bold" /></div>
-                   <div className="p-4 bg-white shadow rounded-lg text-center"><p className="text-muted-foreground">Visitors</p> <p className="text-2xl font-bold">1.2k</p></div>
-                   <div className="p-4 bg-white shadow rounded-lg text-center"><p className="text-muted-foreground">Inventory</p> <p className="text-2xl font-bold">Low</p></div>
-                </div>
-             </div>
-           );
-        }
-        return <div className="p-10 text-center border">Default Admin Dashboard Not Implemented</div>;
      case 'categories':
         return <FeaturedCategories />;
      case 'features':
@@ -20982,6 +21849,134 @@ const renderSection = (section: any) => {
              </div>
           </ScrollScaleWrapper>
         );
+     case 'contact-form':
+        return (
+          <div className="w-full py-20 px-4 md:px-20 bg-background">
+             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div className="space-y-8">
+                   <div className="space-y-4 text-center md:text-left">
+                      <AdminEditable as="h2" value={data?.title || 'Connect with Us'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter text-accent" />
+                      <AdminEditable as="p" value={data?.text || "We'd love to hear from you. Fill out the form or use our contact details."} model="section" id={id} field="data.text" data={data} className="text-muted-foreground text-lg" />
+                   </div>
+                   <div className="space-y-6">
+                      <div className="flex gap-4 items-center">
+                         <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><Mail /></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Email</p><p className="font-bold">{business.siteSettings?.contactEmail || `support@${storeName}.com`}</p></div>
+                      </div>
+                      <div className="flex gap-4 items-center">
+                         <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><Phone /></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Phone</p><p className="font-bold">{business.siteSettings?.contactPhone || '+234 (0) 000 000 0000'}</p></div>
+                      </div>
+                      <div className="flex gap-4 items-center">
+                         <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><MapPin /></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Office</p><p className="font-bold">Global Presence</p></div>
+                      </div>
+                   </div>
+                </div>
+                <div className="bg-card shadow-2xl rounded-[2.5rem] overflow-hidden border">
+                   <ContactForm />
+                </div>
+             </div>
+          </div>
+        );
+     case 'chat-interface':
+        return (
+          <div className="w-full py-20 px-4 bg-accent/5">
+             <div className="max-w-5xl mx-auto space-y-8">
+                <div className="text-center space-y-2">
+                   <AdminEditable as="h2" value={data?.title || 'Talk to an Expert'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black tracking-tight" />
+                   <AdminEditable as="p" value={data?.text || 'Get instant support and consultation from our licensed team.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
+                </div>
+                <ChatInterface />
+             </div>
+          </div>
+        );
+     case 'blog-posts':
+        return (
+          <div className="w-full py-20 px-4 max-w-7xl mx-auto">
+             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+                <div className="space-y-2 text-center md:text-left">
+                   <AdminEditable as="h2" value={data?.title || 'Latest Insights'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black" />
+                   <p className="text-muted-foreground">Knowledge base and updates from our experts.</p>
+                </div>
+                <Button variant="outline" className="font-bold rounded-full border-2 h-12 px-8">View All Posts</Button>
+             </div>
+             <Posts page="General" />
+          </div>
+        );
+     case 'product-list':
+        return (
+          <div className="w-full py-20 bg-background">
+             <div className="max-w-7xl mx-auto px-4 space-y-12">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+                   <AdminEditable as="h2" value={data?.title || 'Catalog'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
+                   <div className="flex gap-4">
+                      <Button variant="secondary" className="font-bold rounded-xl h-11 px-6">Filters</Button>
+                      <div className="relative">
+                         <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                         <Input className="pl-10 h-11 w-64 rounded-xl border-2 hover:border-accent transition-colors" placeholder="Search products..." />
+                      </div>
+                   </div>
+                </div>
+                <Stocks />
+             </div>
+          </div>
+        );
+     case 'newsletter':
+        return (
+           <div className="w-full py-20 px-4 md:px-0">
+              <div className="max-w-4xl mx-auto px-6 py-12 bg-accent rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-accent/20">
+                 <div className="space-y-2 flex-1 text-center md:text-left">
+                    <h3 className="text-2xl font-black uppercase tracking-widest">Join our Newsletter</h3>
+                    <p className="text-white/80 font-medium">Be the first to know about new arrivals and exclusive offers.</p>
+                 </div>
+                 <div className="flex w-full md:w-auto gap-3 items-center">
+                    <Input placeholder="your@email.com" className="bg-white/10 border-white/20 h-12 rounded-2xl w-full md:w-64 placeholder:text-white/50 font-bold" />
+                    <Button className="h-12 px-8 rounded-2xl bg-white text-accent font-black hover:bg-white/90">Join</Button>
+                 </div>
+              </div>
+           </div>
+        );
+     case 'cart':
+        return (
+          <div className="w-full py-20 px-4 max-w-7xl mx-auto">
+             <div className="mb-12 text-center md:text-left">
+                <h2 className="text-4xl font-black tracking-tighter">Shopping Bag</h2>
+                <p className="text-muted-foreground font-medium">Review your items before checkout.</p>
+             </div>
+             <CartDetails cartId="temp" />
+          </div>
+        );
+     case 'product-details': {
+        const pId = searchParams.get('id');
+        return <ProductDetailView productId={pId || undefined} businessId={business.id} />;
+     }
+     case 'staff': {
+        const staff = business.staff || [];
+        return (
+          <div className="w-full py-20 px-6 max-w-7xl mx-auto border-t border-dashed">
+             <div className="text-center mb-16 space-y-4">
+                <AdminEditable as="h2" value={data?.title || 'Meet the Experts'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black" />
+                <AdminEditable as="p" value={data?.text || 'Our platform is powered by highly skilled individuals dedicated to your satisfaction.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground max-w-2xl mx-auto" />
+             </div>
+             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                {staff.length > 0 ? staff.map((member, i) => (
+                   <div key={member.id} className="flex flex-col items-center group">
+                      <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-all duration-300 shadow-xl group-hover:shadow-accent/20">
+                         <img src={member.image || 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png'} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
+                      </div>
+                      <h4 className="font-bold text-lg group-hover:text-accent transition-colors">{member.name}</h4>
+                      <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]">{member.role}</p>
+                   </div>
+                )) : (
+                   <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
+                      <p>No team members listed yet. Add staff to your business dashboard.</p>
+                   </div>
+                )}
+             </div>
+          </div>
+        );
+     }
      case 'chat':
         return (
           <div className="fixed bottom-6 right-6 z-[60] group">
@@ -21003,43 +21998,12 @@ const renderSection = (section: any) => {
              </div>
           </div>
         );
-     case 'cart':
-        return (
-          <div className="w-full py-20 px-4">
-             <CartDetails cartId="temp" />
-          </div>
-        );
-     case 'staff':
-        return (
-          <div className="w-full py-20 px-6 max-w-7xl mx-auto">
-             <div className="text-center mb-16 space-y-4">
-                <AdminEditable as="h2" value={data?.title || 'Meet the Experts'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black" />
-                <AdminEditable as="p" value={data?.text || 'Our platform is powered by highly skilled individuals dedicated to your satisfaction.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground max-w-2xl mx-auto" />
-             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                {[
-                  { name: 'Dr. Sarah James', role: 'Chief Pharmacist', img: 'https://images.unsplash.com/photo-1559839734-2b71f153673c?q=80&w=200&h=200&auto=format&fit=crop' },
-                  { name: 'Marcus Chen', role: 'Head of Operations', img: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&h=200&auto=format&fit=crop' },
-                  { name: 'Elena Rodriguez', role: 'Customer Success', img: 'https://images.unsplash.com/photo-1594824476967-48c8b964273f?q=80&w=200&h=200&auto=format&fit=crop' },
-                  { name: 'David Smith', role: 'Senior Developer', img: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?q=80&w=200&h=200&auto=format&fit=crop' }
-                ].map((member, i) => (
-                   <div key={i} className="flex flex-col items-center group">
-                      <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-colors">
-                         <img src={member.img} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
-                      </div>
-                      <h4 className="font-bold text-lg">{member.name}</h4>
-                      <p className="text-sm text-muted-foreground">{member.role}</p>
-                   </div>
-                ))}
-             </div>
-          </div>
-        );
      default:
-        return <div className="p-10 text-center border">Unknown Section: {type}</div>;
+        return <div className="p-10 text-center text-muted-foreground">Unknown section type: {type}</div>;
    }
 }
 
-export default StoreHome
+export default StoreHome;
 
 
 
@@ -26552,8 +27516,10 @@ import React, { useRef, useState, FormEvent } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { useAppContext } from "@/hooks/useAppContext";
 
-const ContactForm = () => {
-  const { user } = useAppContext();
+const ContactForm = ({ businessId }: { businessId?: string }) => {
+  const { user, currentBusiness } = useAppContext();
+  const effectiveBusinessId = businessId || currentBusiness?.id;
+  
   const [details, setDetails] = useState({
     username: user?.name || "",
     email: user?.email || "",
@@ -26589,6 +27555,7 @@ const ContactForm = () => {
         senderEmail: details.email,
         subject: details.category,
         message: details.message,
+        businessId: effectiveBusinessId,
       };
 
       const res = await fetch("/api/dbhandler?model=message", {
@@ -26971,11 +27938,11 @@ const InnerCartContent = ({ close }: { close: () => void }) => {
                              <PriceDisplay amount={item.price} className="text-xs font-bold text-accent" />
                              <div className="flex items-center gap-3 pt-1">
                                <div className="flex items-center border rounded-full px-2 py-0.5 gap-3 bg-muted/10">
-                                 <button onClick={() => updateQuantity(item.id, item.quantity - 1, bid)} className="p-1"><Minus className="h-2 w-2" /></button>
+                                 <Button onClick={() => updateQuantity(item.id, item.quantity - 1, bid)} className="p-1"><Minus className="h-2 w-2" /></Button>
                                  <span className="text-[10px] font-black">{item.quantity}</span>
-                                 <button onClick={() => updateQuantity(item.id, item.quantity + 1, bid)} className="p-1"><Plus className="h-2 w-2" /></button>
+                                 <Button onClick={() => updateQuantity(item.id, item.quantity + 1, bid)} className="p-1"><Plus className="h-2 w-2" /></Button>
                                </div>
-                               <button onClick={() => removeItem(item.id, bid)} className="hover:text-destructive ml-auto"><Trash2 className="h-3 w-3" /></button>
+                               <Button onClick={() => removeItem(item.id, bid)} className="hover:text-destructive ml-auto"><Trash2 className="h-3 w-3" /></Button>
                              </div>
                            </div>
                          </div>
@@ -27438,7 +28405,7 @@ const Navbar = (): JSX.Element | null => {
                 </div>
               ) : (
                 <Link href="/create-store">
-                   <Button className="bg-accent hover:bg-accent/90 text-white font-bold">Create My Store</Button>
+                   <Button className="bg-accent:bg-accent/90 hover:bg-accent/60 text-white font-bold">Create My Store</Button>
                 </Link>
               )}
             </div>
@@ -29472,7 +30439,7 @@ import { useSession } from "next-auth/react";
 
 export const useIsAdmin = () => {
   const { data: session } = useSession();
-  return session?.user?.role === "admin";
+  return session?.user?.role === "admin" || session?.user?.role === "supreme";
 };
 
 
@@ -29492,12 +30459,12 @@ export const useIsBusinessAdmin = () => {
   
   if (!user || user.id === "nil" || !currentBusiness) return false;
   
-  // Check if current user is the owner of the business
-  const isOwner = user.id === currentBusiness.ownerId;
+  // Check if current user is the owner of the business OR is a supreme admin
+  const isOwner = user.id === currentBusiness.ownerId || user.role === 'supreme';
   
-  // Check if the business slug matches the storeName in URL
+  // Check if the business slug matches the storeName in URL OR is supreme admin
   const currentSlug = currentBusiness.name.toLowerCase().replace(/\s+/g, '-');
-  const isCorrectDomain = currentSlug === storeName;
+  const isCorrectDomain = currentSlug === storeName || user.role === 'supreme';
   
   return isOwner && isCorrectDomain;
 }
@@ -29914,26 +30881,57 @@ export const DEFAULT_PAGE_TEMPLATES = {
     name: 'Home',
     slug: 'home',
     sections: [
-      { type: 'hero', layout: 'modern-split', order: 0, data: { title: 'Welcome to our store', text: 'Discover amazing products.' } },
-      { type: 'products', layout: 'carousel of products', order: 1, data: { title: 'Trending Now' } },
+      { type: 'hero', layout: 'modern-split', order: 0, data: { title: 'Welcome to our world', text: 'Where quality meets craftsmanship.' } },
+      { type: 'products', layout: 'carousel of products', order: 1, data: { title: 'Trending Collection' } },
       { type: 'categories', layout: 'grid', order: 2 },
       { type: 'features', layout: 'trust-bars', order: 3 },
+      { type: 'description', layout: 'UI of description', order: 4, data: { title: 'Our Mission', text: 'To bring the best experience right to your doorstep.' } },
     ]
   },
   about: {
     name: 'About Us',
     slug: 'about',
     sections: [
-      { type: 'description', layout: 'UI of description', order: 0, data: { title: 'Our Story', text: 'We started with a vision to provide the best...' } },
-      { type: 'features', layout: 'UI of features', order: 1 }
+      { type: 'hero', layout: 'simple-centered', order: 0, data: { title: 'The Story Behind We', text: 'Learn about our journey and the passion that drives us.' } },
+      { type: 'description', layout: 'UI of description', order: 1, data: { title: 'Our Story', text: 'We started with a vision to provide the best...' } },
+      { type: 'features', layout: 'UI of features', order: 2 },
+      { type: 'staff', layout: 'grid', order: 3 },
     ]
   },
   contact: {
     name: 'Contact',
     slug: 'contact',
     sections: [
-      { type: 'description', layout: 'UI of description', order: 0, data: { title: 'Get in Touch', text: 'Reach out to us for any queries.' } },
-      { type: 'chat', layout: 'floating-button', order: 1 }
+      { type: 'hero', layout: 'simple-centered', order: 0, data: { title: 'Get in Touch', text: 'Reach out to us for any queries or support.' } },
+      { type: 'contact-form', layout: 'standard', order: 1, data: { title: 'Send us a message' } },
+      { type: 'chat-interface', layout: 'standard', order: 2, data: { title: 'Chat with our Team', text: 'Get instant answers to your questions.' } },
+      { type: 'features', layout: 'trust-bars', order: 3 }
+    ]
+  },
+  store: {
+    name: 'Our Store',
+    slug: 'store',
+    sections: [
+      { type: 'hero', layout: 'immersive', order: 0, data: { title: 'Shop Our Products', text: 'Find everything you need in our curated collection.' } },
+      { type: 'product-list', layout: 'grid-with-filters', order: 1, data: { title: 'Explore Everything' } },
+      { type: 'categories', layout: 'carousel', order: 2 }
+    ]
+  },
+  'product-description': {
+    name: 'Product Details',
+    slug: 'product',
+    sections: [
+      { type: 'product-details', layout: 'premium', order: 0 },
+      { type: 'products', layout: 'carousel of products', order: 1, data: { title: 'You May Also Like' } }
+    ]
+  },
+  blog: {
+    name: 'Insights & News',
+    slug: 'blog',
+    sections: [
+      { type: 'hero', layout: 'modern-split', order: 0, data: { title: 'Knowledge Base', text: 'Latest updates and clinical insights.' } },
+      { type: 'blog-posts', layout: 'masonry', order: 1 },
+      { type: 'newsletter', layout: 'centered', order: 2 }
     ]
   },
   cart: {
@@ -29947,7 +30945,7 @@ export const DEFAULT_PAGE_TEMPLATES = {
      name: 'Our Team',
      slug: 'staff',
      sections: [
-        { type: 'description', layout: 'UI of description', order: 0, data: { title: 'Meet Our Experts', text: 'Highly qualified professionals at your service.' } },
+        { type: 'hero', layout: 'simple-centered', order: 0, data: { title: 'Meet the Experts', text: 'Highly qualified professionals at your service.' } },
         { type: 'staff', layout: 'grid', order: 1 }
      ]
   }
@@ -31147,7 +32145,7 @@ export default function CouponForm() {
         <Input type="number" placeholder="Discount" value={formData.discount} onChange={(e) => setFormData({ ...formData, discount: e.target.value })} />
         <Input type="datetime-local" placeholder="Expires At" value={formData.expiresAt} onChange={(e) => setFormData({ ...formData, expiresAt: e.target.value })} />
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
         <ul className='w-full'>
           {coupons.length > 0 ? (
             coupons.map((item , index) => (
@@ -31945,29 +32943,40 @@ LOCATION: prisma\forms\PostForm.tsx
 ================================================================================
 
 
+'use client'
+
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { useAppContext } from "@/hooks/useAppContext";
 
 export default function PostForm() {
+  const { currentBusiness } = useAppContext();
   const [posts, setPosts] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    contentUrl: '',
+    url: '',
     authorId: '',
+    type: 'image',
+    for: 'General',
+    event: '',
   });
   const [editId, setEditId] = useState(null);
-  const [users, setUsers] = useState([]); // Added to store users for the select input
+  const [users, setUsers] = useState([]);
 
   useEffect(() => {
     fetchPosts();
     fetchUsers();
-  }, []);
+  }, [currentBusiness?.id]);
 
   const fetchPosts = async () => {
-    const res = await axios.get('/api/dbhandler?model=post');
+    let url = '/api/dbhandler?model=post';
+    if (currentBusiness?.id) url += `&businessId=${currentBusiness.id}`;
+    const res = await axios.get(url);
     setPosts(res.data);
   };
 
@@ -31978,17 +32987,26 @@ export default function PostForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const data = { ...formData, businessId: currentBusiness?.id };
     if (editId) {
-      await axios.put(`/api/dbhandler?model=post&id=${editId}`, formData);
+      await axios.put(`/api/dbhandler?model=post&id=${editId}`, data);
     } else {
-      await axios.post('/api/dbhandler?model=post', formData);
+      await axios.post('/api/dbhandler?model=post', data);
     }
     resetForm();
     fetchPosts();
   };
 
   const handleEdit = (item) => {
-    setFormData(item);
+    setFormData({
+      title: item.title || '',
+      description: item.description || '',
+      url: item.url || '',
+      authorId: item.authorId || '',
+      type: item.type || 'image',
+      for: item.for || 'General',
+      event: item.event || '',
+    });
     setEditId(item.id);
   };
 
@@ -32001,49 +33019,89 @@ export default function PostForm() {
     setFormData({
       title: '',
       description: '',
-      contentUrl: '',
+      url: '',
       authorId: '',
+      type: 'image',
+      for: 'General',
+      event: '',
     });
     setEditId(null);
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-sm gap-2 justify-center items-center p-3 border-2 border-secondary-foreground rounded-sm m-2'>
-        <h2 className='font-semibold text-lg'>Manage Posts</h2>
-        <select value={formData.authorId} onChange={(e) => setFormData({ ...formData, authorId: e.target.value })}>
-          <option value="">Select Author</option>
-          {users.map((user) => (
-            <option key={user.id} value={user.id}>
-              {user.name} ({user.email})
-            </option>
-          ))}
-        </select>
-        <Input type="text" placeholder="Title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
-        <Input type="text" placeholder="Description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
-        <Input type="text" placeholder="Content URL" value={formData.contentUrl} onChange={(e) => setFormData({ ...formData, contentUrl: e.target.value })} />
-        <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
-        <ul className='w-full'>
-          {posts.length > 0 ? (
-            posts.map((item , index) => (
-              <li key={index} className="flex flex-col justify-center items-center gap-2 my-2 bg-secondary rounded-md w-full p-2">
-                <div className="flex flex-row gap-2">
-                  <span>{(index + 1)}. Title : </span>
-                  <span>{item.title}</span>
+    <div className="w-full max-w-md mx-auto p-4 border rounded-xl shadow-lg bg-card">
+      <form onSubmit={handleSubmit} className='flex flex-col gap-4'>
+        <h2 className='font-bold text-xl text-center'>Manage Posts</h2>
+        
+        <div className="space-y-1">
+          <Label>Author</Label>
+          <Select value={formData.authorId} onValueChange={(v) => setFormData({ ...formData, authorId: v })}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select Author" />
+            </SelectTrigger>
+            <SelectContent>
+              {users.map((user) => (
+                <SelectItem key={user.id} value={user.id}>
+                  {user.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Title</Label>
+          <Input placeholder="Post Title" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label>Type</Label>
+            <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="image">Image</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
+                <SelectItem value="audio">Audio</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Filter Tag (for)</Label>
+            <Input placeholder="General, Blog, etc." value={formData.for} onChange={(e) => setFormData({ ...formData, for: e.target.value })} />
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label>Content URL</Label>
+          <Input placeholder="https://..." value={formData.url} onChange={(e) => setFormData({ ...formData, url: e.target.value })} />
+        </div>
+
+        <div className="space-y-1">
+          <Label>Description</Label>
+          <Input placeholder="Excerpt or content..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+        </div>
+
+        <Button type="submit" className="w-full bg-accent hover:bg-accent/90">{editId ? 'Update Post' : 'Create Post'}</Button>
+        {editId && <Button onClick={resetForm} variant="outline" className="w-full">Cancel</Button>}
+
+        <div className="mt-6 border-t pt-4">
+          <h3 className="font-bold mb-3">Recent Posts</h3>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
+            {posts.map((item, index) => (
+              <div key={item.id} className="p-3 bg-muted rounded-lg flex flex-col gap-2 group">
+                <div className="flex justify-between items-start">
+                   <p className="font-bold text-sm truncate">{item.title || "Untitled"}</p>
+                   <span className="text-[10px] uppercase font-black bg-accent/20 px-1.5 rounded">{item.type}</span>
                 </div>
-                <p>Description : {item.description || <em>No description</em>}</p>
-                <p>Content URL : {item.contentUrl || <em>No content URL</em>}</p>
-                <div className='flex flex-row gap-2 p-1 w-full'>
-                  <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                  <Button type='button' onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
+                <div className="flex gap-2">
+                   <Button size="sm" onClick={() => handleEdit(item)} className="h-7 text-xs flex-1">Edit</Button>
+                   <Button size="sm" onClick={() => handleDelete(item.id)} variant="ghost" className="h-7 text-xs flex-1 border text-destructive">Delete</Button>
                 </div>
-              </li>
-            ))
-          ) : (
-            <p>No posts available.</p>
-          )}
-        </ul>
+              </div>
+            ))}
+          </div>
+        </div>
       </form>
     </div>
   );
@@ -32392,7 +33450,7 @@ export default function RefundForm() {
           <option value="rejected">Rejected</option>
         </select>
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
         <ul className='w-full'>
           {refunds.length > 0 ? (
             refunds.map((item , index) => (
@@ -32506,8 +33564,8 @@ export default function LikeForm() {
             <strong>ID:</strong> {item.id} |
             <strong>Ministry:</strong> {item.ministryId} |
             <strong>User:</strong> {item.userId}
-            <button onClick={() => handleEdit(item)}>Edit</button>
-            <button onClick={() => handleDelete(item.id)}>Delete</button>
+            <Button onClick={() => handleEdit(item)}>Edit</Button>
+            <Button onClick={() => handleDelete(item.id)}>Delete</Button>
           </li>
         ))}
       </ul>
@@ -32608,7 +33666,7 @@ export default function ShippingAddressForm() {
         <Input type="text" placeholder="Country" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} />
         <Input type="text" placeholder="Phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
         <ul className='w-full'>
           {shippingAddresses.length > 0 ? (
             shippingAddresses.map((item , index) => (
@@ -32637,6 +33695,206 @@ export default function ShippingAddressForm() {
   );
 }
 
+
+
+
+================================================================================
+LOCATION: prisma\forms\StaffForm.tsx
+================================================================================
+
+import { useEffect, useState } from "react";
+import axios from "axios";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { useAppContext } from "@/hooks/useAppContext";
+
+interface Staff {
+  id: string;
+  name: string;
+  role: string;
+  bio?: string;
+  image?: string;
+}
+
+interface StaffFormProps {
+  hideList?: boolean;
+}
+
+export default function StaffForm({ hideList = false }: StaffFormProps) {
+  const { currentBusiness } = useAppContext();
+  const [staffList, setStaffList] = useState<Staff[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: "",
+    role: "",
+    bio: "",
+    image: "",
+  });
+
+  const [editId, setEditId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (currentBusiness?.id) {
+      fetchStaff();
+    }
+  }, [currentBusiness]);
+
+  const fetchStaff = async () => {
+    try {
+      const res = await axios.get(`/api/dbhandler?model=staff&businessId=${currentBusiness?.id}`);
+      setStaffList(res.data);
+    } catch (err) {
+      console.error("Failed to fetch staff", err);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentBusiness?.id) return;
+    setLoading(true);
+
+    try {
+      if (editId) {
+        await axios.put(`/api/dbhandler?model=staff&id=${editId}`, formData);
+        toast.success("Staff member updated");
+      } else {
+        await axios.post(`/api/dbhandler?model=staff`, {
+          ...formData,
+          businessId: currentBusiness.id,
+        });
+        toast.success("Staff member added");
+      }
+      resetForm();
+      fetchStaff();
+    } catch (err) {
+      console.error("Failed to save staff", err);
+      toast.error("Failed to save staff member");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (item: Staff) => {
+    setFormData({
+      name: item.name,
+      role: item.role,
+      bio: item.bio || "",
+      image: item.image || "",
+    });
+    setEditId(item.id);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to remove ${name}?`)) return;
+    try {
+      await axios.delete(`/api/dbhandler?model=staff&id=${id}`);
+      toast.success("Staff member removed");
+      fetchStaff();
+    } catch (err) {
+      console.error("Failed to delete staff", err);
+      toast.error("Failed to remove staff member");
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({ name: "", role: "", bio: "", image: "" });
+    setEditId(null);
+  };
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-xl bg-card shadow-sm">
+        <h3 className="font-bold text-lg">{editId ? "Edit Team Member" : "Add Team Member"}</h3>
+        
+        <div className="space-y-2">
+          <Label htmlFor="staff-name">Full Name</Label>
+          <Input 
+            id="staff-name"
+            placeholder="e.g. Dr. John Doe"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="staff-role">Role / Position</Label>
+          <Input 
+            id="staff-role"
+            placeholder="e.g. Senior Pharmacist"
+            value={formData.role}
+            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="staff-image">Image URL</Label>
+          <Input 
+            id="staff-image"
+            placeholder="https://example.com/photo.jpg"
+            value={formData.image}
+            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="staff-bio">Short Bio (Optional)</Label>
+          <Textarea 
+            id="staff-bio"
+            placeholder="Tell us a bit about this expert..."
+            value={formData.bio}
+            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+            className="h-20"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <Button type="submit" className="flex-1 bg-accent hover:bg-accent/90" disabled={loading}>
+            {editId ? "Update Member" : "Add Member"}
+          </Button>
+          {editId && (
+            <Button type="button" onClick={resetForm} variant="outline">
+              Cancel
+            </Button>
+          )}
+        </div>
+      </form>
+
+      {!hideList && (
+        <div className="space-y-4">
+          <h3 className="font-bold text-lg">Current Team Members ({staffList.length})</h3>
+          <div className="grid gap-4">
+            {staffList.map((item) => (
+              <div key={item.id} className="flex items-center gap-4 p-3 border rounded-lg bg-background group">
+                <div className="h-12 w-12 rounded-full overflow-hidden shrink-0 border-2">
+                  <img src={item.image || "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png"} alt={item.name} className="h-full w-full object-cover" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold truncate">{item.name}</p>
+                  <p className="text-xs text-muted-foreground truncate uppercase tracking-widest">{item.role}</p>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button size="icon" variant="ghost" onClick={() => handleEdit(item)} className="h-8 w-8"><PlusCircle className="h-4 w-4" /></Button>
+                  <Button size="icon" variant="ghost" onClick={() => handleDelete(item.id, item.name)} className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                </div>
+              </div>
+            ))}
+            {staffList.length === 0 && (
+              <p className="text-center text-muted-foreground py-10 border-2 border-dashed rounded-xl">No team members yet.</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+import { PlusCircle, Trash2 } from "lucide-react";
 
 
 
@@ -33369,7 +34627,7 @@ export default function UserForm() {
           <option value="moderator">Moderator</option>
         </select>
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <button onClick={resetForm}>Cancel</button>}
+        {editId && <Button onClick={resetForm}>Cancel</Button>}
 
         <ul className='w-full'>
         {users.length > 0 ? (
@@ -33662,7 +34920,7 @@ model User {
   emailVerified DateTime?
   password      String?
   providerid    String?
-  role          String            @default("customer") //professional admin staff
+  role          String            @default("customer") //professional admin staff supreme
   cart          Cart[]
   //orders   Order[]
   reviews       Review[]
@@ -33696,6 +34954,7 @@ model Business {
   siteSettings     SiteSettings?
   products         Product[]
   categories       Category[]
+  staff            Staff[]
   carts            Cart[]
   coupons          Coupon[]
   deliveryFees     DeliveryFee[]
@@ -33739,6 +34998,18 @@ model Section {
   order  Int
 }
 
+model Staff {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  role       String
+  bio        String?
+  image      String?
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
 model SiteSettings {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   businessId   String   @unique @db.ObjectId
@@ -33750,7 +35021,11 @@ model SiteSettings {
   contactDesc  String   @default("Contact us today for product inquiries, order support, or business collaborations.")
   contactEmail String?  @default("support@example.com")
   contactPhone String?  @default("000-000-0000")
-  helpText    String   @default("How can we assist you?")
+  helpText     String   @default("How can we assist you?")
+  facebook     String?
+  instagram    String?
+  twitter      String?
+  linkedin     String?
   updatedAt    DateTime @updatedAt
 }
 
@@ -33828,7 +35103,10 @@ model Post {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
   title       String?
   description String?
-  contentUrl  String?
+  url         String? // changed from contentUrl to match frontend
+  type        String?   @default("image") // video, audio, image
+  for         String? // e.g., "General", "Hospital", etc.
+  event       String?
   author      User      @relation(fields: [authorId], references: [id])
   authorId    String    @db.ObjectId
   // product    Product?     @relation(fields: [productId], references: [id])
@@ -34010,7 +35288,7 @@ model Visit {
   userAgent   String?
   ipAddress   String?
   businessId  String?   @db.ObjectId
-  business     Business?  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
 
   @@unique([fingerprint, visitDate, businessId])
@@ -34027,7 +35305,7 @@ model Refund {
   status     String    @default("pending")
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
-  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
   businessId String?   @db.ObjectId
 }
 
@@ -34585,6 +35863,11 @@ interface SiteSettingsInput {
   contactDesc?: string;
   contactEmail?: string;
   contactPhone?: string;
+  helpText?: string;
+  facebook?: string;
+  instagram?: string;
+  twitter?: string;
+  linkedin?: string;
 }
 
 export async function getSiteSettings(businessId?: string) {
@@ -39818,5 +41101,5 @@ export const normalizeDateTime = (dateTime?: string): string => {
 
 
 ================================================================================
-TOTAL FILES CONSOLIDATED: 343
+TOTAL FILES CONSOLIDATED: 346
 ================================================================================

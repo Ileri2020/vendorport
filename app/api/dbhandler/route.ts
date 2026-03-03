@@ -38,6 +38,11 @@ const modelMap: Record<string, any> = {
   section: prisma.section,
   siteSettings: prisma.siteSettings,
   staff: prisma.staff,
+  promotion: prisma.promotion,
+  subscriber: prisma.subscriber,
+  businessStat: prisma.businessStat,
+  partner: prisma.partner,
+  helpArticle: prisma.helpArticle,
 };
 
 // =====================
@@ -187,6 +192,11 @@ export async function GET(req: NextRequest) {
       },
       siteSettings: true,
       staff: true,
+      promotions: true,
+      subscribers: true,
+      stats: true,
+      partners: true,
+      helpArticles: true,
     },
     projectSettings: {
       business: true,

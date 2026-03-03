@@ -66,6 +66,11 @@ model Business {
   lunches          Lunch[]
   payments         Payment[]
   refunds          Refund[]
+  promotions       Promotion[]
+  subscribers      Subscriber[]
+  stats            BusinessStat[]
+  partners         Partner[]
+  helpArticles     HelpArticle[]
 }
 
 model ProjectSettings {
@@ -109,22 +114,83 @@ model Staff {
 }
 
 model SiteSettings {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  businessId   String   @unique @db.ObjectId
-  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  aboutText    String   @default("Write about your business here")
-  addToHome    String   @default("Add our app to your home screen for a better experience!")
-  heroTitle    String   @default("Welcome to our store")
-  heroSubtitle String   @default("Browse our products and enjoy great deals")
-  contactDesc  String   @default("Contact us today for product inquiries, order support, or business collaborations.")
-  contactEmail String?  @default("support@example.com")
-  contactPhone String?  @default("000-000-0000")
-  helpText     String   @default("How can we assist you?")
-  facebook     String?
-  instagram    String?
-  twitter      String?
-  linkedin     String?
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId      String   @unique @db.ObjectId
+  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  aboutText       String   @default("Write about your business here")
+  addToHome       String   @default("Add our app to your home screen for a better experience!")
+  heroTitle       String   @default("Welcome to our store")
+  heroSubtitle    String   @default("Browse our products and enjoy great deals")
+  heroCTA         String?  @default("Shop Now")
+  heroCTALink     String?  @default("/store")
+  heroImage       String?
+  contactDesc     String   @default("Contact us today for product inquiries, order support, or business collaborations.")
+  contactEmail    String?  @default("support@example.com")
+  contactPhone    String?  @default("000-000-0000")
+  helpText        String   @default("How can we assist you?")
+  facebook        String?
+  instagram       String?
+  twitter         String?
+  linkedin        String?
+  headerCTA       String?  @default("Join Now")
+  footerText      String?  @default("Your trusted partner in quality products.")
+  address         String?
+  newsletterTitle String?  @default("Join our Newsletter")
+  newsletterText  String?  @default("Be the first to know about new arrivals and exclusive offers.")
+  updatedAt       DateTime @updatedAt
+}
+
+model Promotion {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  image       String?
+  discount    Float?
+  startDate   DateTime?
+  endDate     DateTime?
+  businessId  String    @db.ObjectId
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model Subscriber {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  email      String
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([email, businessId])
+}
+
+model BusinessStat {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  label      String
+  value      String
+  icon       String?
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model Partner {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  name       String
+  logo       String?
+  website    String?
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model HelpArticle {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  title      String
+  content    String
+  category   String?
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 model Account {

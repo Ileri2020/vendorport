@@ -16,7 +16,8 @@ interface AdminEditableProps {
   data?: any   // The whole data object if field is nested in data
   onSave?: (newValue: string) => void
   className?: string
-  as?: 'h1' | 'h2' | 'h3' | 'p' | 'span' | 'div'
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'span' | 'div'
+  children?: React.ReactNode
 }
 
 export const AdminEditable = ({ 
@@ -27,7 +28,8 @@ export const AdminEditable = ({
   data,
   onSave, 
   className = "", 
-  as: Component = 'span' 
+  as: Component = 'span',
+  children
 }: AdminEditableProps) => {
   const isAdmin = useIsBusinessAdmin();
   const [isEditing, setIsEditing] = useState(false);
@@ -60,7 +62,7 @@ export const AdminEditable = ({
   };
 
   if (!isAdmin) {
-    return <Component className={className}>{value}</Component>;
+    return <Component className={className}>{children || value}</Component>;
   }
 
   return (
@@ -82,7 +84,7 @@ export const AdminEditable = ({
         </div>
       ) : (
         <>
-          <Component className={className}>{value}</Component>
+          <Component className={className}>{children || value}</Component>
           <Button 
             size="icon" 
             variant="ghost" 

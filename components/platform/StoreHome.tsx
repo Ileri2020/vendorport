@@ -100,19 +100,58 @@ interface Page {
   id: string
   name: string
   slug: string
-  sections: Section[]
+  sections: any[]
+}
+
+interface Staff {
+  id: string
+  name: string
+  role: string
+  bio?: string
+  image?: string
+}
+
+interface Promotion {
+  id: string
+  title: string
+  description?: string
+  image?: string
+  discount?: number
+}
+
+interface BusinessStat {
+  id: string
+  label: string
+  value: string
+  icon?: string
+}
+
+interface Partner {
+  id: string
+  name: string
+  logo?: string
+  website?: string
+}
+
+interface HelpArticle {
+  id: string
+  title: string
+  content: string
+  category?: string
 }
 
 interface Business {
   id: string
   name: string
-  template: string
+  slug: string
+  logo?: string
   ownerId: string
+  template: string
   settings?: {
     id: string
     currency: string
     exchangeRate: number
-    pages: Page[]
+    pages: any[]
   }
   siteSettings?: {
     id: string
@@ -124,16 +163,22 @@ interface Business {
     instagram?: string
     twitter?: string
     linkedin?: string
+    headerCTA?: string
+    footerText?: string
+    address?: string
+    newsletterTitle?: string
+    newsletterText?: string
+    heroTitle?: string
+    heroSubtitle?: string
+    heroCTA?: string
+    heroCTALink?: string
+    heroImage?: string
   }
   staff?: Staff[]
-}
-
-interface Staff {
-  id: string
-  name: string
-  role: string
-  bio?: string
-  image?: string
+  promotions?: Promotion[]
+  stats?: BusinessStat[]
+  partners?: Partner[]
+  helpArticles?: HelpArticle[]
 }
 
 const StoreHome = ({
@@ -373,9 +418,8 @@ const StoreFooter = ({ business }: { business: Business }) => {
                  </div>
                  <span>{business.name}</span>
               </Link>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                 Experience premium quality products and world-class service tailored just for you. Shop with {business.name} today.
-              </p>
+              <AdminEditable as="p" value={business.siteSettings?.footerText || `Experience premium quality products and world-class service tailored just for you. Shop with ${business.name} today.`} model="siteSettings" id={business.siteSettings?.id || ''} field="footerText" className="text-sm text-muted-foreground leading-relaxed" />
+              {business.siteSettings?.address && <p className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1"><MapPin className="h-3 w-3" /> {business.siteSettings.address}</p>}
            </div>
 
            <div>
@@ -533,7 +577,9 @@ const StoreNavbar = ({ business }: { business: Business }) => {
            )}
            <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
            <GlobalCart />
-           <Button variant="outline" className="rounded-full font-bold md:flex hidden">Join Platform</Button>
+           <Button variant="outline" className="rounded-full font-bold md:flex hidden">
+              {business.siteSettings?.headerCTA || 'Join Platform'}
+           </Button>
 
            <Sheet>
               <SheetTrigger asChild>
@@ -877,7 +923,14 @@ const RenderSection = ({ section, business }: { section: any, business: Business
    
    switch (type) {
      case 'hero':
-        return <Hero variant={layout as any || 'modern-split'} title={data?.title} subtitle={data?.text} sectionId={id} />;
+        return (
+          <Hero 
+            variant={layout as any || 'modern-split'} 
+            title={<AdminEditable value={business.siteSettings?.heroTitle || 'Welcome'} model="siteSettings" id={business.siteSettings?.id || ''} field="heroTitle">{business.siteSettings?.heroTitle || 'Welcome'}</AdminEditable>}
+            subtitle={<AdminEditable value={business.siteSettings?.heroSubtitle || ''} model="siteSettings" id={business.siteSettings?.id || ''} field="heroSubtitle">{business.siteSettings?.heroSubtitle || ''}</AdminEditable>}
+            sectionId={id} 
+          />
+        );
      case 'products':
         if (layout === 'carousel of products') {
           return (
@@ -901,7 +954,7 @@ const RenderSection = ({ section, business }: { section: any, business: Business
                 <Info className="h-12 w-12 text-accent mx-auto" strokeWidth={3} />
                 <AdminEditable as="h2" value={data?.title || 'Our Philosophy'} model="section" id={id} field="data.title" data={data} className="text-4xl font-extrabold tracking-tight underline decoration-accent/40" />
                 <div className="w-full">
-                  <AdminEditable as="p" value={data?.text || 'This store provides the best service for all customers around the globe.'} model="section" id={id} field="data.text" data={data} className="text-xl text-muted-foreground leading-loose italic" />
+                  <AdminEditable as="p" value={business.siteSettings?.aboutText || 'This store provides the best service for all customers around the globe.'} model="siteSettings" id={business.siteSettings?.id || ''} field="aboutText" className="text-xl text-muted-foreground leading-loose italic" />
                 </div>
              </div>
           </ScrollScaleWrapper>
@@ -918,15 +971,15 @@ const RenderSection = ({ section, business }: { section: any, business: Business
                    <div className="space-y-6">
                       <div className="flex gap-4 items-center">
                          <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><Mail /></div>
-                         <div><p className="text-xs font-black uppercase text-muted-foreground">Email</p><p className="font-bold">{business.siteSettings?.contactEmail || `support@${storeName}.com`}</p></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Email</p><AdminEditable value={business.siteSettings?.contactEmail || `support@${storeName}.com`} model="siteSettings" id={business.siteSettings?.id || ''} field="contactEmail" className="font-bold" /></div>
                       </div>
                       <div className="flex gap-4 items-center">
                          <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><Phone /></div>
-                         <div><p className="text-xs font-black uppercase text-muted-foreground">Phone</p><p className="font-bold">{business.siteSettings?.contactPhone || '+234 (0) 000 000 0000'}</p></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Phone</p><AdminEditable value={business.siteSettings?.contactPhone || '+234 (0) 000 000 0000'} model="siteSettings" id={business.siteSettings?.id || ''} field="contactPhone" className="font-bold" /></div>
                       </div>
                       <div className="flex gap-4 items-center">
                          <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent"><MapPin /></div>
-                         <div><p className="text-xs font-black uppercase text-muted-foreground">Office</p><p className="font-bold">Global Presence</p></div>
+                         <div><p className="text-xs font-black uppercase text-muted-foreground">Office</p><AdminEditable value={business.siteSettings?.address || 'Global Presence'} model="siteSettings" id={business.siteSettings?.id || ''} field="address" className="font-bold" /></div>
                       </div>
                    </div>
                 </div>
@@ -954,7 +1007,7 @@ const RenderSection = ({ section, business }: { section: any, business: Business
              <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
                 <div className="space-y-2 text-center md:text-left">
                    <AdminEditable as="h2" value={data?.title || 'Latest Insights'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black" />
-                   <p className="text-muted-foreground">Knowledge base and updates from our experts.</p>
+                   <AdminEditable as="p" value={data?.text || 'Knowledge base and updates from our experts.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
                 </div>
                 <Button variant="outline" className="font-bold rounded-full border-2 h-12 px-8">View All Posts</Button>
              </div>
@@ -984,8 +1037,8 @@ const RenderSection = ({ section, business }: { section: any, business: Business
            <div className="w-full py-20 px-4 md:px-0">
               <div className="max-w-4xl mx-auto px-6 py-12 bg-accent rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-accent/20">
                  <div className="space-y-2 flex-1 text-center md:text-left">
-                    <h3 className="text-2xl font-black uppercase tracking-widest">Join our Newsletter</h3>
-                    <p className="text-white/80 font-medium">Be the first to know about new arrivals and exclusive offers.</p>
+                    <AdminEditable as="h3" value={business.siteSettings?.newsletterTitle || 'Join our Newsletter'} model="siteSettings" id={business.siteSettings?.id || ''} field="newsletterTitle" className="text-2xl font-black uppercase tracking-widest" />
+                    <AdminEditable as="p" value={business.siteSettings?.newsletterText || 'Be the first to know about new arrivals and exclusive offers.'} model="siteSettings" id={business.siteSettings?.id || ''} field="newsletterText" className="text-white/80 font-medium" />
                  </div>
                  <div className="flex w-full md:w-auto gap-3 items-center">
                     <Input placeholder="your@email.com" className="bg-white/10 border-white/20 h-12 rounded-2xl w-full md:w-64 placeholder:text-white/50 font-bold" />
@@ -994,6 +1047,93 @@ const RenderSection = ({ section, business }: { section: any, business: Business
               </div>
            </div>
         );
+     case 'stats': {
+        const stats = business.stats || [];
+        return (
+           <div className="w-full py-20 bg-accent text-white">
+              <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+                 {stats.map(stat => (
+                    <div key={stat.id} className="space-y-2">
+                       <AdminEditable 
+                          as="h4" 
+                          value={stat.value} 
+                          model="businessStat" 
+                          id={stat.id} 
+                          field="value" 
+                          className="text-5xl font-black" 
+                       />
+                       <AdminEditable 
+                          as="p" 
+                          value={stat.label} 
+                          model="businessStat" 
+                          id={stat.id} 
+                          field="label" 
+                          className="text-sm font-bold uppercase tracking-widest opacity-70" 
+                       />
+                    </div>
+                 ))}
+              </div>
+           </div>
+        );
+     }
+     case 'partners': {
+        const partners = business.partners || [];
+        return (
+           <div className="w-full py-20 bg-muted/30">
+              <div className="max-w-7xl mx-auto px-6 text-center space-y-12">
+                 <h2 className="text-sm font-black uppercase tracking-widest text-muted-foreground">Our Trusted Partners</h2>
+                 <div className="flex flex-wrap justify-center items-center gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
+                    {partners.map(partner => (
+                       <div key={partner.id} className="flex flex-col items-center gap-2">
+                          <img src={partner.logo || ''} alt={partner.name} className="h-12 object-contain" />
+                          <AdminEditable 
+                             as="p" 
+                             value={partner.name} 
+                             model="partner" 
+                             id={partner.id} 
+                             field="name" 
+                             className="text-[10px] font-bold uppercase tracking-tighter opacity-0 group-hover:opacity-100 transition-opacity" 
+                          />
+                       </div>
+                    ))}
+                 </div>
+              </div>
+           </div>
+        );
+     }
+     case 'promotions': {
+        const promos = business.promotions || [];
+        return (
+           <div className="w-full py-20 overflow-hidden">
+              <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+                 {promos.map(promo => (
+                    <div key={promo.id} className="relative h-[300px] rounded-[3rem] overflow-hidden group">
+                       <img src={promo.image || ''} className="absolute inset-0 h-full w-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-10 flex flex-col justify-end">
+                          <AdminEditable 
+                             as="h4" 
+                             value={promo.title} 
+                             model="promotion" 
+                             id={promo.id} 
+                             field="title" 
+                             className="text-3xl font-black text-white" 
+                          />
+                          <AdminEditable 
+                             as="p" 
+                             value={promo.description || ''} 
+                             model="promotion" 
+                             id={promo.id} 
+                             field="description" 
+                             className="text-white/70 font-medium mb-4" 
+                          />
+                          {promo.discount && <Badge className="w-fit bg-red-600 font-black">{promo.discount}% OFF</Badge>}
+                       </div>
+                    </div>
+                 ))}
+              </div>
+           </div>
+        );
+     }
      case 'cart':
         return (
           <div className="w-full py-20 px-4 max-w-7xl mx-auto">
@@ -1022,8 +1162,22 @@ const RenderSection = ({ section, business }: { section: any, business: Business
                       <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-all duration-300 shadow-xl group-hover:shadow-accent/20">
                          <img src={member.image || 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png'} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
                       </div>
-                      <h4 className="font-bold text-lg group-hover:text-accent transition-colors">{member.name}</h4>
-                      <p className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]">{member.role}</p>
+                      <AdminEditable 
+                         as="h4" 
+                         value={member.name} 
+                         model="staff" 
+                         id={member.id} 
+                         field="name" 
+                         className="font-bold text-lg group-hover:text-accent transition-colors" 
+                      />
+                      <AdminEditable 
+                         as="p" 
+                         value={member.role} 
+                         model="staff" 
+                         id={member.id} 
+                         field="role" 
+                         className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]" 
+                      />
                    </div>
                 )) : (
                    <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
@@ -1055,6 +1209,26 @@ const RenderSection = ({ section, business }: { section: any, business: Business
              </div>
           </div>
         );
+     case 'help': {
+        const articles = business.helpArticles || [];
+        return (
+           <div className="w-full py-20 px-6 max-w-5xl mx-auto space-y-12">
+              <div className="text-center space-y-4">
+                 <AdminEditable as="h2" value={data?.title || 'Help Center'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
+                 <AdminEditable as="p" value={data?.text || 'Find answers to common questions.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 {articles.map(article => (
+                    <div key={article.id} className="p-8 bg-muted/20 rounded-[2rem] border-2 border-transparent hover:border-accent/10 transition-all group">
+                       <AdminEditable as="h4" value={article.title} model="helpArticle" id={article.id} field="title" className="text-lg font-bold mb-3 group-hover:text-accent transition-colors" />
+                       <AdminEditable as="p" value={article.content} model="helpArticle" id={article.id} field="content" className="text-sm text-muted-foreground line-clamp-3" />
+                       <Button variant="link" className="px-0 h-auto mt-4 text-accent font-black">Read More</Button>
+                    </div>
+                 ))}
+              </div>
+           </div>
+        );
+     }
      default:
         return <div className="p-10 text-center text-muted-foreground">Unknown section type: {type}</div>;
    }

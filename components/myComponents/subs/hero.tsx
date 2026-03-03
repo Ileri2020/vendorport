@@ -28,8 +28,8 @@ type HeroVariant = 'modern-split' | 'immersive' | 'carousel' | 'story' | 'menu' 
 
 interface HeroProps {
   variant?: HeroVariant;
-  title?: string;
-  subtitle?: string;
+  title?: React.ReactNode;
+  subtitle?: React.ReactNode;
   sectionId?: string;
 }
 
