@@ -453,13 +453,52 @@ const RenderSection = ({ section, business }: { section: any, business: Business
              <Posts page="General" />
           </div>
         );
-     case 'product-list':
+     case 'product-list': {
+        const productCardLayout = business.settings?.productCardLayout || 'vertical';
+        
+        const handleLayoutChange = async (newLayout: 'vertical' | 'horizontal') => {
+          try {
+            // Save to business settings
+            await axios.put(`/api/dbhandler?model=business`, {
+              id: business.id,
+              settings: {
+                ...business.settings,
+                productCardLayout: newLayout,
+              },
+            });
+            toast.success(`Layout saved: ${newLayout}`);
+            window.location.reload();
+          } catch (err) {
+            toast.error('Failed to save layout');
+          }
+        };
+        
         return (
           <div className="w-full py-20 bg-background">
              <div className="max-w-7xl mx-auto px-4 space-y-12">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                    <AdminEditable as="h2" value={data?.title || 'Catalog'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
-                   <div className="flex gap-4">
+                   <div className="flex gap-4 items-center flex-wrap">
+                      {isAdmin && (
+                        <div className="bg-white/10 backdrop-blur-md rounded-xl p-1 flex items-center border border-white/20">
+                           <Button 
+                             variant={productCardLayout === 'vertical' ? 'secondary' : 'ghost'} 
+                             size="sm" 
+                             onClick={() => handleLayoutChange('vertical')}
+                             className="rounded-lg h-9 px-3 text-xs font-bold"
+                           >
+                             Vertical
+                           </Button>
+                           <Button 
+                             variant={productCardLayout === 'horizontal' ? 'secondary' : 'ghost'} 
+                             size="sm" 
+                             onClick={() => handleLayoutChange('horizontal')}
+                             className="rounded-lg h-9 px-3 text-xs font-bold"
+                           >
+                             Horizontal
+                           </Button>
+                        </div>
+                      )}
                       <Button variant="secondary" className="font-bold rounded-xl h-11 px-6">Filters</Button>
                       <div className="relative">
                          <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
@@ -471,6 +510,7 @@ const RenderSection = ({ section, business }: { section: any, business: Business
              </div>
           </div>
         );
+      }
      case 'newsletter':
         return (
            <div className="w-full py-20 px-4 md:px-0">

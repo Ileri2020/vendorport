@@ -61,7 +61,18 @@ export const PlatformStore = () => {
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [productCardLayout, setProductCardLayout] = useState<'vertical' | 'horizontal'>('vertical')
+  const [productCardLayout, setProductCardLayout] = useState<'vertical' | 'horizontal'>(() => {
+    // Load from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('platformStoreLayout') as 'vertical' | 'horizontal') || 'vertical'
+    }
+    return 'vertical'
+  })
+  
+  // Save layout preference to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('platformStoreLayout', productCardLayout)
+  }, [productCardLayout])
   
   // Filters
   const [query, setQuery] = useState(searchParams.get('search') || "")

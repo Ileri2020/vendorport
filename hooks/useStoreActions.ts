@@ -72,7 +72,7 @@ export function useStoreActions({
       if (templateSlug) {
         const template =
           DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
-        if (template) {
+        if (template && 'sections' in template) {
           for (const s of template.sections) {
             await axios.post('/api/dbhandler?model=section', {
               pageId: res.data.id,
@@ -113,7 +113,7 @@ export function useStoreActions({
     if (!activePage && !(business && business.sections)) return;
     const template =
       DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
-    if (!template) return;
+    if (!template || !('sections' in template)) return;
 
     try {
       const useMaster = Boolean(business && business.sections);
@@ -139,7 +139,7 @@ export function useStoreActions({
           });
         }
       }
-      toast.success(`Applied ${template.name} template!`);
+      toast.success(`Applied ${('name' in template ? template.name : templateSlug)} template!`);
       onDataChange?.();
       window.location.reload();
     } catch (err) {

@@ -15,6 +15,7 @@ import {
 import CategoryForm from "@/prisma/forms/CategoryForm";
 import axios from "axios";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 
 // Fetch categories from backend
 async function getCategories(businessId?: string) {
@@ -63,9 +64,6 @@ const FeaturedCategories = () => {
       }
     }
   };
-
-import { CategoryCard } from "@/components/utility/CategoryCard";
-import { Badge } from "@/components/ui/badge";
 
   return (
     <section className="py-20 md:py-32 bg-muted/20">

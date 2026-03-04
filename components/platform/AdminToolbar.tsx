@@ -132,7 +132,9 @@ const AdminToolbar = ({
                          </SelectTrigger>
                          <SelectContent>
                            {Object.entries(DEFAULT_PAGE_TEMPLATES).map(([slug, tpl]) => (
-                             <SelectItem key={slug} value={slug}>{tpl.name} Layout</SelectItem>
+                             'name' in tpl ? (
+                               <SelectItem key={slug} value={slug}>{tpl.name} Layout</SelectItem>
+                             ) : null
                            ))}
                          </SelectContent>
                        </Select>

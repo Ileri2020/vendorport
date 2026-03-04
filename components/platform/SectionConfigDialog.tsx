@@ -37,16 +37,24 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
     try {
       // determine whether to update old section or new businessSection
       const useMaster = Object.prototype.hasOwnProperty.call(section, 'businessId');
+      const layoutValue = (configData.settings && configData.settings.layout) || configData.layout;
+      
       if (useMaster) {
-        // update content/settings
+        // update content/settings with layout variant
         await axios.put(`/api/dbhandler?model=businessSection`, {
           id: section.id,
           content: configData,
+          settings: {
+            ...section.settings,
+            layout: layoutValue,
+          },
         });
       } else {
+        // update old section model with layout
         await axios.put(`/api/dbhandler?model=section`, {
           id: section.id,
           data: configData,
+          layout: layoutValue,
         });
       }
       toast.success("Section updated");

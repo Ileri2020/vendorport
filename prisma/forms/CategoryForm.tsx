@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-
+import { Badge } from "@/components/ui/badge";
 import { AdminFormContainer } from "@/components/utility/AdminFormContainer";
 
 interface CategoriesFormProps {
