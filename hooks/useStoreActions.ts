@@ -29,7 +29,9 @@ export function useStoreActions({
         const newSection = {
           businessId: business.id,
           page: activePage?.slug || 'home',
-          key: layout, // store the layout as the key for now
+          // `key` should identify the section kind (e.g. 'hero'), not the layout
+          key: type,
+          // `type` here represents the section classification (static/dynamic/collection)
           type: 'static',
           position: sections.length,
           heading: `New ${type}`,
@@ -122,7 +124,8 @@ export function useStoreActions({
           await axios.post('/api/dbhandler?model=businessSection', {
             businessId: business.id,
             page: activePage?.slug || 'home',
-            key: s.layout,
+            // use the section type as the key (e.g. 'hero')
+            key: s.type,
             type: 'static',
             position: s.order,
             heading: (s as any).data?.title || '',

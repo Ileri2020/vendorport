@@ -10,6 +10,7 @@ import {
   DialogTrigger,
   DialogDescription,
 } from '@/components/ui/dialog'
+import { DEFAULT_PAGE_TEMPLATES } from '@/lib/storeTemplates'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sparkles, GripVertical, Check } from 'lucide-react'
@@ -100,6 +101,57 @@ export default function TemplateSelector({
     } catch (err) {
       console.error('Failed to apply template:', err)
       toast.error('Failed to apply template')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleInstallPages = async (templateId: string) => {
+    setLoading(true)
+    try {
+      const template = SITE_TEMPLATES.find(t => t.id === templateId)
+      if (!template) throw new Error('Template not found')
+
+      const existingSlugs = (business.settings?.pages || []).map((p: any) => p.slug)
+
+      for (const pageSlug of template.pages) {
+        // skip if page already exists
+        if (existingSlugs.includes(pageSlug)) continue;
+
+        // find page definition in DEFAULT_PAGE_TEMPLATES
+        const pageDef: any = (DEFAULT_PAGE_TEMPLATES as any)[pageSlug]
+
+        const createRes = await axios.post('/api/dbhandler?model=page', {
+          name: pageDef?.name || pageSlug,
+          slug: pageDef?.slug || pageSlug,
+          projectSettingsId: business.settings?.id,
+        })
+
+        const createdPage = createRes.data
+
+        // create sections for the page if template provides them
+        if (pageDef?.sections && Array.isArray(pageDef.sections)) {
+          for (const s of pageDef.sections) {
+            await axios.post('/api/dbhandler?model=businessSection', {
+              businessId: business.id,
+              page: pageSlug,
+              key: s.type,
+              type: 'static',
+              position: s.order,
+              heading: (s as any).data?.title || '',
+              content: (s as any).data || {},
+              settings: { layout: s.layout },
+            })
+          }
+        }
+      }
+
+      toast.success('Pages and sections installed')
+      setOpen(false)
+      window.location.reload()
+    } catch (err) {
+      console.error('Failed to install pages:', err)
+      toast.error('Failed to install pages')
     } finally {
       setLoading(false)
     }
@@ -212,6 +264,14 @@ export default function TemplateSelector({
             disabled={loading}
           >
             Cancel
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => handleInstallPages(selectedTemplate)}
+            className="h-11 font-bold border-2 mr-2"
+            disabled={loading}
+          >
+            {loading ? 'Installing...' : 'Install Pages & Sections'}
           </Button>
           <Button
             onClick={() => handleApplyTemplate(selectedTemplate)}
