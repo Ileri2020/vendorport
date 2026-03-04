@@ -64,31 +64,31 @@ const FeaturedCategories = () => {
     }
   };
 
+import { CategoryCard } from "@/components/utility/CategoryCard";
+import { Badge } from "@/components/ui/badge";
+
   return (
-    <section className="py-12 md:py-16">
-      <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <h2 className="font-display text-3xl leading-tight font-bold tracking-tight md:text-4xl">
-            Shop by Category
+    <section className="py-20 md:py-32 bg-muted/20">
+      <div className="container mx-auto max-w-7xl px-4">
+        <div className="mb-16 flex flex-col items-center text-center">
+          <Badge className="mb-4 bg-accent/10 text-accent hover:bg-accent/20 border-none font-black text-[10px] tracking-widest uppercase py-1.5 px-4 rounded-full">Explore Our World</Badge>
+          <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-primary uppercase">
+            Product <span className="text-accent">Galleries</span>
           </h2>
-          <div className="mt-2 h-1 w-12 rounded-full bg-primary" />
-          <p className="mt-4 max-w-2xl text-center text-muted-foreground">
-            Find the perfect product for your needs from our curated collections
+          <p className="mt-4 max-w-xl text-muted-foreground font-medium text-lg italic">
+            "Discover premium selections curated specifically for your lifestyle."
           </p>
 
           {isAdmin && (
-            <div className="mt-6">
+            <div className="mt-8">
               <Dialog onOpenChange={(open) => !open && fetchCategories()}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2">
+                  <Button className="h-12 px-8 rounded-2xl bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20 gap-2 font-black text-xs uppercase tracking-widest">
                     <Plus className="h-4 w-4" />
-                    Add Category
+                    Expand Catalog
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Add New Category</DialogTitle>
-                  </DialogHeader>
+                <DialogContent className="max-w-2xl bg-transparent border-none p-0 shadow-none">
                   <CategoryForm />
                 </DialogContent>
               </Dialog>
@@ -96,75 +96,42 @@ const FeaturedCategories = () => {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
           {categories.length === 0 ? (
-            [1,2,3].map((i) => {
-              return (
-                <div key={`empty-${i}`} className="flex flex-col items-center justify-center h-40 border rounded-xl bg-accent/5 text-accent font-bold">
-                  {/* placeholder box */}
-                  Category {i}
-                </div>
-              )
-            })
+            [1,2,3,4].map((i) => (
+              <div key={`empty-${i}`} className="aspect-[4/5] rounded-[2.5rem] bg-muted/40 animate-pulse border-2 border-dashed border-muted flex items-center justify-center">
+                 <div className="h-10 w-10 text-muted-foreground/20 italic">Loading...</div>
+              </div>
+            ))
           ) : (
-            categories.map((category: any) => {
-              return (
-              <div key={category.id} className="group relative flex flex-col space-y-4 overflow-hidden rounded-2xl border bg-card shadow transition-all duration-300 hover:shadow-lg">
-              {isAdmin && (
-                <div className="absolute top-2 right-2 flex gap-2 z-30">
-                  <Dialog onOpenChange={(open) => !open && fetchCategories()}>
-                    <DialogTrigger asChild>
-                      <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-background/80 backdrop-blur-sm shadow-sm">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Edit Category: {category.name}</DialogTitle>
-                      </DialogHeader>
-                      {/* Passing category as initialData or similar might be needed if CategoryForm supports it, 
-                          but CategoryForm usually fetches or we can just let it be. 
-                          Actually CategoryForm uses internal state. We might need to modify CategoryForm to accept initialCategory. */}
-                      <CategoryForm initialCategory={category} hideList={true} /> 
-                    </DialogContent>
-                  </Dialog>
-                  <Button 
-                    size="icon" 
-                    variant="destructive" 
-                    className="h-8 w-8 rounded-full bg-destructive/80 backdrop-blur-sm shadow-sm"
-                    onClick={() => handleDelete(category.id, category.name)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-              <Link
-                href={`/store?category=${category.name.toLowerCase()}`}
-                aria-label={`Browse ${category.name} products`}
-                className="flex flex-col h-full"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden">
-                  <div className="absolute inset-0 z-10 bg-gradient-to-t from-background/80 to-transparent" />
-                  <img
-                    src={category.image}
-                    alt={category.name}
-                    className="object-cover transition duration-300 scale-110 group-hover:scale-100 w-full h-full"
-                  />
-                </div>
-
-                <div className="relative z-20 -mt-6 p-4">
-                  <div className="mb-1 text-lg font-semibold">
-                    {category.name}
+            categories.map((category: any) => (
+              <div key={category.id} className="relative">
+                {isAdmin && (
+                  <div className="absolute top-4 left-4 flex gap-2 z-30">
+                    <Dialog onOpenChange={(open) => !open && fetchCategories()}>
+                      <DialogTrigger asChild>
+                        <Button size="icon" variant="secondary" className="h-10 w-10 rounded-2xl bg-white/90 backdrop-blur-md shadow-xl text-primary hover:bg-accent hover:text-white transition-all">
+                          <Edit3 className="h-4 w-4" />
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl bg-transparent border-none p-0 shadow-none">
+                        <CategoryForm initialCategory={category} hideList={true} /> 
+                      </DialogContent>
+                    </Dialog>
+                    <Button 
+                      size="icon" 
+                      variant="destructive" 
+                      className="h-10 w-10 rounded-2xl shadow-xl hover:scale-110 transition-transform"
+                      onClick={() => handleDelete(category.id, category.name)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {category.productCount} products
-                  </p>
-                </div>
-              </Link>
-                </div>
-            );
-          })
-        )}
+                )}
+                <CategoryCard category={category} />
+              </div>
+            ))
+          )}
         </div>
       </div>
     </section>

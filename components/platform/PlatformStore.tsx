@@ -61,6 +61,7 @@ export const PlatformStore = () => {
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
+  const [productCardLayout, setProductCardLayout] = useState<'vertical' | 'horizontal'>('vertical')
   
   // Filters
   const [query, setQuery] = useState(searchParams.get('search') || "")
@@ -153,8 +154,8 @@ export const PlatformStore = () => {
 
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-8 py-12 px-6">
-         {/* Sidebar Navigation & Filters */}
-         <aside className="w-full md:w-80 flex flex-col gap-8 md:sticky md:top-24 h-fit">
+         {/* Sidebar Navigation & Filters - now scrolls with content */}
+         <aside className="w-full md:w-80 flex flex-col gap-8 order-last md:order-none h-fit">
             
             {/* AI Assistant CTA */}
             <div className="bg-gradient-to-br from-accent to-primary rounded-3xl p-6 text-white shadow-xl shadow-accent/20 group cursor-pointer relative overflow-hidden" onClick={() => setIsFilterOpen(true)}>
@@ -249,22 +250,47 @@ export const PlatformStore = () => {
          {/* Products Grid */}
          <div className="flex-1 space-y-10">
              {/* Info Bar */}
-             <div className="flex justify-between items-center bg-muted/20 p-4 px-6 rounded-2xl border">
+             <div className="flex justify-between items-center bg-muted/20 p-4 px-6 rounded-2xl border flex-wrap gap-4">
                 <div className="flex items-center gap-3">
                    <Target className="h-5 w-5 text-accent" />
                    <p className="font-bold text-sm">
                       {loading ? 'Finding items...' : `Showing ${products.length} matching products`}
                    </p>
                 </div>
-                {query && (
-                  <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 px-3 py-1 rounded-full">
-                     Query: {query}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-3">
+                   {query && (
+                     <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 px-3 py-1 rounded-full">
+                        Query: {query}
+                     </Badge>
+                   )}
+                   {/* Product Card Layout Toggle */}
+                   <div className="bg-white/10 backdrop-blur-md rounded-xl p-1 flex items-center border border-white/20 ml-auto">
+                      <Button 
+                        variant={productCardLayout === 'vertical' ? 'secondary' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setProductCardLayout('vertical')}
+                        className="rounded-lg h-9 px-3 text-xs font-bold"
+                      >
+                        Vertical
+                      </Button>
+                      <Button 
+                        variant={productCardLayout === 'horizontal' ? 'secondary' : 'ghost'} 
+                        size="sm" 
+                        onClick={() => setProductCardLayout('horizontal')}
+                        className="rounded-lg h-9 px-3 text-xs font-bold"
+                      >
+                        Horizontal
+                      </Button>
+                   </div>
+                </div>
              </div>
 
              {/* Results */}
-             <div className={`grid gap-8 ${viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1'}`}>
+             <div className={`grid gap-8 ${
+               productCardLayout === 'vertical' 
+                 ? (viewMode === 'grid' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-1')
+                 : 'grid-cols-1'
+             }`}>
                 {loading ? (
                    Array.from({ length: 6 }).map((_, i) => (
                      <div key={i} className="space-y-4">
@@ -293,7 +319,11 @@ export const PlatformStore = () => {
                            toast.success(`Added ${p.name} from ${prod.business?.name || 'store'} to global bag`)
                         }}
                         onAddToWishlist={(id) => openDialog(`Added ${id} to global favorites`, "Wishlist")}
-                        className={`hover:border-accent transition-all duration-500 rounded-3xl overflow-hidden border-2 shadow-sm hover:shadow-2xl hover:shadow-accent/5 ${viewMode === 'list' ? 'flex-row' : 'flex-col'}`}
+                        className={`hover:border-accent transition-all duration-500 rounded-3xl overflow-hidden border-2 shadow-sm hover:shadow-2xl hover:shadow-accent/5 ${
+                          productCardLayout === 'horizontal' 
+                            ? 'flex flex-row items-center gap-4'
+                            : (viewMode === 'list' ? 'flex-row' : 'flex-col')
+                        }`}
                       />
                     ))}
 

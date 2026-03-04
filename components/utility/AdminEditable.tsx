@@ -88,7 +88,7 @@ export const AdminEditable = ({
           <Button 
             size="icon" 
             variant="ghost" 
-            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-accent/10 hover:bg-accent/20"
+            className="h-6 w-6 opacity-100 transition-opacity bg-accent/10 hover:bg-accent/20"
             onClick={() => setIsEditing(true)}
           >
             <Edit2 className="h-3 w-3" />

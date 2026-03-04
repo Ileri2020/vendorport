@@ -9,11 +9,16 @@ import { toast } from 'sonner';
 import StockTable from './stockdatatable';
 import { Trash2, Plus } from 'lucide-react';
 
+import { AdminFormContainer } from '@/components/utility/AdminFormContainer';
+import { Badge } from '@/components/ui/badge';
+import { Search, ShoppingBasket, Layers, ArrowRight } from 'lucide-react';
+
 export default function StockForm() {
   const [stocks, setStocks] = useState([]);
   const [products, setProducts] = useState<any>([]);
   const [stockQueue, setStockQueue] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchStocks();
@@ -37,6 +42,10 @@ export default function StockForm() {
       console.error('Failed to fetch products:', err);
     }
   };
+
+  const filteredProducts = products.filter((p: any) => 
+    p.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   const addToQueue = (product: any) => {
     if (stockQueue.find(item => item.productId === product.id)) {
@@ -74,7 +83,6 @@ export default function StockForm() {
       return;
     }
 
-    // Validation
     for (const item of stockQueue) {
       if (item.addedQuantity <= 0) {
         toast.error(`Invalid quantity for ${item.name}`);
@@ -106,123 +114,146 @@ export default function StockForm() {
   };
 
   return (
-    <div className='flex flex-col gap-6 p-4 max-w-5xl mx-auto'>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* Left Side: Product List to Select From */}
-        <div className='border rounded-lg p-4 bg-card shadow-sm'>
-          <h2 className='font-bold text-xl mb-4 border-b pb-2'>Available Products</h2>
-          <div className='max-h-[600px] overflow-y-auto space-y-3 pr-2'>
-            {products.length > 0 ? (
-              products.map((item: any) => (
-                <div key={item.id} className="flex items-center justify-between p-3 bg-secondary/30 rounded-lg hover:bg-secondary/50 transition-colors">
-                  <div className='flex-1'>
-                    <p className='font-semibold'>{item.name}</p>
-                    <p className='text-sm text-muted-foreground'>Current Price: ₦{item.price}</p>
+    <div className='w-full max-w-5xl mx-auto'>
+      <AdminFormContainer 
+        title="Stock Management" 
+        description="Update inventory levels and costs for your products."
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+          
+          <div className='lg:col-span-2 space-y-4'>
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-sm uppercase tracking-widest text-primary/60">Product Search</h3>
+              <Badge variant="outline">{filteredProducts.length}</Badge>
+            </div>
+            
+            <div className="relative">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+               <Input
+                 placeholder="Filter products..."
+                 className="h-10 pl-9 rounded-xl border-2"
+                 value={search}
+                 onChange={(e) => setSearch(e.target.value)}
+               />
+            </div>
+
+            <div className='max-h-[500px] overflow-y-auto space-y-2 pr-2 custom-scrollbar'>
+              {filteredProducts.map((item: any) => (
+                <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl hover:bg-white hover:border-accent/10 border-2 border-transparent transition-all group shadow-sm">
+                  <div className='flex-1 min-w-0 mr-2'>
+                    <p className='font-bold text-sm truncate uppercase tracking-tight'>{item.name}</p>
+                    <p className='text-[10px] text-muted-foreground font-black tracking-widest uppercase'>₦{(item.price || 0).toLocaleString()}</p>
                   </div>
                   <Button 
                     type="button" 
-                    size="sm" 
+                    size="icon" 
                     onClick={() => addToQueue(item)}
-                    className='gap-1'
+                    className='h-8 w-8 rounded-lg shadow-lg shadow-primary/20'
                   >
                     <Plus className='h-4 w-4' />
-                    Add
                   </Button>
                 </div>
-              ))
-            ) : (
-              <p className='text-center text-muted-foreground py-10'>No products found.</p>
-            )}
+              ))}
+              {filteredProducts.length === 0 && (
+                <div className="py-10 text-center text-muted-foreground text-sm italic">No matching products.</div>
+              )}
+            </div>
+          </div>
+
+          <div className='lg:col-span-3 space-y-4'>
+            <div className="p-6 bg-accent/5 rounded-[2.5rem] border-2 border-accent/10 flex flex-col h-full min-h-[500px]">
+              <div className="flex items-center justify-between mb-6">
+                 <div>
+                   <h3 className="font-black text-lg uppercase tracking-tight text-accent">Active Queue</h3>
+                   <p className="text-[10px] text-accent/60 font-black tracking-widest uppercase">Preparing for update</p>
+                 </div>
+                 <Badge className="bg-accent text-white border-none">{stockQueue.length} ITEMS</Badge>
+              </div>
+
+              <form onSubmit={handleBatchSubmit} className='flex-1 flex flex-col'>
+                <div className='flex-1 overflow-y-auto max-h-[400px] space-y-4 pr-1 mb-6 custom-scrollbar'>
+                  {stockQueue.length > 0 ? (
+                    stockQueue.map((item, index) => (
+                      <div key={item.productId} className='p-4 bg-white rounded-3xl border-2 border-accent/5 shadow-xl shadow-accent/5 relative group transition-all hover:scale-[1.01]'>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className='absolute top-2 right-2 h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10'
+                          onClick={() => removeFromQueue(index)}
+                        >
+                          <Trash2 className='h-4 w-4' />
+                        </Button>
+                        
+                        <p className='font-black text-xs text-primary/40 uppercase tracking-widest mb-2'>ITEM #{index + 1}</p>
+                        <h4 className='font-black text-sm truncate pr-8 mb-4 uppercase tracking-tight'>{item.name}</h4>
+                        
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                           <div className='space-y-1.5'>
+                              <Label className='text-[9px] font-black uppercase tracking-widest text-muted-foreground'>Quantity</Label>
+                              <Input 
+                                type="number" 
+                                min="1"
+                                className="h-9 font-bold bg-muted/20 border-none"
+                                value={item.addedQuantity}
+                                onChange={(e) => updateQueueItem(index, 'addedQuantity', Number(e.target.value))}
+                              />
+                           </div>
+                           <div className='space-y-1.5'>
+                              <Label className='text-[9px] font-black uppercase tracking-widest text-muted-foreground'>Cost (₦)</Label>
+                              <Input 
+                                type="number" 
+                                className="h-9 font-bold bg-muted/20 border-none"
+                                value={item.costPerProduct}
+                                onChange={(e) => updateQueueItem(index, 'costPerProduct', Number(e.target.value))}
+                              />
+                           </div>
+                           <div className='space-y-1.5'>
+                              <Label className='text-[9px] font-black uppercase tracking-widest text-muted-foreground'>Price (₦)</Label>
+                              <Input 
+                                type="number" 
+                                className="h-9 font-bold bg-muted/20 border-none"
+                                value={item.pricePerProduct}
+                                onChange={(e) => updateQueueItem(index, 'pricePerProduct', Number(e.target.value))}
+                              />
+                           </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className='flex flex-col items-center justify-center py-20 text-muted-foreground text-center space-y-3 opacity-40'>
+                      <ShoppingBasket className='h-12 w-12' />
+                      <p className="font-bold text-sm">Your queue is currently empty.<br/>Select products to begin stocking.</p>
+                    </div>
+                  )}
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className='w-full h-14 text-lg font-black bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20 rounded-2xl' 
+                  disabled={loading || stockQueue.length === 0}
+                >
+                  {loading ? "COMMITTING..." : "COMMIT INVENTORY UPDATE"}
+                </Button>
+              </form>
+            </div>
           </div>
         </div>
 
-        {/* Right Side: Stocking Queue with Separate Inputs */}
-        <div className='border rounded-lg p-4 bg-card shadow-sm flex flex-col'>
-          <h2 className='font-bold text-xl mb-4 border-b pb-2 flex justify-between items-center'>
-            Stocking Queue
-            <span className='text-sm font-normal text-muted-foreground'>{stockQueue.length} items</span>
-          </h2>
-
-          <form onSubmit={handleBatchSubmit} className='flex-1 flex flex-col'>
-            <div className='flex-1 overflow-y-auto max-h-[500px] space-y-6 pr-2 mb-6'>
-              {stockQueue.length > 0 ? (
-                stockQueue.map((item, index) => (
-                  <div key={item.productId} className='p-4 border-2 border-secondary rounded-xl bg-secondary/10 relative group'>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="icon" 
-                      className='absolute -top-3 -right-3 h-8 w-8 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive shadow-md opacity-0 group-hover:opacity-100 transition-opacity'
-                      onClick={() => removeFromQueue(index)}
-                    >
-                      <Trash2 className='h-4 w-4' />
-                    </Button>
-                    
-                    <h3 className='font-bold text-primary mb-3 truncate pr-6'>{index + 1}. {item.name}</h3>
-                    
-                    <div className='grid grid-cols-1 gap-4'>
-                      <div className='space-y-1.5'>
-                        <Label htmlFor={`qty-${index}`} className='text-xs'>Stock Quantity</Label>
-                        <Input 
-                          id={`qty-${index}`}
-                          type="number" 
-                          min="1"
-                          value={item.addedQuantity}
-                          onChange={(e) => updateQueueItem(index, 'addedQuantity', Number(e.target.value))}
-                        />
-                      </div>
-                      
-                      <div className='grid grid-cols-2 gap-3'>
-                        <div className='space-y-1.5'>
-                          <Label htmlFor={`cost-${index}`} className='text-xs'>Cost Price (₦)</Label>
-                          <Input 
-                            id={`cost-${index}`}
-                            type="number" 
-                            value={item.costPerProduct}
-                            onChange={(e) => updateQueueItem(index, 'costPerProduct', Number(e.target.value))}
-                          />
-                        </div>
-                        <div className='space-y-1.5'>
-                          <Label htmlFor={`price-${index}`} className='text-xs'>Selling Price (₦)</Label>
-                          <Input 
-                            id={`price-${index}`}
-                            type="number" 
-                            value={item.pricePerProduct}
-                            onChange={(e) => updateQueueItem(index, 'pricePerProduct', Number(e.target.value))}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className='flex flex-col items-center justify-center py-20 text-muted-foreground text-center border-2 border-dashed rounded-xl'>
-                  <Plus className='h-10 w-10 mb-2 opacity-20' />
-                  <p>Your stocking queue is empty.<br/>Select products from the left to start.</p>
-                </div>
-              )}
-            </div>
-
-            <Button 
-              type="submit" 
-              className='w-full h-12 text-lg font-bold' 
-              disabled={loading || stockQueue.length === 0}
-            >
-              {loading ? "Processing..." : `Stock ${stockQueue.length} Products`}
-            </Button>
-          </form>
+        <div className='mt-16 space-y-6'>
+          <div className="flex items-center gap-3">
+             <div className="bg-primary/10 p-2 rounded-xl"><Layers className="h-5 w-5 text-primary" /></div>
+             <h2 className='font-black text-xl uppercase tracking-tight'>Historical Records</h2>
+          </div>
+          <div className="overflow-hidden rounded-3xl border-2 border-muted shadow-sm">
+            {stocks.length > 0 ? (
+              <StockTable />
+            ) : (
+              <div className="p-20 text-center text-muted-foreground bg-muted/10 font-medium italic">No prior stocking history found.</div>
+            )}
+          </div>
         </div>
-      </div>
-
-      <div className='mt-8'>
-        <h2 className='font-bold text-2xl mb-4'>Existing Stock Records</h2>
-        {stocks.length > 0 ? (
-          <StockTable />
-        ) : (
-          <p className='text-muted-foreground bg-secondary/20 p-8 text-center rounded-lg border'> No stock available.</p>
-        )}
-      </div>
+      </AdminFormContainer>
     </div>
   );
 }

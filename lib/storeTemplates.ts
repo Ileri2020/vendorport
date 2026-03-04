@@ -41,15 +41,6 @@ export const DEFAULT_PAGE_TEMPLATES = {
       { type: 'features', layout: 'trust-bars', order: 3 }
     ]
   },
-  store: {
-    name: 'Our Store',
-    slug: 'store',
-    sections: [
-      { type: 'hero', layout: 'immersive', order: 0, data: { title: 'Shop Our Products', text: 'Find everything you need in our curated collection.' } },
-      { type: 'product-list', layout: 'grid-with-filters', order: 1, data: { title: 'Explore Everything' } },
-      { type: 'categories', layout: 'carousel', order: 2 }
-    ]
-  },
   'product-description': {
     name: 'Product Details',
     slug: 'product',
