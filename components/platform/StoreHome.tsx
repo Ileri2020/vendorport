@@ -94,14 +94,14 @@ import AddSectionTrigger from './AddSectionTrigger'
 import AdminToolbar from './AdminToolbar'
 import { useStoreActions } from '@/hooks/useStoreActions'
 import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
+import { BusinessProductSearch } from '@/components/utility/BusinessProductSearch'
 
 interface Section {
-@@import { BusinessProductSearch } from '@/components/utility/BusinessProductSearch'
-  id: string
-  type: string
-  layout: string
-  data?: any
-  order: number
+   id: string;
+   type: string;
+   layout?: string;
+   data?: any;
+   order?: number;
 }
 
 interface Page {
@@ -678,15 +678,3 @@ const RenderSection = ({ section, business }: { section: any, business: Business
 }
 
 export default StoreHome;
-
-@@                <Stocks />
-@@             </div>
-@@          </div>
-@@        );
-@@     case 'shop':
-@@        return (
-@@          <div className="w-full bg-background">
-@@             <BusinessProductSearch businessId={business.id} />
-@@          </div>
-@@        );
-@@     case 'newsletter':

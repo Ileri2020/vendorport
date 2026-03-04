@@ -112,7 +112,7 @@ export const BusinessProductSearch = ({
       params.append("maxPrice", priceRange[1].toString());
 
       const res = await axios.get(`/api/dbhandler?${params.toString()}`);
-      let filteredProducts = res.data || [];
+      const filteredProducts = res.data || [];
 
       // Apply sorting
       if (sortBy === "price-low") {
