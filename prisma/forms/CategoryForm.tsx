@@ -27,6 +27,9 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
   const [editId, setEditId] = useState<string | null>(initialCategory?.id || null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const ITEMS_PER_PAGE = 10;
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileKey, setFileKey] = useState("file-0"); // Unique key to reset input
@@ -225,42 +228,104 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
         {!hideList && (
           <div className="mt-12 space-y-6">
-            <div className="flex items-center justify-between">
-               <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Live Collections</h3>
-               <Badge variant="secondary" className="h-6 font-bold">{categories.length}</Badge>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((item) => (
-                <div
-                  key={item.id}
-                  className="group relative flex flex-col p-4 bg-muted/30 hover:bg-white rounded-3xl border-2 border-transparent hover:border-accent/10 transition-all duration-300 shadow-sm hover:shadow-xl"
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <img
-                      src={item.image || "/logo.png"}
-                      className="w-14 h-14 rounded-xl object-cover border-2 shadow-inner"
-                      alt={item.name}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-black text-sm truncate uppercase tracking-tight">{item.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{item.productCount || 0} Products</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleEdit(item)} className="flex-1 h-9 font-bold">Edit</Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleDelete(item.id)}
-                      variant="ghost"
-                      className="flex-1 h-9 border-2 border-destructive/20 text-destructive hover:bg-destructive hover:text-white font-bold"
-                    >
-                      Delete
-                    </Button>
-                  </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                 <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Live Collections</h3>
+                 <Badge variant="secondary" className="h-6 font-bold">{categories.length}</Badge>
+              </div>
+              
+              {/* Search Input */}
+              {categories.length > 0 && (
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  <Input
+                    placeholder="Search categories..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(0);
+                    }}
+                    className="pl-10 h-11 rounded-2xl border-2"
+                  />
                 </div>
-              ))}
+              )}
             </div>
+            
+            {/* Filtered & Paginated Categories */}
+            {(() => {
+              const filtered = categories.filter(cat => 
+                cat.name.toLowerCase().includes(searchTerm.toLowerCase())
+              );
+              const start = currentPage * ITEMS_PER_PAGE;
+              const end = start + ITEMS_PER_PAGE;
+              const paginated = filtered.slice(start, end);
+              const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+              
+              return (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+                    {paginated.map((item) => (
+                      <div
+                        key={item.id}
+                        className="group relative flex flex-col p-4 bg-muted/30 hover:bg-white rounded-3xl border-2 border-transparent hover:border-accent/10 transition-all duration-300 shadow-sm hover:shadow-xl"
+                      >
+                        <div className="flex items-center gap-4 mb-4">
+                          <img
+                            src={item.image || "/logo.png"}
+                            className="w-14 h-14 rounded-xl object-cover border-2 shadow-inner"
+                            alt={item.name}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-sm truncate uppercase tracking-tight">{item.name}</p>
+                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{item.productCount || 0} Products</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleEdit(item)} className="flex-1 h-9 font-bold">Edit</Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleDelete(item.id)}
+                            variant="ghost"
+                            className="flex-1 h-9 border-2 border-destructive/20 text-destructive hover:bg-destructive hover:text-white font-bold"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {paginated.length === 0 && (
+                      <div className="col-span-full py-10 text-center text-muted-foreground italic text-sm">No categories found.</div>
+                    )}
+                  </div>
+                  
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        disabled={currentPage === 0}
+                        className="h-10 font-bold"
+                      >
+                        ← Previous
+                      </Button>
+                      <span className="text-sm font-bold text-muted-foreground">
+                        Page {currentPage + 1} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={currentPage === totalPages - 1}
+                        className="h-10 font-bold"
+                      >
+                        Next →
+                      </Button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </AdminFormContainer>

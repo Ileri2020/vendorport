@@ -34,6 +34,8 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const ITEMS_PER_PAGE = 10;
 
   const [formData, setFormData] = useState({
     productId: "",
@@ -170,47 +172,82 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-            {filteredProducts.map((item) => {
-              const isFeatured = featuredIds.has(item.id);
-              return (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "flex items-center justify-between p-3 rounded-2xl border-2 transition-all group shadow-sm",
-                    isFeatured 
-                      ? "bg-accent/5 border-accent/20" 
-                      : "bg-muted/30 border-transparent hover:bg-white hover:border-accent/10"
-                  )}
-                >
-                  <div className="flex-1 min-w-0 mr-2">
-                    <p className="font-bold text-sm truncate uppercase tracking-tight">{item.name}</p>
-                    <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
-                  </div>
-                  <Button
-                    size="sm"
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+            {(() => {
+              const start = currentPage * ITEMS_PER_PAGE;
+              const end = start + ITEMS_PER_PAGE;
+              const paginated = filteredProducts.slice(start, end);
+              return paginated.map((item) => {
+                const isFeatured = featuredIds.has(item.id);
+                return (
+                  <div
+                    key={item.id}
                     className={cn(
-                      "h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-widest",
-                      isFeatured ? "bg-accent/20 text-accent hover:bg-accent/30" : "bg-primary shadow-lg shadow-primary/20"
+                      "flex items-center justify-between p-3 rounded-2xl border-2 transition-all group shadow-sm",
+                      isFeatured 
+                        ? "bg-accent/5 border-accent/20" 
+                        : "bg-muted/30 border-transparent hover:bg-white hover:border-accent/10"
                     )}
-                    onClick={() => handleFeatureClick(item)}
-                    disabled={isFeatured || isLimitReached}
                   >
-                    {isFeatured ? (
-                      <div className="flex items-center gap-1"><Star className="h-3 w-3 fill-accent" /> FEAT</div>
-                    ) : isLimitReached ? (
-                      "FULL"
-                    ) : (
-                      "ADD"
-                    )}
-                  </Button>
-                </div>
-              );
-            })}
+                    <div className="flex-1 min-w-0 mr-2">
+                      <p className="font-bold text-sm truncate uppercase tracking-tight">{item.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className={cn(
+                        "h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-widest",
+                        isFeatured ? "bg-accent/20 text-accent hover:bg-accent/30" : "bg-primary shadow-lg shadow-primary/20"
+                      )}
+                      onClick={() => handleFeatureClick(item)}
+                      disabled={isFeatured || isLimitReached}
+                    >
+                      {isFeatured ? (
+                        <div className="flex items-center gap-1"><Star className="h-3 w-3 fill-accent" /> FEAT</div>
+                      ) : isLimitReached ? (
+                        "FULL"
+                      ) : (
+                        "ADD"
+                      )}
+                    </Button>
+                  </div>
+                );
+              });
+            })()}
             {filteredProducts.length === 0 && (
                <div className="col-span-full py-10 text-center text-muted-foreground italic text-sm">No products matching your search.</div>
             )}
           </div>
+          
+          {/* Pagination Controls */}
+          {(() => {
+            const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+            return totalPages > 1 ? (
+              <div className="flex items-center justify-between pt-4 border-t mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  size="sm"
+                  className="h-10 font-bold"
+                >
+                  ← Previous
+                </Button>
+                <span className="text-sm font-bold text-muted-foreground">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage === totalPages - 1}
+                  size="sm"
+                  className="h-10 font-bold"
+                >
+                  Next →
+                </Button>
+              </div>
+            ) : null;
+          })()}
 
           {!hideList && (
             <div className="pt-8 border-t space-y-4">

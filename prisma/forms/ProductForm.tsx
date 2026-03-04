@@ -27,6 +27,9 @@ export default function ProductForm({ initialProduct, hideList = false, business
   const [preview, setPreview] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(initialProduct?.id || null);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     if (!hideList) fetchProducts();
@@ -255,32 +258,93 @@ export default function ProductForm({ initialProduct, hideList = false, business
 
         {!hideList && (
           <div className='mt-12 space-y-6'>
-            <div className="flex items-center justify-between">
-               <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Recent Inventory</h3>
-               <Badge variant="secondary" className="font-bold">{products.length}</Badge>
-            </div>
-            {products.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {products.map((item: any) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border-2 border-transparent hover:bg-white hover:border-accent/10 transition-all group shadow-sm">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <img src={item.images?.[0] || "/placeholder.jpg"} className="h-10 w-10 rounded-lg object-cover border" />
-                            <div className="truncate">
-                              <p className="font-bold text-sm truncate">{item.name}</p>
-                              <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-accent" onClick={() => handleEdit(item)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(item)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                ))}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                 <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Recent Inventory</h3>
+                 <Badge variant="secondary" className="font-bold">{products.length}</Badge>
               </div>
+              
+              {/* Search Input */}
+              {products.length > 0 && (
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  <Input
+                    placeholder="Search products..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(0);
+                    }}
+                    className="pl-10 h-11 rounded-2xl border-2"
+                  />
+                </div>
+              )}
+            </div>
+            
+            {products.length > 0 ? (
+              (() => {
+                const filtered = products.filter((item: any) =>
+                  item.name.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                const start = currentPage * ITEMS_PER_PAGE;
+                const end = start + ITEMS_PER_PAGE;
+                const paginated = filtered.slice(start, end);
+                const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+                
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+                      {paginated.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border-2 border-transparent hover:bg-white hover:border-accent/10 transition-all group shadow-sm">
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                  <img src={item.images?.[0] || "/placeholder.jpg"} className="h-10 w-10 rounded-lg object-cover border" />
+                                  <div className="truncate">
+                                    <p className="font-bold text-sm truncate">{item.name}</p>
+                                    <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
+                                  </div>
+                              </div>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-accent" onClick={() => handleEdit(item)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(item)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                              </div>
+                          </div>
+                      ))}
+                      {paginated.length === 0 && (
+                        <div className="col-span-full py-10 text-center text-muted-foreground italic text-sm">No products found.</div>
+                      )}
+                    </div>
+                    
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                          disabled={currentPage === 0}
+                          className="h-10 font-bold"
+                        >
+                          ← Previous
+                        </Button>
+                        <span className="text-sm font-bold text-muted-foreground">
+                          Page {currentPage + 1} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                          disabled={currentPage === totalPages - 1}
+                          className="h-10 font-bold"
+                        >
+                          Next →
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()
             ) : (
               <div className="p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-4 bg-muted/20">
                 <Package className="h-10 w-10 text-muted-foreground/30" />
