@@ -6,9 +6,10 @@ import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search, Camera } from 'lucide-react'
+import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search, Camera, Sparkles } from 'lucide-react'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
+import TemplateSelector from './TemplateSelector'
 
 interface Business {
   id: string
@@ -44,11 +45,14 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
      </div>
      <div className="flex items-center gap-2 md:gap-4">
        {isAdmin && (
-         <Link href={`/${storeName}/analytics`}>
-          <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2 hidden sm:flex">
-            ADMIN <Layout className="h-3 w-3 ml-1" />
-          </Badge>
-         </Link>
+         <>
+           <TemplateSelector business={business} />
+           <Link href={`/${storeName}/analytics`}>
+            <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2 hidden sm:flex">
+              ADMIN <Layout className="h-3 w-3 ml-1" />
+            </Badge>
+           </Link>
+         </>
        )}
        {businessId && (
          <AIProductSearch businessId={businessId}>
@@ -77,6 +81,9 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
              </SheetTitle>
            </SheetHeader>
            <div className="flex flex-col gap-6">
+             {isAdmin && (
+               <TemplateSelector business={business} mobile={true} />
+             )}
              {businessId && (
                <AIProductSearch businessId={businessId}>
                  <Button className="w-full h-12 bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90 text-white font-bold rounded-xl gap-2">
