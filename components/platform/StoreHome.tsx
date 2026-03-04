@@ -160,6 +160,8 @@ interface Business {
     currency: string
     exchangeRate: number
     pages: any[]
+    productCardLayout?: 'vertical' | 'horizontal'
+    siteTemplate?: string
   }
   sections?: any[]
   siteSettings?: {
