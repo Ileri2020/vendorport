@@ -22,10 +22,21 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
     if (section.type === 'products') fetchCats();
   }, [section.type]);
 
+  // hero variants that admins can choose
+  const heroVariants = [
+    'modern-split',
+    'immersive',
+    'carousel',
+    'story',
+    'menu',
+    'experience',
+    'local',
+  ];
+
   const handleSave = async () => {
     try {
       // determine whether to update old section or new businessSection
-      const useMaster = section.hasOwnProperty('businessId');
+      const useMaster = Object.prototype.hasOwnProperty.call(section, 'businessId');
       if (useMaster) {
         // update content/settings
         await axios.put(`/api/dbhandler?model=businessSection`, {
@@ -77,11 +88,11 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
             </div>
           )}
           {/* Layout options for dynamic sections */}
-          {['products','product-list','categories','posts','staff','partners'].includes(section.type) && (
+          {['products','product-list','categories','posts','staff','partners','hero'].includes(section.type) && (
             <div className="space-y-2">
               <Label>Layout</Label>
               <Select
-                value={(configData.settings && configData.settings.layout) || configData.layout || 'grid'}
+                value={(configData.settings && configData.settings.layout) || configData.layout || (section.type === 'hero' ? 'modern-split' : 'grid')}
                 onValueChange={(v) => {
                   const next = { ...configData };
                   if (!next.settings) next.settings = {};
@@ -94,12 +105,20 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
                   <SelectValue placeholder="Select layout" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="grid">Grid</SelectItem>
-                  <SelectItem value="flex">Flex Box</SelectItem>
-                  <SelectItem value="auto-carousel">Auto Carousel</SelectItem>
-                  <SelectItem value="manual-carousel">Manual Carousel</SelectItem>
-                  <SelectItem value="two-layer-auto-carousel">2-Layer Auto Carousel</SelectItem>
-                  <SelectItem value="stack">Stack Layout</SelectItem>
+                  {section.type === 'hero' ? (
+                    heroVariants.map((v) => (
+                      <SelectItem key={v} value={v}>{v.replace(/-/g, ' ')}</SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="grid">Grid</SelectItem>
+                      <SelectItem value="flex">Flex Box</SelectItem>
+                      <SelectItem value="auto-carousel">Auto Carousel</SelectItem>
+                      <SelectItem value="manual-carousel">Manual Carousel</SelectItem>
+                      <SelectItem value="two-layer-auto-carousel">2-Layer Auto Carousel</SelectItem>
+                      <SelectItem value="stack">Stack Layout</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

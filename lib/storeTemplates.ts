@@ -10,6 +10,17 @@ export const DEFAULT_PAGE_TEMPLATES = {
       { type: 'description', layout: 'UI of description', order: 4, data: { title: 'Our Mission', text: 'To bring the best experience right to your doorstep.' } },
     ]
   },
+  // Default store landing used by many templates
+  store: {
+    name: 'Store',
+    slug: 'store',
+    sections: [
+      { type: 'hero', layout: 'immersive', order: 0, data: { title: 'Shop Our Products', text: 'Find everything you need in our curated collection.' } },
+      { type: 'product-list', layout: 'grid-with-filters', order: 1, data: { title: 'Explore Everything' } },
+      { type: 'categories', layout: 'carousel', order: 2 },
+      { type: 'promotions', layout: 'wide-cards', order: 3 }
+    ]
+  },
   about: {
     name: 'About Us',
     slug: 'about',
@@ -70,18 +81,52 @@ export const DEFAULT_PAGE_TEMPLATES = {
         { type: 'hero', layout: 'simple-centered', order: 0, data: { title: 'Meet the Experts', text: 'Highly qualified professionals at your service.' } },
         { type: 'staff', layout: 'grid', order: 1 }
      ]
-  }
-};
-
-export const STORE_TEMPLATES = {
-  estore: {
-    pages: ['home', 'about', 'contact']
-  },
+   },
+   menu: {
+     name: 'Menu',
+     slug: 'menu',
+     sections: [
+        { type: 'hero', layout: 'bold-hero', order: 0, data: { title: 'Our Menu', text: 'Delicious choices for every craving.' } },
+        { type: 'product-list', layout: 'menu-grid', order: 1, data: { title: 'Browse Our Dishes' } },
+        { type: 'promotions', layout: 'wide-cards', order: 2 }
+     ]
+   },
+   account: {
+     name: 'My Account',
+     slug: 'account',
+     sections: [
+        { type: 'hero', layout: 'simple-centered', order: 0, data: { title: 'Welcome Back', text: 'Manage your profile and orders.' } },
+        { type: 'description', layout: 'UI of description', order: 1, data: { title: 'Account Settings', text: 'Update your information below.' } }
+     ]
+   },
   pharmacy: {
-    pages: ['home', 'about', 'contact'],
+    // Health-clique style pharmaceutical template
+    pages: ['home', 'store', 'about', 'contact', 'cart', 'product-description'],
     defaults: {
        hero: { layout: 'immersive' },
        description: { title: 'Health First' }
+    }
+  },
+  fastfood: {
+    // Succo / fast-food style template with dedicated lunch/menu pages
+    pages: ['home', 'store', 'about', 'menu', 'cart', 'account'],
+    defaults: {
+      hero: { layout: 'bold-hero' },
+      productList: { layout: 'menu-grid' }
+    }
+  },
+  restaurant: {
+    pages: ['home', 'menu', 'about', 'contact', 'cart', 'account'],
+    defaults: {
+      hero: { layout: 'restaurant-hero' },
+      productList: { layout: 'menu-grid' }
+    }
+  },
+  marketplace: {
+    pages: ['home', 'store', 'about', 'contact', 'cart', 'account'],
+    defaults: {
+      hero: { layout: 'modern-split' },
+      productList: { layout: 'grid-with-filters' }
     }
   }
 };

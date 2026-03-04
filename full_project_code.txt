@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-03 13:32:41
+Generated: 2026-03-04 08:38:26
 ================================================================================
 
 
@@ -2883,13 +2883,7 @@ const modelMap: Record<string, any> = {
   projectSettings: prisma.projectSettings,
   page: prisma.page,
   section: prisma.section,
-  siteSettings: prisma.siteSettings,
-  staff: prisma.staff,
-  promotion: prisma.promotion,
-  subscriber: prisma.subscriber,
-  businessStat: prisma.businessStat,
-  partner: prisma.partner,
-  helpArticle: prisma.helpArticle,
+  businessSection: prisma.businessSection,
 };
 
 // =====================
@@ -3037,6 +3031,8 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+      // include master sections if present
+      sections: true,
       siteSettings: true,
       staff: true,
       promotions: true,
@@ -3057,6 +3053,10 @@ export async function GET(req: NextRequest) {
     },
     section: {
       page: true,
+    },
+    businessSection: {
+      business: true,
+      items: true,
     },
     staff: {
       business: true,
@@ -3199,7 +3199,8 @@ export async function GET(req: NextRequest) {
         model === "notification" ||
         model === "post" ||
         model === "lunch" ||
-        model === "wishlist"
+        model === "wishlist" ||
+        model === "businessSection"
       ) {
         where.businessId = bid;
       }
@@ -4118,6 +4119,209 @@ export const POST = async (req: Request) => {
       return new NextResponse(JSON.stringify({error : error}), {status: 500})
     }
   }
+
+
+================================================================================
+LOCATION: app\api\pagehandler\route.ts
+================================================================================
+
+import { NextRequest, NextResponse } from "next/server";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+/**
+ * Page Handler - Optimized single endpoint for fetching all data needed to render a page
+ * GET /api/pagehandler?businessId=XXX&pageSlug=home
+ * OR
+ * GET /api/pagehandler?storeName=my-store&pageSlug=home
+ * 
+ * Returns complete page data including:
+ * - Business info
+ * - Page structure and sections
+ * - Site settings
+ * - Master sections (BusinessSection)
+ * - Related content (products, posts, categories, staff, etc.)
+ */
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  let businessId = searchParams.get("businessId");
+  const storeName = searchParams.get("storeName");
+  const pageSlug = searchParams.get("pageSlug") || "home";
+
+  // If storeName is provided instead of businessId, resolve it
+  if (!businessId && storeName) {
+    try {
+      const businesses = await prisma.business.findMany({
+        take: 100,
+      });
+      
+      const biz = businesses.find((b: any) =>
+        b.name.toLowerCase().replace(/\s+/g, '-') === storeName
+      );
+      
+      if (!biz) {
+        return NextResponse.json(
+          { error: "Store not found" },
+          { status: 404 }
+        );
+      }
+      businessId = biz.id;
+    } catch (error) {
+      console.error('Error resolving store name:', error);
+      return NextResponse.json(
+        { error: "Failed to resolve store" },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (!businessId) {
+    return NextResponse.json(
+      { error: "businessId or storeName is required" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    // Fetch complete business data with all relations
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+      include: {
+        settings: {
+          include: {
+            pages: {
+              include: {
+                sections: true,
+              },
+            },
+          },
+        },
+        siteSettings: true,
+        sections: true, // Master sections if using new system
+        products: {
+          take: 100,
+          include: {
+            category: true,
+            stock: true,
+            reviews: {
+              take: 5,
+            },
+          },
+        },
+        categories: {
+          include: {
+            products: {
+              take: 10,
+            },
+          },
+        },
+        posts: {
+          take: 20,
+          include: {
+            author: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
+        staff: true,
+        promotions: true,
+        stats: true,
+        partners: true,
+        helpArticles: {
+          take: 50,
+        },
+        reviews: {
+          take: 20,
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
+        chatThreads: {
+          where: {
+            businessId: businessId,
+          },
+          take: 10,
+          include: {
+            messages: {
+              take: 10,
+              orderBy: { createdAt: "desc" },
+            },
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!business) {
+      return NextResponse.json(
+        { error: "Business not found" },
+        { status: 404 }
+      );
+    }
+
+    // Find the page if using legacy system
+    const page =
+      business.settings?.pages?.find((p) => p.slug === pageSlug) ||
+      business.settings?.pages?.[0] ||
+      null;
+
+    // Prepare comprehensive page data
+    const pageData = {
+      business,
+      page,
+      pageSlug,
+      // Legacy system data
+      sections: page?.sections || [],
+      // Master system data
+      masterSections: business.sections
+        ?.filter((s: any) => s.page === pageSlug)
+        .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0)) || [],
+      // Content data
+      products: business.products,
+      categories: business.categories,
+      posts: business.posts,
+      staff: business.staff,
+      promotions: business.promotions,
+      stats: business.stats,
+      partners: business.partners,
+      helpArticles: business.helpArticles,
+      reviews: business.reviews,
+      chatThreads: business.chatThreads,
+      siteSettings: business.siteSettings,
+    };
+
+    // Set cache headers for CDN/browser
+    const response = NextResponse.json(pageData);
+    response.headers.set("Cache-Control", "public, max-age=300"); // 5 min server cache
+    return response;
+  } catch (error) {
+    console.error("Page handler error:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch page data" },
+      { status: 500 }
+    );
+  }
+}
+
 
 
 ================================================================================
@@ -7480,48 +7684,24 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
+import { usePageCache } from '@/hooks/usePageCache'
 import StoreHome from '@/components/platform/StoreHome'
 
 const DynamicStorePage = () => {
   const { storeName } = useParams();
   const router = useRouter();
   const { user, setCurrentBusiness } = useAppContext();
-  const [business, setBusiness] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { pageData, business, isLoading, error, invalidateCache } = usePageCache(
+    storeName as string,
+    'home'
+  );
   const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
   useEffect(() => {
-    const fetchBusiness = async () => {
-      try {
-        const res = await axios.get(`/api/dbhandler?model=business`);
-        const businesses = res.data;
-        
-        // Find by slug-ified name
-        const biz = businesses.find((b: any) => 
-          b.name.toLowerCase().replace(/\s+/g, '-') === storeName
-        );
-
-        if (!biz) {
-          setError("Store not found");
-          setIsLoading(false);
-          return;
-        }
-
-        setBusiness(biz);
-        setCurrentBusiness(biz); // Sync context
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Error fetching business:", err);
-        setError("Failed to load store");
-        setIsLoading(false);
-      }
-    };
-
-    if (storeName) {
-      fetchBusiness();
+    if (business) {
+      setCurrentBusiness(business);
     }
-  }, [storeName, setCurrentBusiness]);
+  }, [business, setCurrentBusiness]);
 
   const handleOpenAdmin = (tab: 'pages' | 'settings') => {
     // We set it to null first then the tab to trigger the effect in StoreHome if it's already set
@@ -7579,7 +7759,7 @@ const DynamicStorePage = () => {
          </div>
        )}
 
-       <StoreHome business={business} initialAdminTab={adminTab} />
+       <StoreHome business={business} activePageSlug="home" initialAdminTab={adminTab} onDataChange={invalidateCache} />
     </div>
   );
 }
@@ -7607,6 +7787,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
+import { usePageCache } from '@/hooks/usePageCache'
 import StoreHome from '@/components/platform/StoreHome'
 import { toast } from 'sonner'
 
@@ -7618,42 +7799,14 @@ const DynamicStorePage = () => {
   
   const router = useRouter();
   const { user, setCurrentBusiness } = useAppContext();
-  const [business, setBusiness] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { pageData, business, isLoading, error, invalidateCache } = usePageCache(storeName, pageSlug);
   const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
   useEffect(() => {
-    const fetchBusiness = async () => {
-      try {
-        const res = await axios.get(`/api/dbhandler?model=business`);
-        const businesses = res.data;
-        
-        // Find by slug-ified name
-        const biz = businesses.find((b: any) => 
-          b.name.toLowerCase().replace(/\s+/g, '-') === storeName
-        );
-
-        if (!biz) {
-          setError("Store not found");
-          setIsLoading(false);
-          return;
-        }
-
-        setBusiness(biz);
-        setCurrentBusiness(biz); // Sync context
-        setIsLoading(false);
-      } catch (err) {
-        console.error("Error fetching business:", err);
-        setError("Failed to load store");
-        setIsLoading(false);
-      }
-    };
-
-    if (storeName) {
-      fetchBusiness();
+    if (business) {
+      setCurrentBusiness(business);
     }
-  }, [storeName, setCurrentBusiness]);
+  }, [business, setCurrentBusiness]);
 
   const handleOpenAdmin = (tab: 'pages' | 'settings') => {
     setAdminTab(null);
@@ -7711,7 +7864,7 @@ const DynamicStorePage = () => {
          </div>
        )}
 
-       <StoreHome business={business} activePageSlug={pageSlug} initialAdminTab={adminTab} />
+       <StoreHome business={business} activePageSlug={pageSlug} initialAdminTab={adminTab} onDataChange={invalidateCache} />
     </div>
   );
 }
@@ -9175,10 +9328,10 @@ export const AdminEditable = ({ value, field, children }: AdminEditableProps) =>
 
   return (
     <div className="relative group cursor-pointer" onClick={() => setIsEditing(true)}>
-      <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-white p-1 rounded-full shadow-lg z-10">
+      <div className="absolute -top-2 -right-2 opacity-100 transition-opacity bg-primary text-white p-1 rounded-full shadow-lg z-10">
         <Edit2 className="h-3 w-3" />
       </div>
-      <div className="group-hover:ring-2 group-hover:ring-primary/50 group-hover:rounded-md transition-all p-1">
+      <div className="transition-all p-1">
         {children}
       </div>
     </div>
@@ -9203,6 +9356,635 @@ const Advert = () => {
 }
 
 export default Advert
+
+
+
+================================================================================
+LOCATION: components\myComponents\subs\AIProductSearch.tsx
+================================================================================
+
+"use client";
+
+import React, { useState, useRef } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import {
+  Camera,
+  Upload,
+  Loader2,
+  CheckCircle2,
+  ShoppingCart,
+  X,
+  RotateCcw,
+  Image as ImageIcon,
+} from "lucide-react";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import axios from "axios";
+import { useCart } from "@/hooks/use-cart";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+
+interface AIProductSearchProps {
+  businessId?: string;
+  children: React.ReactNode;
+}
+
+interface ProductMatch {
+  identifiedItem: {
+    name: string;
+    category?: string;
+  };
+  options: Array<{
+    id: string;
+    name: string;
+    price: number;
+    images: string[];
+    category?: string;
+    businessId: string;
+    reviewsCount?: number;
+    rating?: number;
+  }>;
+}
+
+export const AIProductSearch = ({
+  businessId,
+  children,
+}: AIProductSearchProps) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [image, setImage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<string>("");
+  const [results, setResults] = useState<ProductMatch[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Record<string, string[]>>({});
+  const { addItem } = useCart();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImage(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setImage(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // --- New: List input processing ---
+  const [listText, setListText] = useState<string>("");
+  const [useListMode, setUseListMode] = useState(false);
+
+  const processList = async () => {
+    if (!listText || !listText.trim()) {
+      toast.error("Please enter at least one product in the list");
+      return;
+    }
+
+    setLoading(true);
+    setStatus("Analyzing list...");
+    setResults([]);
+    setSelectedItems({});
+
+    try {
+      const { data: keyData } = await axios.get("/api/keys/gemini");
+      const genAI = new GoogleGenerativeAI(keyData.apiKey);
+      const model = genAI.getGenerativeModel(
+        { model: "gemini-2.5-flash" },
+        { apiVersion: "v1" }
+      );
+
+      const prompt = `
+        Extract a JSON array of products from the following free-form shopping list. Each item should be an object with keys: name (string), quantity (number, default 1), category (optional string).
+
+        List:
+        ${listText}
+
+        Return ONLY: { "products": [ { "name": "...", "quantity": 1, "category": "..." }, ... ] }
+      `;
+
+      const result = await model.generateContent([prompt]);
+      const response = await result.response;
+      const parsed = JSON.parse(response.text().replace(/```json|```/g, "").trim());
+
+      if (!parsed.products?.length) throw new Error("No products identified from list.");
+
+      setStatus("Searching your store for matches...");
+
+      const searchResults: ProductMatch[] = [];
+      for (const identifiedProduct of parsed.products) {
+        try {
+          const params = new URLSearchParams();
+          params.append("model", "product");
+          params.append("search", identifiedProduct.name);
+          if (businessId) params.append("businessId", businessId);
+
+          const res = await axios.get(`/api/dbhandler?${params.toString()}`);
+          const products = res.data || [];
+
+          searchResults.push({
+            identifiedItem: { name: identifiedProduct.name, category: identifiedProduct.category },
+            options: products.map((p: any) => ({ id: p.id, name: p.name, price: p.price, images: p.images || [], category: p.category?.name, businessId: p.businessId, reviewsCount: p.reviews?.length || 0, rating: p.rating || 0 } as any)),
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      }
+
+      setResults(searchResults);
+      const initialSelection: Record<string, string[]> = {};
+      searchResults.forEach((res: ProductMatch, idx: number) => {
+        initialSelection[idx] = res.options.length === 1 ? [res.options[0].id] : [];
+      });
+      setSelectedItems(initialSelection);
+      setStatus("Review your items and choose or use Auto-Pick");
+    } catch (error: any) {
+      console.error("List processing error:", error);
+      toast.error(error.message || "Failed to process list");
+      setStatus("");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const processImage = async () => {
+    if (!image) {
+      toast.error("Please select an image first");
+      return;
+    }
+
+    setLoading(true);
+    setStatus("Analyzing image...");
+    setResults([]);
+    setSelectedItems({});
+
+    try {
+      // Get Gemini API key
+      const { data: keyData } = await axios.get("/api/keys/gemini");
+      const genAI = new GoogleGenerativeAI(keyData.apiKey);
+      const model = genAI.getGenerativeModel(
+        { model: "gemini-2.5-flash" },
+        { apiVersion: "v1" }
+      );
+
+      setStatus("Extracting products from image...");
+      
+      const mimeType = image.match(/data:(.*?);base64/)?.[1] || "image/jpeg";
+      const base64Data = image.split(",")[1];
+      const part = { inlineData: { data: base64Data, mimeType } };
+
+      const prompt = `
+        Analyze this image which contains a list of products, shopping list, or items to find.
+        Extract the items. For each item, provide:
+        - name: Product/Item name (text)
+        - quantity: Quantity requested (number)
+        - category: Type of product if identifiable
+        
+        Return ONLY a JSON object: { "products": [{"name": "...", "quantity": number, "category": "..."}] }
+        Be concise and accurate.
+      `;
+
+      const result = await model.generateContent([prompt, part]);
+      const response = await result.response;
+      const parsed = JSON.parse(
+        response
+          .text()
+          .replace(/```json|```/g, "")
+          .trim()
+      );
+
+      if (!parsed.products?.length) {
+        throw new Error("No products identified in the image.");
+      }
+
+      setStatus("Searching your store for matching products...");
+
+      // Search for products in the specific business
+      const searchResults: ProductMatch[] = [];
+      
+      for (const identifiedProduct of parsed.products) {
+        try {
+          const params = new URLSearchParams();
+          params.append("model", "product");
+          params.append("search", identifiedProduct.name);
+          if (businessId) {
+            params.append("businessId", businessId);
+          }
+
+          const res = await axios.get(`/api/dbhandler?${params.toString()}`);
+          const products = res.data || [];
+
+          if (products.length > 0) {
+            searchResults.push({
+              identifiedItem: {
+                name: identifiedProduct.name,
+                category: identifiedProduct.category,
+              },
+              options: products.map((p: any) => ({
+                id: p.id,
+                name: p.name,
+                price: p.price,
+                images: p.images || [],
+                category: p.category?.name,
+                businessId: p.businessId,
+                reviewsCount: p.reviews?.length || 0,
+                rating: p.rating || 0,
+              } as any)),
+            });
+          } else {
+            // Add a "not found" option that allows custom request
+            searchResults.push({
+              identifiedItem: {
+                name: identifiedProduct.name,
+                category: identifiedProduct.category,
+              },
+              options: [],
+            });
+          }
+        } catch (err) {
+          console.error(`Error searching for ${identifiedProduct.name}:`, err);
+        }
+      }
+
+      setResults(searchResults);
+
+      // Auto-select first option if only one exists
+      const initialSelection: Record<string, string[]> = {};
+      searchResults.forEach((res: ProductMatch, idx: number) => {
+        if (res.options.length === 1) {
+          initialSelection[idx] = [res.options[0].id];
+        } else {
+          initialSelection[idx] = [];
+        }
+      });
+      setSelectedItems(initialSelection);
+
+      setStatus("Review and select your items");
+    } catch (error: any) {
+      console.error("Processing error:", error);
+      setStatus("");
+      toast.error(error.message || "Failed to process image");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleSelection = (identifiedIdx: number, productId: string) => {
+    setSelectedItems((prev) => {
+      const current = prev[identifiedIdx] || [];
+      const isSelected = current.includes(productId);
+      const next = isSelected
+        ? current.filter((id) => id !== productId)
+        : [...current, productId];
+
+      return { ...prev, [identifiedIdx]: next };
+    });
+  };
+
+  const autoPickBest = () => {
+    // Heuristic: favor higher rating and review count, penalize price
+    const nextSelection: Record<string, string[]> = {};
+    results.forEach((res, idx) => {
+      if (!res.options || res.options.length === 0) {
+        nextSelection[idx] = [];
+        return;
+      }
+      let bestId = res.options[0].id;
+      let bestScore = -Infinity;
+      const maxPrice = Math.max(...res.options.map((o) => o.price || 0), 1);
+      res.options.forEach((opt: any) => {
+        const ratingScore = (opt.rating || 0) * 20;
+        const reviewsScore = (opt.reviewsCount || 0) * 0.5;
+        const priceScore = -((opt.price || 0) / (maxPrice || 1)) * 30;
+        const score = ratingScore + reviewsScore + priceScore;
+        if (score > bestScore) {
+          bestScore = score;
+          bestId = opt.id;
+        }
+      });
+      nextSelection[idx] = [bestId];
+    });
+    setSelectedItems(nextSelection);
+    toast.success("Auto-picked best options for you");
+  };
+
+  const handleAddToCart = () => {
+    let totalAdded = 0;
+    results.forEach((res, idx) => {
+      const selectedIds = selectedItems[idx] || [];
+      selectedIds.forEach((id) => {
+        const product = res.options.find((opt) => opt.id === id);
+        if (product) {
+          addItem(
+            {
+              id: product.id,
+              name: product.name,
+              price: product.price,
+              images: product.images,
+              category: product.category,
+            },
+            1
+          );
+          totalAdded++;
+        }
+      });
+    });
+
+    if (totalAdded > 0) {
+      toast.success(`${totalAdded} items added to cart!`);
+      setIsOpen(false);
+    } else {
+      toast.error("Please select at least one product");
+    }
+  };
+
+  const reset = () => {
+    setImage(null);
+    setStatus("");
+    setResults([]);
+    setSelectedItems({});
+    setLoading(false);
+  };
+
+  return (
+    <Dialog
+      open={isOpen}
+      onOpenChange={(val) => {
+        setIsOpen(val);
+        if (!val) reset();
+      }}
+    >
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-3xl h-[90vh] sm:h-auto sm:max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogHeader className="p-6 border-b shrink-0">
+          <DialogTitle className="text-2xl font-black flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Camera className="w-6 h-6 text-primary" />
+              AI Product Search
+            </div>
+            {results.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={reset}
+                className="font-bold text-xs gap-2"
+              >
+                <RotateCcw className="w-4 h-4" /> Reset
+              </Button>
+            )}
+          </DialogTitle>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1">
+          <div className="p-6 space-y-6">
+            {!image ? (
+              <div className="flex flex-col items-center gap-6 w-full py-12">
+                <div className="text-center space-y-2">
+                  <h3 className="text-lg font-bold">Upload or List Products</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Upload an image of your shopping list or enter product names (one per line). AI will find items in our store.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-3 mt-4">
+                  <button
+                    onClick={() => setUseListMode(false)}
+                    className={`px-4 py-2 rounded-lg ${!useListMode ? "bg-primary text-white" : "bg-muted/10"}`}
+                  >
+                    Image
+                  </button>
+                  <button
+                    onClick={() => setUseListMode(true)}
+                    className={`px-4 py-2 rounded-lg ${useListMode ? "bg-primary text-white" : "bg-muted/10"}`}
+                  >
+                    Text List
+                  </button>
+                </div>
+
+                {!useListMode ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md mt-6">
+                    {/* Gallery Upload */}
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-muted-foreground/25 rounded-3xl bg-muted/5 hover:bg-muted/10 transition-all cursor-pointer group"
+                    >
+                      <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                        <ImageIcon className="h-6 w-6 text-primary" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-bold text-sm">Upload Image</p>
+                        <p className="text-[10px] text-muted-foreground">PNG, JPG, WEBP</p>
+                      </div>
+                    </button>
+
+                    {/* Camera Capture */}
+                    <button
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed border-muted-foreground/25 rounded-3xl bg-muted/5 hover:bg-muted/10 transition-all cursor-pointer group"
+                    >
+                      <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                        <Camera className="h-6 w-6 text-accent" />
+                      </div>
+                      <div className="text-center">
+                        <p className="font-bold text-sm">Snap Photo</p>
+                        <p className="text-[10px] text-muted-foreground">Use your camera</p>
+                      </div>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-full max-w-2xl mt-6">
+                    <textarea
+                      value={listText}
+                      onChange={(e) => setListText(e.target.value)}
+                      placeholder={"e.g. 1. Organic honey\n2. Multivitamin tablets 100s\n3. 500ml olive oil"}
+                      className="w-full min-h-[140px] p-4 rounded-xl border bg-transparent text-sm"
+                    />
+                    <div className="flex gap-3 mt-3">
+                      <Button onClick={processList} disabled={loading} className="font-bold">
+                        {loading ? (
+                          <><Loader2 className="h-4 w-4 animate-spin mr-2"/>Analyzing...</>
+                        ) : (
+                          <>Analyze List</>
+                        )}
+                      </Button>
+                      <Button variant="outline" onClick={() => setListText("")}>Clear</Button>
+                    </div>
+                  </div>
+                )}
+
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <Input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCameraCapture}
+                  className="hidden"
+                />
+              </div>
+            ) : !results.length && loading ? (
+              <div className="flex flex-col items-center justify-center gap-6 py-12">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+                <div className="text-center space-y-2">
+                  <p className="font-bold text-lg">{status}</p>
+                  <p className="text-sm text-muted-foreground">This may take a few seconds...</p>
+                </div>
+              </div>
+            ) : results.length > 0 ? (
+              <div className="space-y-6 py-4">
+                <div className="space-y-4">
+                  {results.map((result, idx) => (
+                    <div key={idx} className="border rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="font-bold">{result.identifiedItem.name}</p>
+                        {result.identifiedItem.category && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {result.identifiedItem.category}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {result.options.length === 0 ? (
+                        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-900">
+                          No matching products found. You can request this item during checkout.
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {result.options.map((product) => (
+                            <label
+                              key={product.id}
+                              className="flex items-center gap-3 p-3 border rounded-xl hover:bg-muted/50 cursor-pointer transition-colors"
+                            >
+                              <Checkbox
+                                checked={
+                                  selectedItems[idx]?.includes(product.id) || false
+                                }
+                                onCheckedChange={() =>
+                                  toggleSelection(idx, product.id)
+                                }
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-sm leading-snug truncate">
+                                  {product.name}
+                                </p>
+                                {product.category && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {product.category}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="font-bold text-sm shrink-0">
+                                ₦{product.price.toLocaleString()}
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-3">
+                    <Button onClick={autoPickBest} variant="outline" className="flex-1 font-bold">
+                      Auto-Pick Best
+                    </Button>
+                    <Button onClick={() => {
+                      // quick sort view toggle: sort options by price asc within each identified group
+                      // not persisted — just reorders the results options array for display
+                      setResults((prev) => prev.map((r) => ({
+                        ...r,
+                        options: [...r.options].sort((a: any, b: any) => a.price - b.price)
+                      })));
+                    }} variant="ghost" className="font-bold">
+                      Sort Options by Price
+                    </Button>
+                  </div>
+
+                  <Button
+                    onClick={handleAddToCart}
+                    className="w-full h-12 font-bold text-lg gap-2"
+                    disabled={
+                      !Object.values(selectedItems).some(
+                        (items) => items.length > 0
+                      )
+                    }
+                  >
+                    <ShoppingCart className="h-5 w-5" />
+                    Add Selected to Cart
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-4 py-12">
+                {image && (
+                  <>
+                    <img
+                      src={image}
+                      alt="Preview"
+                      className="max-h-64 max-w-full rounded-2xl border-2 border-muted"
+                    />
+                    <Button
+                      onClick={processImage}
+                      disabled={loading}
+                      size="lg"
+                      className="w-full font-bold"
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-5 w-5 mr-2" />
+                          Search Products
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={reset}
+                      variant="outline"
+                      className="w-full font-bold"
+                    >
+                      <X className="h-5 w-5 mr-2" />
+                      Choose Another Image
+                    </Button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 
 
@@ -20388,6 +21170,7 @@ export default AddSectionTrigger
 
 
 
+
 ================================================================================
 LOCATION: components\platform\AdminToolbar.tsx
 ================================================================================
@@ -20973,15 +21756,16 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import axios from 'axios'
-import { 
-  AiOutlineSearch, 
-  AiOutlineFilter, 
-  AiOutlineClear,
-  AiOutlineShoppingCart,
-  AiOutlineStar,
-  AiOutlineArrowRight,
-  AiOutlineRobot
+import {
+   AiOutlineSearch, 
+   AiOutlineFilter, 
+   AiOutlineClear,
+   AiOutlineShoppingCart,
+   AiOutlineStar,
+   AiOutlineArrowRight,
+   AiOutlineRobot
 } from 'react-icons/ai'
+import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 import { 
   Search, 
   Filter, 
@@ -21123,7 +21907,7 @@ export const PlatformStore = () => {
       {/* Main Content Area */}
       <main className="max-w-7xl mx-auto w-full flex flex-col md:flex-row gap-8 py-12 px-6">
          {/* Sidebar Navigation & Filters */}
-         <aside className="w-full md:w-80 flex flex-col gap-8 sticky top-24 h-fit">
+         <aside className="w-full md:w-80 flex flex-col gap-8 md:sticky md:top-24 h-fit">
             
             {/* AI Assistant CTA */}
             <div className="bg-gradient-to-br from-accent to-primary rounded-3xl p-6 text-white shadow-xl shadow-accent/20 group cursor-pointer relative overflow-hidden" onClick={() => setIsFilterOpen(true)}>
@@ -21134,9 +21918,11 @@ export const PlatformStore = () => {
                   <div className="inline-flex items-center rounded-full bg-white/20 px-3 py-1 text-[10px] font-black uppercase tracking-widest">Powered by AI</div>
                   <h3 className="text-xl font-black">Smart Shopping Assistant</h3>
                   <p className="text-xs text-white/80 font-medium">Upload a list or just tell the AI what you want, and it will find the best items across all stores for you.</p>
-                  <Button className="w-full bg-white text-accent hover:bg-white/90 font-black rounded-xl h-12 gap-2">
-                     Start AI Shop <Sparkles className="h-4 w-4" />
-                  </Button>
+                  <AIProductSearch>
+                    <Button className="w-full bg-white text-accent hover:bg-white/90 font-black rounded-xl h-12 gap-2">
+                       Start AI Shop <Sparkles className="h-4 w-4" />
+                    </Button>
+                  </AIProductSearch>
                </div>
             </div>
 
@@ -21303,7 +22089,8 @@ import { Input } from '@/components/ui/input'
 import { Settings as SettingsIcon } from 'lucide-react'
 
 const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: () => void }) => {
-  const [configData, setConfigData] = React.useState(section.data || {});
+  // section may come from old schema (data) or new businessSection (content/settings)
+  const [configData, setConfigData] = React.useState(section.data || section.content || {});
   const [categories, setCategories] = React.useState<any[]>([]);
 
   React.useEffect(() => {
@@ -21314,12 +22101,33 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
     if (section.type === 'products') fetchCats();
   }, [section.type]);
 
+  // hero variants that admins can choose
+  const heroVariants = [
+    'modern-split',
+    'immersive',
+    'carousel',
+    'story',
+    'menu',
+    'experience',
+    'local',
+  ];
+
   const handleSave = async () => {
     try {
-      await axios.put(`/api/dbhandler?model=section`, {
-        id: section.id,
-        data: configData
-      });
+      // determine whether to update old section or new businessSection
+      const useMaster = Object.prototype.hasOwnProperty.call(section, 'businessId');
+      if (useMaster) {
+        // update content/settings
+        await axios.put(`/api/dbhandler?model=businessSection`, {
+          id: section.id,
+          content: configData,
+        });
+      } else {
+        await axios.put(`/api/dbhandler?model=section`, {
+          id: section.id,
+          data: configData,
+        });
+      }
       toast.success("Section updated");
       onUpdate();
     } catch (err) {
@@ -21358,6 +22166,42 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
               </Select>
             </div>
           )}
+          {/* Layout options for dynamic sections */}
+          {['products','product-list','categories','posts','staff','partners','hero'].includes(section.type) && (
+            <div className="space-y-2">
+              <Label>Layout</Label>
+              <Select
+                value={(configData.settings && configData.settings.layout) || configData.layout || (section.type === 'hero' ? 'modern-split' : 'grid')}
+                onValueChange={(v) => {
+                  const next = { ...configData };
+                  if (!next.settings) next.settings = {};
+                  next.settings.layout = v;
+                  next.layout = v;
+                  setConfigData(next);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select layout" />
+                </SelectTrigger>
+                <SelectContent>
+                  {section.type === 'hero' ? (
+                    heroVariants.map((v) => (
+                      <SelectItem key={v} value={v}>{v.replace(/-/g, ' ')}</SelectItem>
+                    ))
+                  ) : (
+                    <>
+                      <SelectItem value="grid">Grid</SelectItem>
+                      <SelectItem value="flex">Flex Box</SelectItem>
+                      <SelectItem value="auto-carousel">Auto Carousel</SelectItem>
+                      <SelectItem value="manual-carousel">Manual Carousel</SelectItem>
+                      <SelectItem value="two-layer-auto-carousel">2-Layer Auto Carousel</SelectItem>
+                      <SelectItem value="stack">Stack Layout</SelectItem>
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Section Title (Overlay)</Label>
             <Input
@@ -21392,6 +22236,7 @@ interface Business {
   id: string
   name: string
   settings?: any
+  sections?: any[]
   siteSettings?: any
 }
 
@@ -21567,13 +22412,15 @@ import StoreNavbar from './StoreNavbar'
 import AddSectionTrigger from './AddSectionTrigger'
 import AdminToolbar from './AdminToolbar'
 import { useStoreActions } from '@/hooks/useStoreActions'
+import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
+import { BusinessProductSearch } from '@/components/utility/BusinessProductSearch'
 
 interface Section {
-  id: string
-  type: string
-  layout: string
-  data?: any
-  order: number
+   id: string;
+   type: string;
+   layout?: string;
+   data?: any;
+   order?: number;
 }
 
 interface Page {
@@ -21633,6 +22480,7 @@ interface Business {
     exchangeRate: number
     pages: any[]
   }
+  sections?: any[]
   siteSettings?: {
     id: string
     aboutText: string
@@ -21668,11 +22516,13 @@ interface Business {
 const StoreHome = ({
   business: initialBusiness,
   activePageSlug = 'home',
-  initialAdminTab = null
+  initialAdminTab = null,
+  onDataChange
 }: {
   business: Business,
   activePageSlug?: string,
-  initialAdminTab?: 'pages' | 'settings' | null
+  initialAdminTab?: 'pages' | 'settings' | null,
+  onDataChange?: () => void
 }) => {
   const { setCurrentBusiness, currentBusiness } = useAppContext();
   const isAdmin = useIsBusinessAdmin();
@@ -21692,8 +22542,18 @@ const StoreHome = ({
   }, [initialAdminTab]);
 
   const settings = business.settings;
-  const activePage = settings?.pages?.find(p => p.slug === activePageSlug) || (activePageSlug === 'home' && settings?.pages?.[0]?.slug === 'home' ? settings.pages[0] : null);
-  const sections = activePage?.sections || [];
+  const activePage = settings?.pages?.find(p => p.slug === activePageSlug) ||
+    (activePageSlug === 'home' && settings?.pages?.[0]?.slug === 'home' ? settings.pages[0] : null);
+
+  // if business.sections exists (master section system), filter by page slug and sort by position
+  let sections: any[] = [];
+  if (business.sections && business.sections.length) {
+    sections = business.sections
+      .filter((s: any) => s.page === activePageSlug)
+      .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
+  } else {
+    sections = activePage?.sections || [];
+  }
 
   const {
     handleAddSection,
@@ -21701,7 +22561,7 @@ const StoreHome = ({
     handleRemoveSection,
     handleApplyTemplate,
     updateGlobalSettings,
-  } = useStoreActions({ activePage, sections, settings, storeName, business });
+  } = useStoreActions({ activePage, sections, settings, storeName, business, onDataChange });
 
   // If page doesn't exist, show helper
   if (!activePage) {
@@ -21726,7 +22586,7 @@ const StoreHome = ({
 
   return (
     <div className="flex flex-col items-center w-full relative">
-       <StoreNavbar business={business} />
+       <StoreNavbar business={business} businessId={business.id} />
 
        {isAdmin && (
          <AdminToolbar
@@ -21765,7 +22625,7 @@ const StoreHome = ({
           {sections.sort((a,b) => a.order - b.order).map((section, idx) => (
             <div key={section.id} className="w-full group/section relative">
                {isAdmin && (
-                  <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-2">
+                  <div className="absolute right-4 top-4 z-40 opacity-100 transition-opacity flex gap-2">
                      <SectionConfigDialog section={section} onUpdate={() => window.location.reload()} />
                      <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleRemoveSection(section.id)}>
                         <Trash2 className="h-4 w-4" />
@@ -21791,19 +22651,43 @@ const StoreHome = ({
 
 // Component to render custom UI based on ProjectSettings section definition
 const RenderSection = ({ section, business }: { section: any, business: Business }) => {
-   const { id, type, layout, data } = section;
+   // old schema: { id, type, layout, data }
+   // new schema: { id, key, type, settings, content }
+   const { id } = section;
+   const type = section.type || section.key || '';
+   const layout = section.layout || section.settings?.layout || section.key || '';
+   const data = section.data || section.content || {};
    const { storeName } = useParams();
    const searchParams = useSearchParams();
+   
+   // Auto-inject AI search section after hero
+   const isHeroSection = type === 'hero';
    
    switch (type) {
      case 'hero':
         return (
-          <Hero 
-            variant={layout as any || 'modern-split'} 
-            title={<AdminEditable value={business.siteSettings?.heroTitle || 'Welcome'} model="siteSettings" id={business.siteSettings?.id || ''} field="heroTitle">{business.siteSettings?.heroTitle || 'Welcome'}</AdminEditable>}
-            subtitle={<AdminEditable value={business.siteSettings?.heroSubtitle || ''} model="siteSettings" id={business.siteSettings?.id || ''} field="heroSubtitle">{business.siteSettings?.heroSubtitle || ''}</AdminEditable>}
-            sectionId={id} 
-          />
+          <>
+            <Hero 
+              variant={layout as any || 'modern-split'} 
+              title={<AdminEditable value={business.siteSettings?.heroTitle || 'Welcome'} model="siteSettings" id={business.siteSettings?.id || ''} field="heroTitle">{business.siteSettings?.heroTitle || 'Welcome'}</AdminEditable>}
+              subtitle={<AdminEditable value={business.siteSettings?.heroSubtitle || ''} model="siteSettings" id={business.siteSettings?.id || ''} field="heroSubtitle">{business.siteSettings?.heroSubtitle || ''}</AdminEditable>}
+              sectionId={id} 
+            />
+            {/* AI Product Search Section Below Hero */}
+            <section className="w-full py-12 px-4 md:px-8 bg-gradient-to-br from-background via-muted/30 to-background">
+              <div className="max-w-7xl mx-auto">
+                <AIProductSearch businessId={business.id}>
+                  <Button 
+                    className="w-full md:w-auto h-14 px-8 bg-accent hover:bg-accent/90 text-white font-black text-lg rounded-2xl shadow-lg hover:shadow-xl transition-all group"
+                  >
+                    <Search className="h-5 w-5 mr-2 group-hover:scale-110 transition-transform" />
+                    Find Products with AI
+                  </Button>
+                </AIProductSearch>
+                <p className="text-sm text-muted-foreground mt-3 text-center md:text-left">Snap a photo or upload a list of products you want to find</p>
+              </div>
+            </section>
+          </>
         );
      case 'products':
         if (layout === 'carousel of products') {
@@ -22128,17 +23012,19 @@ import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search } from 'lucide-react'
+import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search, Camera } from 'lucide-react'
 import { GlobalCart } from '@/components/utility/GlobalCart'
+import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 
 interface Business {
   id: string
   name: string
   settings?: any
+  sections?: any[]
   siteSettings?: any
 }
 
-const StoreNavbar = ({ business }: { business: Business }) => {
+const StoreNavbar = ({ business, businessId }: { business: Business, businessId?: string }) => {
   const { storeName } = useParams();
   const isAdmin = useIsBusinessAdmin();
   const pages = business.settings?.pages || [];
@@ -22170,6 +23056,13 @@ const StoreNavbar = ({ business }: { business: Business }) => {
           </Badge>
          </Link>
        )}
+       {businessId && (
+         <AIProductSearch businessId={businessId}>
+           <Button variant="ghost" size="icon" title="AI Product Search" className="hover:bg-accent/10 hover:text-accent">
+             <Camera className="h-5 w-5" />
+           </Button>
+         </AIProductSearch>
+       )}
        <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
        <GlobalCart />
        <Button variant="outline" className="rounded-full font-bold md:flex hidden">
@@ -22190,6 +23083,14 @@ const StoreNavbar = ({ business }: { business: Business }) => {
              </SheetTitle>
            </SheetHeader>
            <div className="flex flex-col gap-6">
+             {businessId && (
+               <AIProductSearch businessId={businessId}>
+                 <Button className="w-full h-12 bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90 text-white font-bold rounded-xl gap-2">
+                   <Camera className="h-5 w-5" />
+                   AI Product Search
+                 </Button>
+               </AIProductSearch>
+             )}
              {pages.map(page => (
                <Link
                 key={page.id}
@@ -27717,6 +28618,424 @@ export const AdminEditable = ({
 
 
 ================================================================================
+LOCATION: components\utility\BusinessProductSearch.tsx
+================================================================================
+
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+import { Badge } from "@/components/ui/badge";
+import {
+  Search,
+  Filter,
+  Trash2,
+  ChevronDown,
+  ShoppingCart,
+  Star,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import axios from "axios";
+import { toast } from "sonner";
+import { useCart } from "@/hooks/use-cart";
+import { PriceDisplay } from "./PriceDisplay";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  images: string[];
+  category?: {
+    id: string;
+    name: string;
+  };
+  businessId: string;
+  reviews?: any[];
+}
+
+interface Category {
+  id: string;
+  name: string;
+}
+
+interface BusinessProductSearchProps {
+  businessId: string;
+  className?: string;
+}
+
+export const BusinessProductSearch = ({
+  businessId,
+  className = "",
+}: BusinessProductSearchProps) => {
+  const { addItem } = useCart();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(true);
+
+  // Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [priceRange, setPriceRange] = useState([0, 500000]);
+  const [sortBy, setSortBy] = useState("newest");
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const params = new URLSearchParams();
+        params.append("model", "category");
+        if (businessId) {
+          params.append("businessId", businessId);
+        }
+        const res = await axios.get(`/api/dbhandler?${params.toString()}`);
+        setCategories(res.data || []);
+      } catch (err) {
+        console.error("Error fetching categories:", err);
+      }
+    };
+    fetchCategories();
+  }, [businessId]);
+
+  // Fetch products based on filters
+  const fetchProducts = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append("model", "product");
+
+      if (businessId) {
+        params.append("businessId", businessId);
+      }
+
+      if (searchQuery.trim()) {
+        params.append("search", searchQuery.trim());
+      }
+
+      if (selectedCategory !== "all") {
+        params.append("category", selectedCategory);
+      }
+
+      params.append("minPrice", priceRange[0].toString());
+      params.append("maxPrice", priceRange[1].toString());
+
+      const res = await axios.get(`/api/dbhandler?${params.toString()}`);
+      const filteredProducts = res.data || [];
+
+      // Apply sorting
+      if (sortBy === "price-low") {
+        filteredProducts.sort((a, b) => a.price - b.price);
+      } else if (sortBy === "price-high") {
+        filteredProducts.sort((a, b) => b.price - a.price);
+      } else if (sortBy === "rating") {
+        filteredProducts.sort(
+          (a, b) =>
+            (b.reviews?.length || 0) - (a.reviews?.length || 0)
+        );
+      }
+
+      setProducts(filteredProducts);
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      toast.error("Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Debounced search
+  useEffect(() => {
+    const timeout = setTimeout(fetchProducts, 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery, selectedCategory, priceRange, sortBy, businessId]);
+
+  const clearFilters = () => {
+    setSearchQuery("");
+    setSelectedCategory("all");
+    setPriceRange([0, 500000]);
+    setSortBy("newest");
+  };
+
+  const handleAddToCart = (product: Product) => {
+    addItem(
+      {
+        id: product.id,
+        name: product.name,
+        price: product.price,
+        images: product.images,
+        category: product.category?.name,
+      },
+      1
+    );
+    toast.success(`${product.name} added to cart!`);
+  };
+
+  return (
+    <div className={`w-full ${className}`}>
+      {/* Header */}
+      <div className="bg-gradient-to-r from-accent/5 to-primary/5 border-b py-6 px-4 md:px-8 rounded-t-2xl">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <div className="flex items-center gap-3">
+            <Search className="h-6 w-6 text-accent" />
+            <h2 className="text-2xl md:text-3xl font-black">Search Products</h2>
+          </div>
+          <p className="text-muted-foreground">
+            Discover and browse all available products in our store
+          </p>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Sidebar Filters */}
+          <aside className="lg:col-span-1">
+            <div className="sticky top-24 space-y-6">
+              {/* Mobile Filter Toggle */}
+              <Button
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                variant="outline"
+                className="w-full lg:hidden font-bold gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                {isFilterOpen ? "Hide" : "Show"} Filters
+                <ChevronDown
+                  className={`h-4 w-4 ml-auto transition-transform ${
+                    isFilterOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </Button>
+
+              {isFilterOpen && (
+                <Card className="rounded-2xl border-2">
+                  <CardHeader className="pb-4">
+                    <div className="flex justify-between items-center">
+                      <CardTitle className="text-sm font-black uppercase tracking-widest">
+                        <Filter className="h-4 w-4 inline mr-2 text-accent" />
+                        Filters
+                      </CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="h-8 text-[10px] font-bold text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Reset
+                      </Button>
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="space-y-6">
+                    {/* Search */}
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Search
+                      </label>
+                      <Input
+                        placeholder="Product name..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="h-10 rounded-xl border-2"
+                      />
+                    </div>
+
+                    {/* Category Filter */}
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Category
+                      </label>
+                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                        <SelectTrigger className="h-10 rounded-xl border-2">
+                          <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="all">All Categories</SelectItem>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Price Range */}
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Price Range
+                      </label>
+                      <Slider
+                        value={priceRange}
+                        onValueChange={setPriceRange}
+                        min={0}
+                        max={500000}
+                        step={5000}
+                        className="cursor-pointer"
+                      />
+                      <div className="flex justify-between text-sm font-bold">
+                        <span>₦{priceRange[0].toLocaleString()}</span>
+                        <span>₦{priceRange[1].toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Sort */}
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                        Sort By
+                      </label>
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="h-10 rounded-xl border-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          <SelectItem value="newest">Newest</SelectItem>
+                          <SelectItem value="price-low">Price: Low to High</SelectItem>
+                          <SelectItem value="price-high">Price: High to Low</SelectItem>
+                          <SelectItem value="rating">Most Rated</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </aside>
+
+          {/* Products Grid */}
+          <main className="lg:col-span-3">
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-80 bg-muted rounded-2xl animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : products.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <Search className="h-16 w-16 text-muted-foreground/20 mb-4" />
+                <h3 className="text-xl font-bold mb-2">No products found</h3>
+                <p className="text-muted-foreground max-w-md">
+                  Try adjusting your search filters or browse our categories
+                </p>
+                <Button
+                  onClick={clearFilters}
+                  variant="outline"
+                  className="mt-6 font-bold"
+                >
+                  Clear Filters
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-6">
+                  <p className="font-black text-sm uppercase tracking-widest text-muted-foreground">
+                    {products.length} Product{products.length !== 1 ? "s" : ""} Found
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {products.map((product) => (
+                    <Card
+                      key={product.id}
+                      className="rounded-2xl border-2 overflow-hidden hover:border-accent/50 transition-all group cursor-pointer"
+                    >
+                      {/* Image */}
+                      <div className="relative w-full aspect-square bg-muted overflow-hidden">
+                        {product.images?.[0] ? (
+                          <img
+                            src={product.images[0]}
+                            alt={product.name}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-muted/50">
+                            <ShoppingCart className="h-8 w-8 text-muted-foreground/20" />
+                          </div>
+                        )}
+
+                        {/* Overlay on hover */}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <Button
+                            size="sm"
+                            className="gap-2 font-bold"
+                            onClick={() => handleAddToCart(product)}
+                          >
+                            <ShoppingCart className="h-4 w-4" />
+                            Add to Cart
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Info */}
+                      <CardContent className="p-4 space-y-3">
+                        <div>
+                          <p className="font-bold text-sm line-clamp-2">
+                            {product.name}
+                          </p>
+                          {product.category && (
+                            <Badge variant="secondary" className="text-[10px] mt-2">
+                              {product.category.name}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-black text-accent">
+                            ₦{product.price.toLocaleString()}
+                          </p>
+                          {product.reviews && product.reviews.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                              <span className="text-xs font-bold">
+                                {(
+                                  product.reviews.reduce((acc, r) => acc + (r.rating || 0), 0) /
+                                  product.reviews.length
+                                ).toFixed(1)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <Button
+                          className="w-full h-10 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl gap-2"
+                          onClick={() => handleAddToCart(product)}
+                        >
+                          <ShoppingCart className="h-4 w-4" />
+                          Add to Cart
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </>
+            )}
+          </main>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
+================================================================================
 LOCATION: components\utility\contactForm.tsx
 ================================================================================
 
@@ -29785,6 +31104,83 @@ export default {
 
 
 ================================================================================
+LOCATION: find_itech3.js
+================================================================================
+
+
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+
+async function main() {
+  try {
+    const businesses = await prisma.business.findMany();
+    // console.log('Businesses:', JSON.stringify(businesses, null, 2));
+    
+    const itech3 = businesses.find(b => b.name.toLowerCase().includes('itech3'));
+    if (itech3) {
+      console.log('FOUND_BUSINESS_ID:' + itech3.id);
+      console.log('FOUND_BUSINESS_NAME:' + itech3.name);
+      
+      const categories = await prisma.category.findMany({
+        where: { businessId: itech3.id }
+      });
+      console.log('CATEGORIES:' + JSON.stringify(categories));
+    } else {
+      console.log('itech3 business not found');
+      // List available names to help debugging
+      console.log('Available businesses:', businesses.map(b => b.name).join(', '));
+    }
+  } catch (err) {
+    console.error('Error:', err);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+main();
+
+
+
+================================================================================
+LOCATION: find_itech3.ts
+================================================================================
+
+
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const businesses = await prisma.business.findMany();
+  console.log('Businesses:', JSON.stringify(businesses, null, 2));
+  
+  const itech3 = businesses.find(b => b.name.toLowerCase().includes('itech3'));
+  if (itech3) {
+    console.log('Found itech3:', JSON.stringify(itech3, null, 2));
+    
+    // Also find categories for this business
+    const categories = await prisma.category.findMany({
+      where: { businessId: itech3.id }
+    });
+    console.log('Categories for itech3:', JSON.stringify(categories, null, 2));
+  } else {
+    console.log('itech3 business not found');
+  }
+}
+
+main()
+  .catch(e => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
+
+
+================================================================================
 LOCATION: hooks\use-cart-hook-docs.ts
 ================================================================================
 
@@ -30646,6 +32042,187 @@ export const useAppContext = () => {
 
 
 ================================================================================
+LOCATION: hooks\useDataCache.ts
+================================================================================
+
+"use client";
+
+import React from 'react';
+
+/**
+ * Lightweight localStorage-based cache utility for API responses
+ * Automatically handles cache expiration and versioning
+ */
+
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  version: string;
+}
+
+const CACHE_VERSION = "1.0";
+const DEFAULT_CACHE_DURATION = 1000 * 60 * 10; // 10 minutes
+
+export class DataCache {
+  private static readonly prefix = "vendorport_cache_";
+  private static readonly versionKey = "vendorport_cache_version";
+
+  /**
+   * Get cached data if it exists and is not expired
+   */
+  static get<T>(key: string, duration = DEFAULT_CACHE_DURATION): T | null {
+    try {
+      const cached = localStorage.getItem(`${this.prefix}${key}`);
+      if (!cached) return null;
+
+      const entry: CacheEntry<T> = JSON.parse(cached);
+      const now = Date.now();
+
+      // Check version and expiry
+      if (
+        entry.version !== CACHE_VERSION ||
+        now - entry.timestamp > duration
+      ) {
+        this.remove(key);
+        return null;
+      }
+
+      return entry.data;
+    } catch (e) {
+      console.warn(`Cache read error for key: ${key}`, e);
+      return null;
+    }
+  }
+
+  /**
+   * Set data in cache
+   */
+  static set<T>(key: string, data: T): void {
+    try {
+      const entry: CacheEntry<T> = {
+        data,
+        timestamp: Date.now(),
+        version: CACHE_VERSION,
+      };
+      localStorage.setItem(`${this.prefix}${key}`, JSON.stringify(entry));
+    } catch (e) {
+      console.warn(`Cache write error for key: ${key}`, e);
+    }
+  }
+
+  /**
+   * Remove specific cache entry
+   */
+  static remove(key: string): void {
+    try {
+      localStorage.removeItem(`${this.prefix}${key}`);
+    } catch (e) {
+      console.warn(`Cache remove error for key: ${key}`, e);
+    }
+  }
+
+  /**
+   * Clear all cache entries matching a pattern
+   */
+  static clearByPattern(pattern: string): void {
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach((key) => {
+        if (
+          key.startsWith(this.prefix) &&
+          key.includes(pattern)
+        ) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (e) {
+      console.warn(`Cache clear error for pattern: ${pattern}`, e);
+    }
+  }
+
+  /**
+   * Clear all app cache
+   */
+  static clearAll(): void {
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach((key) => {
+        if (key.startsWith(this.prefix)) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (e) {
+      console.warn("Cache clear all error", e);
+    }
+  }
+}
+
+/**
+ * Hook to manage cached data fetching
+ */
+export function useCachedData<T>(
+  key: string,
+  fetchFn: () => Promise<T>,
+  options?: {
+    duration?: number;
+    autoFetch?: boolean;
+  }
+): {
+  data: T | null;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<void>;
+  invalidate: () => void;
+} {
+  const [data, setData] = React.useState<T | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState<Error | null>(null);
+
+  const { duration = DEFAULT_CACHE_DURATION, autoFetch = true } = options || {};
+
+  const refetch = React.useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Check cache first
+      const cached = DataCache.get<T>(key, duration);
+      if (cached) {
+        setData(cached);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch from API
+      const freshData = await fetchFn();
+      DataCache.set(key, freshData);
+      setData(freshData);
+      setIsLoading(false);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error("Unknown error");
+      setError(error);
+      setIsLoading(false);
+      throw error;
+    }
+  }, [key, fetchFn, duration]);
+
+  const invalidate = React.useCallback(() => {
+    DataCache.remove(key);
+    setData(null);
+  }, [key]);
+
+  React.useEffect(() => {
+    if (autoFetch) {
+      refetch();
+    }
+  }, [key, refetch, autoFetch]);
+
+  return { data, isLoading, error, refetch, invalidate };
+}
+
+
+
+================================================================================
 LOCATION: hooks\useIsAdmin.ts
 ================================================================================
 
@@ -30749,6 +32326,146 @@ export function useMessageNotifications() {
 
 
 ================================================================================
+LOCATION: hooks\usePageCache.ts
+================================================================================
+
+"use client";
+
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+
+interface CachedPageData {
+  pageData: any;
+  timestamp: number;
+  version: string;
+}
+
+export function usePageCache(storeNameOrId: string, pageSlug: string = 'home') {
+  const [pageData, setPageData] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Determine if input is businessId (24-char MongoDB ID) or storeName (slug format)
+  const isBusinessId = storeNameOrId.length === 24 && /^[a-f0-9]{24}$/i.test(storeNameOrId);
+  const cacheKeyId = isBusinessId ? storeNameOrId : `store_${storeNameOrId}`;
+  const CACHE_KEY = `page_cache_${cacheKeyId}_${pageSlug}`;
+  const CACHE_DURATION = 1000 * 60 * 10; // 10 minutes
+  const CACHE_VERSION = '2.0'; // Increment when schema changes
+
+  const getCachedData = () => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) return null;
+
+      const data: CachedPageData = JSON.parse(cached);
+      const now = Date.now();
+
+      // Check cache version and expiry
+      if (data.version !== CACHE_VERSION || now - data.timestamp > CACHE_DURATION) {
+        localStorage.removeItem(CACHE_KEY);
+        return null;
+      }
+
+      return data.pageData;
+    } catch (e) {
+      console.warn('Cache read error:', e);
+      return null;
+    }
+  };
+
+  const setCachedData = (data: any) => {
+    try {
+      const cacheData: CachedPageData = {
+        pageData: data,
+        timestamp: Date.now(),
+        version: CACHE_VERSION,
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+    } catch (e) {
+      console.warn('Cache write error:', e);
+    }
+  };
+
+  const invalidateCache = () => {
+    try {
+      localStorage.removeItem(CACHE_KEY);
+    } catch (e) {
+      console.warn('Cache invalidation error:', e);
+    }
+  };
+
+  useEffect(() => {
+    const fetchPageData = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // Try to get from cache first
+        const cachedData = getCachedData();
+        if (cachedData) {
+          setPageData(cachedData);
+          setIsLoading(false);
+          return;
+        }
+
+        // Fetch page data from the optimized pagehandler endpoint
+        // Single request gets ALL data needed to render the page
+        const queryParam = isBusinessId ? 'businessId' : 'storeName';
+        const response = await axios.get(
+          `/api/pagehandler?${queryParam}=${storeNameOrId}&pageSlug=${pageSlug}`
+        );
+
+        if (!response.data) {
+          throw new Error('Invalid page data received');
+        }
+
+        // Cache the complete page data
+        setCachedData(response.data);
+        setPageData(response.data);
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Error fetching page data:', err);
+        setError(
+          err instanceof Error ? err.message : 'Failed to load page'
+        );
+        setIsLoading(false);
+      }
+    };
+
+    if (storeNameOrId && pageSlug) {
+      fetchPageData();
+    }
+  }, [storeNameOrId, pageSlug]);
+
+  return {
+    pageData,
+    business: pageData?.business,
+    sections: pageData?.sections || [],
+    masterSections: pageData?.masterSections || [],
+    products: pageData?.products || [],
+    categories: pageData?.categories || [],
+    posts: pageData?.posts || [],
+    staff: pageData?.staff || [],
+    promotions: pageData?.promotions || [],
+    stats: pageData?.stats || [],
+    partners: pageData?.partners || [],
+    helpArticles: pageData?.helpArticles || [],
+    reviews: pageData?.reviews || [],
+    chatThreads: pageData?.chatThreads || [],
+    siteSettings: pageData?.siteSettings,
+    isLoading,
+    error,
+    invalidateCache,
+    refetch: () => {
+      invalidateCache();
+      window.location.reload();
+    },
+  };
+}
+
+
+
+================================================================================
 LOCATION: hooks\useStoreActions.ts
 ================================================================================
 
@@ -30764,6 +32481,7 @@ interface Params {
   settings?: any;
   storeName?: string | string[];
   business?: any;
+  onDataChange?: () => void;
 }
 
 export function useStoreActions({
@@ -30772,19 +32490,38 @@ export function useStoreActions({
   settings,
   storeName,
   business,
+  onDataChange,
 }: Params) {
   const handleAddSection = async (type: string, layout: string) => {
-    if (!activePage) return;
+    // Determine whether we are using the new master BusinessSection system
+    const useMaster = Boolean(business && business.sections);
     try {
-      const newSection = {
-        pageId: activePage.id,
-        type,
-        layout,
-        order: sections.length,
-        data: { title: `New ${type}`, text: 'Add your text here...' },
-      };
-      await axios.post('/api/dbhandler?model=section', newSection);
+      if (useMaster) {
+        const newSection = {
+          businessId: business.id,
+          page: activePage?.slug || 'home',
+          key: layout, // store the layout as the key for now
+          type: 'static',
+          position: sections.length,
+          heading: `New ${type}`,
+          subHeading: '',
+          content: {},
+          settings: { layout },
+        };
+        await axios.post('/api/dbhandler?model=businessSection', newSection);
+      } else {
+        if (!activePage) return;
+        const newSection = {
+          pageId: activePage.id,
+          type,
+          layout,
+          order: sections.length,
+          data: { title: `New ${type}`, text: 'Add your text here...' },
+        };
+        await axios.post('/api/dbhandler?model=section', newSection);
+      }
       toast.success('Section added!');
+      onDataChange?.();
       window.location.reload();
     } catch (err) {
       toast.error('Failed to add section');
@@ -30820,6 +32557,7 @@ export function useStoreActions({
       }
 
       toast.success('Page created!');
+      onDataChange?.();
       window.location.href = `/${storeName}/${slug}`;
     } catch (err) {
       toast.error('Failed to create page');
@@ -30828,8 +32566,14 @@ export function useStoreActions({
 
   const handleRemoveSection = async (id: string) => {
     try {
-      await axios.delete(`/api/dbhandler?model=section&id=${id}`);
+      const useMaster = Boolean(business && business.sections);
+      if (useMaster) {
+        await axios.delete(`/api/dbhandler?model=businessSection&id=${id}`);
+      } else {
+        await axios.delete(`/api/dbhandler?model=section&id=${id}`);
+      }
       toast.success('Section removed');
+      onDataChange?.();
       window.location.reload();
     } catch (err) {
       toast.error('Failed to remove section');
@@ -30837,22 +32581,37 @@ export function useStoreActions({
   };
 
   const handleApplyTemplate = async (templateSlug: string) => {
-    if (!activePage) return;
+    if (!activePage && !(business && business.sections)) return;
     const template =
       DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
     if (!template) return;
 
     try {
+      const useMaster = Boolean(business && business.sections);
       for (const s of template.sections) {
-        await axios.post('/api/dbhandler?model=section', {
-          pageId: activePage.id,
-          type: s.type,
-          layout: s.layout,
-          order: s.order,
-          data: (s as any).data,
-        });
+        if (useMaster) {
+          await axios.post('/api/dbhandler?model=businessSection', {
+            businessId: business.id,
+            page: activePage?.slug || 'home',
+            key: s.layout,
+            type: 'static',
+            position: s.order,
+            heading: (s as any).data?.title || '',
+            content: (s as any).data || {},
+            settings: { layout: s.layout },
+          });
+        } else {
+          await axios.post('/api/dbhandler?model=section', {
+            pageId: activePage.id,
+            type: s.type,
+            layout: s.layout,
+            order: s.order,
+            data: (s as any).data,
+          });
+        }
       }
       toast.success(`Applied ${template.name} template!`);
+      onDataChange?.();
       window.location.reload();
     } catch (err) {
       toast.error('Failed to apply template');
@@ -30881,6 +32640,7 @@ export function useStoreActions({
       }
 
       toast.success('Settings updated!');
+      onDataChange?.();
       window.location.reload();
     } catch (err) {
       toast.error('Failed to update settings');
@@ -30921,6 +32681,51 @@ export function useVisitTracker() {
         return () => clearTimeout(timer);
     }, []);
 }
+
+
+
+================================================================================
+LOCATION: init_categories.js
+================================================================================
+
+
+const { PrismaClient } = require('@prisma/client');
+
+const prisma = new PrismaClient();
+const businessId = "69a586cba749e310825bb354";
+
+const categoriesToCreate = [
+  "Electronics",
+  "Appliances",
+  "Computing",
+  "Drugs",
+  "Skincare",
+  "Phones and Tablets"
+];
+
+async function main() {
+  try {
+    for (const name of categoriesToCreate) {
+      const existing = await prisma.category.findFirst({
+        where: { name, businessId }
+      });
+      if (!existing) {
+        await prisma.category.create({
+          data: { name, businessId, description: `Scraped ${name} category` }
+        });
+        console.log(`Created category: ${name}`);
+      } else {
+        console.log(`Category exists: ${name} (${existing.id})`);
+      }
+    }
+  } catch (err) {
+    console.error('Error:', err);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+main();
 
 
 
@@ -31252,6 +33057,17 @@ export const DEFAULT_PAGE_TEMPLATES = {
       { type: 'description', layout: 'UI of description', order: 4, data: { title: 'Our Mission', text: 'To bring the best experience right to your doorstep.' } },
     ]
   },
+  // Default store landing used by many templates
+  store: {
+    name: 'Store',
+    slug: 'store',
+    sections: [
+      { type: 'hero', layout: 'immersive', order: 0, data: { title: 'Shop Our Products', text: 'Find everything you need in our curated collection.' } },
+      { type: 'product-list', layout: 'grid-with-filters', order: 1, data: { title: 'Explore Everything' } },
+      { type: 'categories', layout: 'carousel', order: 2 },
+      { type: 'promotions', layout: 'wide-cards', order: 3 }
+    ]
+  },
   about: {
     name: 'About Us',
     slug: 'about',
@@ -31312,18 +33128,52 @@ export const DEFAULT_PAGE_TEMPLATES = {
         { type: 'hero', layout: 'simple-centered', order: 0, data: { title: 'Meet the Experts', text: 'Highly qualified professionals at your service.' } },
         { type: 'staff', layout: 'grid', order: 1 }
      ]
-  }
-};
-
-export const STORE_TEMPLATES = {
-  estore: {
-    pages: ['home', 'about', 'contact']
-  },
+   },
+   menu: {
+     name: 'Menu',
+     slug: 'menu',
+     sections: [
+        { type: 'hero', layout: 'bold-hero', order: 0, data: { title: 'Our Menu', text: 'Delicious choices for every craving.' } },
+        { type: 'product-list', layout: 'menu-grid', order: 1, data: { title: 'Browse Our Dishes' } },
+        { type: 'promotions', layout: 'wide-cards', order: 2 }
+     ]
+   },
+   account: {
+     name: 'My Account',
+     slug: 'account',
+     sections: [
+        { type: 'hero', layout: 'simple-centered', order: 0, data: { title: 'Welcome Back', text: 'Manage your profile and orders.' } },
+        { type: 'description', layout: 'UI of description', order: 1, data: { title: 'Account Settings', text: 'Update your information below.' } }
+     ]
+   },
   pharmacy: {
-    pages: ['home', 'about', 'contact'],
+    // Health-clique style pharmaceutical template
+    pages: ['home', 'store', 'about', 'contact', 'cart', 'product-description'],
     defaults: {
        hero: { layout: 'immersive' },
        description: { title: 'Health First' }
+    }
+  },
+  fastfood: {
+    // Succo / fast-food style template with dedicated lunch/menu pages
+    pages: ['home', 'store', 'about', 'menu', 'cart', 'account'],
+    defaults: {
+      hero: { layout: 'bold-hero' },
+      productList: { layout: 'menu-grid' }
+    }
+  },
+  restaurant: {
+    pages: ['home', 'menu', 'about', 'contact', 'cart', 'account'],
+    defaults: {
+      hero: { layout: 'restaurant-hero' },
+      productList: { layout: 'menu-grid' }
+    }
+  },
+  marketplace: {
+    pages: ['home', 'store', 'about', 'contact', 'cart', 'account'],
+    defaults: {
+      hero: { layout: 'modern-split' },
+      productList: { layout: 'grid-with-filters' }
     }
   }
 };
@@ -35339,6 +37189,9 @@ model Business {
   partners         Partner[]
   helpArticles     HelpArticle[]
   chatThreads      ChatThread[]      @relation("BusinessChatThreads")
+
+  // master sections defined by the admin for various pages
+  sections          BusinessSection[]
 }
 
 model ProjectSettings {
@@ -35367,6 +37220,38 @@ model Section {
   layout String // e.g., "carousel of products", "carousel of cards", etc.
   data   Json? // Store section-specific data
   order  Int
+}
+
+// new unified section system for admins
+model BusinessSection {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId  String   @db.ObjectId
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  page        String   // home, about, shop, footer, header, contact, etc.
+  key         String   // unique key for section type (hero, stats, testimonials)
+  type        String   // static | dynamic | collection
+  position    Int
+  isActive    Boolean  @default(true)
+
+  heading     String?
+  subHeading  String?
+  content     Json?    // rich text, bullets, HTML
+  settings    Json?    // layout + display config
+
+  // linked items such as products or posts when type == "collection"
+  items       SectionItem[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SectionItem {
+  id         String          @id @default(auto()) @map("_id") @db.ObjectId
+  sectionId  String          @db.ObjectId
+  section    BusinessSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  refType    String          // product | post | review | category | custom
+  refId      String
+  position   Int
 }
 
 model Staff {
@@ -41560,5 +43445,5 @@ export const normalizeDateTime = (dateTime?: string): string => {
 
 
 ================================================================================
-TOTAL FILES CONSOLIDATED: 352
+TOTAL FILES CONSOLIDATED: 360
 ================================================================================

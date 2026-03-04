@@ -25,7 +25,6 @@ const DynamicStorePage = () => {
       setCurrentBusiness(business);
     }
   }, [business, setCurrentBusiness]);
-  }, [storeName, setCurrentBusiness]);
 
   const handleOpenAdmin = (tab: 'pages' | 'settings') => {
     // We set it to null first then the tab to trigger the effect in StoreHome if it's already set
