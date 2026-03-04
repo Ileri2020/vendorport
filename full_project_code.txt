@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-04 12:32:10
+Generated: 2026-03-04 13:00:46
 ================================================================================
 
 
@@ -12681,7 +12681,24 @@ const FeaturedCategories = () => {
             ))
           ) : (
             categories.map((category: any) => (
-              <div key={category.id} className="relative">
+              <div key={category.id} className="group relative bg-white rounded-[2.5rem] overflow-hidden border-2 border-muted/20 hover:border-accent/20 transition-all shadow-sm hover:shadow-xl hover:scale-105 transform duration-300">
+                {/* Category Image */}
+                <div className="relative h-40 bg-muted/20 overflow-hidden">
+                  <img 
+                    src={category.image || "/placeholder.jpg"} 
+                    alt={category.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
+                </div>
+
+                {/* Category Info */}
+                <div className="p-4 space-y-2">
+                  <h3 className="font-black text-sm uppercase tracking-tight line-clamp-2">{category.name}</h3>
+                  <p className="text-xs text-muted-foreground font-bold">{category.productCount || 0} Products</p>
+                </div>
+
+                {/* Admin Controls */}
                 {isAdmin && (
                   <div className="absolute top-4 left-4 flex gap-2 z-30">
                     <Dialog onOpenChange={(open) => !open && fetchCategories()}>
@@ -12704,7 +12721,6 @@ const FeaturedCategories = () => {
                     </Button>
                   </div>
                 )}
-                <CategoryCard category={category} />
               </div>
             ))
           )}
@@ -21899,7 +21915,18 @@ export const PlatformStore = () => {
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isFilterOpen, setIsFilterOpen] = useState(false)
-  const [productCardLayout, setProductCardLayout] = useState<'vertical' | 'horizontal'>('vertical')
+  const [productCardLayout, setProductCardLayout] = useState<'vertical' | 'horizontal'>(() => {
+    // Load from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('platformStoreLayout') as 'vertical' | 'horizontal') || 'vertical'
+    }
+    return 'vertical'
+  })
+  
+  // Save layout preference to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('platformStoreLayout', productCardLayout)
+  }, [productCardLayout])
   
   // Filters
   const [query, setQuery] = useState(searchParams.get('search') || "")
@@ -22231,16 +22258,24 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: ()
     try {
       // determine whether to update old section or new businessSection
       const useMaster = Object.prototype.hasOwnProperty.call(section, 'businessId');
+      const layoutValue = (configData.settings && configData.settings.layout) || configData.layout;
+      
       if (useMaster) {
-        // update content/settings
+        // update content/settings with layout variant
         await axios.put(`/api/dbhandler?model=businessSection`, {
           id: section.id,
           content: configData,
+          settings: {
+            ...section.settings,
+            layout: layoutValue,
+          },
         });
       } else {
+        // update old section model with layout
         await axios.put(`/api/dbhandler?model=section`, {
           id: section.id,
           data: configData,
+          layout: layoutValue,
         });
       }
       toast.success("Section updated");
@@ -22594,6 +22629,8 @@ interface Business {
     currency: string
     exchangeRate: number
     pages: any[]
+    productCardLayout?: 'vertical' | 'horizontal'
+    siteTemplate?: string
   }
   sections?: any[]
   siteSettings?: {
@@ -22747,7 +22784,7 @@ const StoreHome = ({
                      </Button>
                   </div>
                )}
-               <RenderSection section={section} business={business} />
+               <RenderSection section={section} business={business} isAdmin={isAdmin} />
 
                {isAdmin && (
                   <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border">
@@ -22765,7 +22802,7 @@ const StoreHome = ({
 
 
 // Component to render custom UI based on ProjectSettings section definition
-const RenderSection = ({ section, business }: { section: any, business: Business }) => {
+const RenderSection = ({ section, business, isAdmin }: { section: any, business: Business, isAdmin: boolean }) => {
    // old schema: { id, type, layout, data }
    // new schema: { id, key, type, settings, content }
    const { id } = section;
@@ -22887,13 +22924,52 @@ const RenderSection = ({ section, business }: { section: any, business: Business
              <Posts page="General" />
           </div>
         );
-     case 'product-list':
+     case 'product-list': {
+        const productCardLayout = business.settings?.productCardLayout || 'vertical';
+        
+        const handleLayoutChange = async (newLayout: 'vertical' | 'horizontal') => {
+          try {
+            // Save to business settings
+            await axios.put(`/api/dbhandler?model=business`, {
+              id: business.id,
+              settings: {
+                ...business.settings,
+                productCardLayout: newLayout,
+              },
+            });
+            toast.success(`Layout saved: ${newLayout}`);
+            window.location.reload();
+          } catch (err) {
+            toast.error('Failed to save layout');
+          }
+        };
+        
         return (
           <div className="w-full py-20 bg-background">
              <div className="max-w-7xl mx-auto px-4 space-y-12">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                    <AdminEditable as="h2" value={data?.title || 'Catalog'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
-                   <div className="flex gap-4">
+                   <div className="flex gap-4 items-center flex-wrap">
+                      {isAdmin && (
+                        <div className="bg-white/10 backdrop-blur-md rounded-xl p-1 flex items-center border border-white/20">
+                           <Button 
+                             variant={productCardLayout === 'vertical' ? 'secondary' : 'ghost'} 
+                             size="sm" 
+                             onClick={() => handleLayoutChange('vertical')}
+                             className="rounded-lg h-9 px-3 text-xs font-bold"
+                           >
+                             Vertical
+                           </Button>
+                           <Button 
+                             variant={productCardLayout === 'horizontal' ? 'secondary' : 'ghost'} 
+                             size="sm" 
+                             onClick={() => handleLayoutChange('horizontal')}
+                             className="rounded-lg h-9 px-3 text-xs font-bold"
+                           >
+                             Horizontal
+                           </Button>
+                        </div>
+                      )}
                       <Button variant="secondary" className="font-bold rounded-xl h-11 px-6">Filters</Button>
                       <div className="relative">
                          <Search className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
@@ -22905,6 +22981,7 @@ const RenderSection = ({ section, business }: { section: any, business: Business
              </div>
           </div>
         );
+      }
      case 'newsletter':
         return (
            <div className="w-full py-20 px-4 md:px-0">
@@ -23127,9 +23204,10 @@ import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search, Camera } from 'lucide-react'
+import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search, Camera, Sparkles } from 'lucide-react'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
+import TemplateSelector from './TemplateSelector'
 
 interface Business {
   id: string
@@ -23165,11 +23243,14 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
      </div>
      <div className="flex items-center gap-2 md:gap-4">
        {isAdmin && (
-         <Link href={`/${storeName}/analytics`}>
-          <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2 hidden sm:flex">
-            ADMIN <Layout className="h-3 w-3 ml-1" />
-          </Badge>
-         </Link>
+         <>
+           <TemplateSelector business={business} />
+           <Link href={`/${storeName}/analytics`}>
+            <Badge variant="secondary" className="bg-accent/10 text-accent font-black border-accent/20 cursor-pointer hover:bg-accent/20 py-2 hidden sm:flex">
+              ADMIN <Layout className="h-3 w-3 ml-1" />
+            </Badge>
+           </Link>
+         </>
        )}
        {businessId && (
          <AIProductSearch businessId={businessId}>
@@ -23198,6 +23279,9 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
              </SheetTitle>
            </SheetHeader>
            <div className="flex flex-col gap-6">
+             {isAdmin && (
+               <TemplateSelector business={business} mobile={true} />
+             )}
              {businessId && (
                <AIProductSearch businessId={businessId}>
                  <Button className="w-full h-12 bg-gradient-to-r from-accent to-primary hover:from-accent/90 hover:to-primary/90 text-white font-bold rounded-xl gap-2">
@@ -23232,6 +23316,240 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
 }
 
 export default StoreNavbar
+
+
+
+================================================================================
+LOCATION: components\platform\TemplateSelector.tsx
+================================================================================
+
+"use client"
+import React, { useState } from 'react'
+import axios from 'axios'
+import { toast } from 'sonner'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Sparkles, GripVertical, Check } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+interface TemplateSelectorProps {
+  business: any
+  onTemplateApply?: () => void
+  trigger?: React.ReactNode
+  mobile?: boolean
+}
+
+const SITE_TEMPLATES = [
+  {
+    id: 'default',
+    name: 'General Store',
+    description: 'Versatile template for all types of businesses',
+    icon: '🏪',
+    pages: ['home', 'store', 'about', 'contact', 'cart', 'product-description'],
+  },
+  {
+    id: 'pharmacy',
+    name: 'Pharmacy',
+    description: 'Optimized for health & wellness products',
+    icon: '💊',
+    pages: ['home', 'store', 'about', 'contact', 'cart', 'product-description'],
+  },
+  {
+    id: 'restaurant',
+    name: 'Restaurant',
+    description: 'Perfect for food & dining services',
+    icon: '🍽️',
+    pages: ['home', 'menu', 'about', 'contact', 'cart', 'account'],
+  },
+  {
+    id: 'fastfood',
+    name: 'Fast Food',
+    description: 'Quick service restaurant menu system',
+    icon: '🍔',
+    pages: ['home', 'store', 'about', 'menu', 'cart', 'account'],
+  },
+  {
+    id: 'marketplace',
+    name: 'Marketplace',
+    description: 'Multi-vendor shopping platform',
+    icon: '🛍️',
+    pages: ['home', 'store', 'about', 'contact', 'cart', 'account'],
+  },
+]
+
+export default function TemplateSelector({
+  business,
+  onTemplateApply,
+  trigger,
+  mobile = false,
+}: TemplateSelectorProps) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState(business?.template || 'default')
+
+  const handleApplyTemplate = async (templateId: string) => {
+    if (selectedTemplate === templateId && business?.template === templateId) {
+      toast.info('Template already applied')
+      return
+    }
+
+    setLoading(true)
+    try {
+      // Save template selection to business settings
+      const response = await axios.put(`/api/dbhandler?model=business&id=${business.id}`, {
+        template: templateId,
+        settings: {
+          ...business.settings,
+          siteTemplate: templateId,
+        },
+      })
+
+      setSelectedTemplate(templateId)
+      toast.success(`${SITE_TEMPLATES.find(t => t.id === templateId)?.name} template applied!`)
+      setOpen(false)
+
+      // Reload to apply template
+      if (onTemplateApply) {
+        onTemplateApply()
+      } else {
+        window.location.reload()
+      }
+    } catch (err) {
+      console.error('Failed to apply template:', err)
+      toast.error('Failed to apply template')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger || (
+          <Button
+            variant={mobile ? 'default' : 'secondary'}
+            size={mobile ? 'lg' : 'sm'}
+            className={cn(
+              'font-black gap-2',
+              mobile ? 'w-full h-12 rounded-xl' : 'hidden md:flex rounded-lg'
+            )}
+          >
+            <Sparkles className="h-4 w-4" />
+            TEMPLATES
+          </Button>
+        )}
+      </DialogTrigger>
+
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="space-y-2">
+          <DialogTitle className="text-2xl font-black flex items-center gap-2">
+            <Sparkles className="h-6 w-6 text-accent" />
+            Site Templates
+          </DialogTitle>
+          <DialogDescription className="text-base">
+            Choose a template to organize your pages and sections. You can customize everything later.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-6">
+          {SITE_TEMPLATES.map((template) => {
+            const isSelected = selectedTemplate === template.id
+            const isCurrent = business?.template === template.id
+
+            return (
+              <div
+                key={template.id}
+                onClick={() => setSelectedTemplate(template.id)}
+                className={cn(
+                  'relative p-6 rounded-3xl border-2 cursor-pointer transition-all duration-300 group',
+                  isSelected
+                    ? 'bg-accent/10 border-accent shadow-lg shadow-accent/20'
+                    : 'bg-muted/30 border-transparent hover:bg-white hover:border-accent/10'
+                )}
+              >
+                {/* Current Badge */}
+                {isCurrent && (
+                  <Badge className="absolute top-3 right-3 bg-accent/20 text-accent border-none font-black">
+                    CURRENT
+                  </Badge>
+                )}
+
+                {/* Selection Checkbox */}
+                <div
+                  className={cn(
+                    'absolute top-3 right-3 h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all',
+                    isSelected
+                      ? 'bg-accent border-accent'
+                      : 'border-muted-foreground/30 group-hover:border-accent'
+                  )}
+                >
+                  {isSelected && <Check className="h-4 w-4 text-white" />}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="text-4xl">{template.icon}</div>
+                    <div className="flex-1">
+                      <h3 className="font-black text-lg uppercase tracking-tight">
+                        {template.name}
+                      </h3>
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                        {template.id}
+                      </p>
+                    </div>
+                  </div>
+
+                  <p className="text-sm text-muted-foreground font-medium">
+                    {template.description}
+                  </p>
+
+                  <div className="pt-3 border-t">
+                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">
+                      Pages Included
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {template.pages.map((page) => (
+                        <Badge key={page} variant="outline" className="font-bold text-[10px]">
+                          {page}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="flex gap-3 pt-6 border-t justify-end">
+          <Button
+            variant="outline"
+            onClick={() => setOpen(false)}
+            className="h-11 font-bold border-2"
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={() => handleApplyTemplate(selectedTemplate)}
+            className="h-11 font-black bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20"
+            disabled={loading || selectedTemplate === business?.template}
+          >
+            {loading ? 'Applying...' : selectedTemplate === business?.template ? 'Already Applied' : 'Apply Template'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
 
 
 
@@ -34493,6 +34811,9 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
   const [editId, setEditId] = useState<string | null>(initialCategory?.id || null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const ITEMS_PER_PAGE = 10;
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileKey, setFileKey] = useState("file-0"); // Unique key to reset input
@@ -34691,42 +35012,104 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
         {!hideList && (
           <div className="mt-12 space-y-6">
-            <div className="flex items-center justify-between">
-               <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Live Collections</h3>
-               <Badge variant="secondary" className="h-6 font-bold">{categories.length}</Badge>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((item) => (
-                <div
-                  key={item.id}
-                  className="group relative flex flex-col p-4 bg-muted/30 hover:bg-white rounded-3xl border-2 border-transparent hover:border-accent/10 transition-all duration-300 shadow-sm hover:shadow-xl"
-                >
-                  <div className="flex items-center gap-4 mb-4">
-                    <img
-                      src={item.image || "/logo.png"}
-                      className="w-14 h-14 rounded-xl object-cover border-2 shadow-inner"
-                      alt={item.name}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-black text-sm truncate uppercase tracking-tight">{item.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{item.productCount || 0} Products</p>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button size="sm" onClick={() => handleEdit(item)} className="flex-1 h-9 font-bold">Edit</Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleDelete(item.id)}
-                      variant="ghost"
-                      className="flex-1 h-9 border-2 border-destructive/20 text-destructive hover:bg-destructive hover:text-white font-bold"
-                    >
-                      Delete
-                    </Button>
-                  </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                 <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Live Collections</h3>
+                 <Badge variant="secondary" className="h-6 font-bold">{categories.length}</Badge>
+              </div>
+              
+              {/* Search Input */}
+              {categories.length > 0 && (
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  <Input
+                    placeholder="Search categories..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(0);
+                    }}
+                    className="pl-10 h-11 rounded-2xl border-2"
+                  />
                 </div>
-              ))}
+              )}
             </div>
+            
+            {/* Filtered & Paginated Categories */}
+            {(() => {
+              const filtered = categories.filter(cat => 
+                cat.name.toLowerCase().includes(searchTerm.toLowerCase())
+              );
+              const start = currentPage * ITEMS_PER_PAGE;
+              const end = start + ITEMS_PER_PAGE;
+              const paginated = filtered.slice(start, end);
+              const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+              
+              return (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+                    {paginated.map((item) => (
+                      <div
+                        key={item.id}
+                        className="group relative flex flex-col p-4 bg-muted/30 hover:bg-white rounded-3xl border-2 border-transparent hover:border-accent/10 transition-all duration-300 shadow-sm hover:shadow-xl"
+                      >
+                        <div className="flex items-center gap-4 mb-4">
+                          <img
+                            src={item.image || "/logo.png"}
+                            className="w-14 h-14 rounded-xl object-cover border-2 shadow-inner"
+                            alt={item.name}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-sm truncate uppercase tracking-tight">{item.name}</p>
+                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{item.productCount || 0} Products</p>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleEdit(item)} className="flex-1 h-9 font-bold">Edit</Button>
+                          <Button
+                            size="sm"
+                            onClick={() => handleDelete(item.id)}
+                            variant="ghost"
+                            className="flex-1 h-9 border-2 border-destructive/20 text-destructive hover:bg-destructive hover:text-white font-bold"
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {paginated.length === 0 && (
+                      <div className="col-span-full py-10 text-center text-muted-foreground italic text-sm">No categories found.</div>
+                    )}
+                  </div>
+                  
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                        disabled={currentPage === 0}
+                        className="h-10 font-bold"
+                      >
+                        ← Previous
+                      </Button>
+                      <span className="text-sm font-bold text-muted-foreground">
+                        Page {currentPage + 1} of {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={currentPage === totalPages - 1}
+                        className="h-10 font-bold"
+                      >
+                        Next →
+                      </Button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </AdminFormContainer>
@@ -34871,6 +35254,8 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(0);
+  const ITEMS_PER_PAGE = 10;
 
   const [formData, setFormData] = useState({
     productId: "",
@@ -35007,47 +35392,82 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-            {filteredProducts.map((item) => {
-              const isFeatured = featuredIds.has(item.id);
-              return (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "flex items-center justify-between p-3 rounded-2xl border-2 transition-all group shadow-sm",
-                    isFeatured 
-                      ? "bg-accent/5 border-accent/20" 
-                      : "bg-muted/30 border-transparent hover:bg-white hover:border-accent/10"
-                  )}
-                >
-                  <div className="flex-1 min-w-0 mr-2">
-                    <p className="font-bold text-sm truncate uppercase tracking-tight">{item.name}</p>
-                    <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
-                  </div>
-                  <Button
-                    size="sm"
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+            {(() => {
+              const start = currentPage * ITEMS_PER_PAGE;
+              const end = start + ITEMS_PER_PAGE;
+              const paginated = filteredProducts.slice(start, end);
+              return paginated.map((item) => {
+                const isFeatured = featuredIds.has(item.id);
+                return (
+                  <div
+                    key={item.id}
                     className={cn(
-                      "h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-widest",
-                      isFeatured ? "bg-accent/20 text-accent hover:bg-accent/30" : "bg-primary shadow-lg shadow-primary/20"
+                      "flex items-center justify-between p-3 rounded-2xl border-2 transition-all group shadow-sm",
+                      isFeatured 
+                        ? "bg-accent/5 border-accent/20" 
+                        : "bg-muted/30 border-transparent hover:bg-white hover:border-accent/10"
                     )}
-                    onClick={() => handleFeatureClick(item)}
-                    disabled={isFeatured || isLimitReached}
                   >
-                    {isFeatured ? (
-                      <div className="flex items-center gap-1"><Star className="h-3 w-3 fill-accent" /> FEAT</div>
-                    ) : isLimitReached ? (
-                      "FULL"
-                    ) : (
-                      "ADD"
-                    )}
-                  </Button>
-                </div>
-              );
-            })}
+                    <div className="flex-1 min-w-0 mr-2">
+                      <p className="font-bold text-sm truncate uppercase tracking-tight">{item.name}</p>
+                      <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className={cn(
+                        "h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-widest",
+                        isFeatured ? "bg-accent/20 text-accent hover:bg-accent/30" : "bg-primary shadow-lg shadow-primary/20"
+                      )}
+                      onClick={() => handleFeatureClick(item)}
+                      disabled={isFeatured || isLimitReached}
+                    >
+                      {isFeatured ? (
+                        <div className="flex items-center gap-1"><Star className="h-3 w-3 fill-accent" /> FEAT</div>
+                      ) : isLimitReached ? (
+                        "FULL"
+                      ) : (
+                        "ADD"
+                      )}
+                    </Button>
+                  </div>
+                );
+              });
+            })()}
             {filteredProducts.length === 0 && (
                <div className="col-span-full py-10 text-center text-muted-foreground italic text-sm">No products matching your search.</div>
             )}
           </div>
+          
+          {/* Pagination Controls */}
+          {(() => {
+            const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+            return totalPages > 1 ? (
+              <div className="flex items-center justify-between pt-4 border-t mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                  disabled={currentPage === 0}
+                  size="sm"
+                  className="h-10 font-bold"
+                >
+                  ← Previous
+                </Button>
+                <span className="text-sm font-bold text-muted-foreground">
+                  Page {currentPage + 1} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                  disabled={currentPage === totalPages - 1}
+                  size="sm"
+                  className="h-10 font-bold"
+                >
+                  Next →
+                </Button>
+              </div>
+            ) : null;
+          })()}
 
           {!hideList && (
             <div className="pt-8 border-t space-y-4">
@@ -35786,6 +36206,9 @@ export default function ProductForm({ initialProduct, hideList = false, business
   const [preview, setPreview] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(initialProduct?.id || null);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     if (!hideList) fetchProducts();
@@ -36014,32 +36437,93 @@ export default function ProductForm({ initialProduct, hideList = false, business
 
         {!hideList && (
           <div className='mt-12 space-y-6'>
-            <div className="flex items-center justify-between">
-               <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Recent Inventory</h3>
-               <Badge variant="secondary" className="font-bold">{products.length}</Badge>
-            </div>
-            {products.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {products.map((item: any) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border-2 border-transparent hover:bg-white hover:border-accent/10 transition-all group shadow-sm">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                            <img src={item.images?.[0] || "/placeholder.jpg"} className="h-10 w-10 rounded-lg object-cover border" />
-                            <div className="truncate">
-                              <p className="font-bold text-sm truncate">{item.name}</p>
-                              <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
-                            </div>
-                        </div>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-accent" onClick={() => handleEdit(item)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(item)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                ))}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                 <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Recent Inventory</h3>
+                 <Badge variant="secondary" className="font-bold">{products.length}</Badge>
               </div>
+              
+              {/* Search Input */}
+              {products.length > 0 && (
+                <div className="relative">
+                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                  <Input
+                    placeholder="Search products..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(0);
+                    }}
+                    className="pl-10 h-11 rounded-2xl border-2"
+                  />
+                </div>
+              )}
+            </div>
+            
+            {products.length > 0 ? (
+              (() => {
+                const filtered = products.filter((item: any) =>
+                  item.name.toLowerCase().includes(searchTerm.toLowerCase())
+                );
+                const start = currentPage * ITEMS_PER_PAGE;
+                const end = start + ITEMS_PER_PAGE;
+                const paginated = filtered.slice(start, end);
+                const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+                
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+                      {paginated.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border-2 border-transparent hover:bg-white hover:border-accent/10 transition-all group shadow-sm">
+                              <div className="flex items-center gap-3 overflow-hidden">
+                                  <img src={item.images?.[0] || "/placeholder.jpg"} className="h-10 w-10 rounded-lg object-cover border" />
+                                  <div className="truncate">
+                                    <p className="font-bold text-sm truncate">{item.name}</p>
+                                    <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
+                                  </div>
+                              </div>
+                              <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-accent" onClick={() => handleEdit(item)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(item)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                              </div>
+                          </div>
+                      ))}
+                      {paginated.length === 0 && (
+                        <div className="col-span-full py-10 text-center text-muted-foreground italic text-sm">No products found.</div>
+                      )}
+                    </div>
+                    
+                    {/* Pagination Controls */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
+                          disabled={currentPage === 0}
+                          className="h-10 font-bold"
+                        >
+                          ← Previous
+                        </Button>
+                        <span className="text-sm font-bold text-muted-foreground">
+                          Page {currentPage + 1} of {totalPages}
+                        </span>
+                        <Button
+                          variant="outline"
+                          onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
+                          disabled={currentPage === totalPages - 1}
+                          className="h-10 font-bold"
+                        >
+                          Next →
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                );
+              })()
             ) : (
               <div className="p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-4 bg-muted/20">
                 <Package className="h-10 w-10 text-muted-foreground/30" />
@@ -44758,5 +45242,5 @@ main();
 
 
 ================================================================================
-TOTAL FILES CONSOLIDATED: 377
+TOTAL FILES CONSOLIDATED: 378
 ================================================================================
