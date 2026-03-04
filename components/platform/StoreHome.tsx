@@ -508,7 +508,7 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                       </div>
                    </div>
                 </div>
-                <Stocks />
+                <Stocks businessId={business.id} />
              </div>
           </div>
         );

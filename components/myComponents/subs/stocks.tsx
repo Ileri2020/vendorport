@@ -11,6 +11,7 @@ type StocksProps = {
   categoryFilter?: string;
   search?: string;
   selectedId?: string;
+  businessId?: string;
 };
 
 type Product = {
@@ -24,7 +25,7 @@ type Product = {
 
 import { useAppContext } from "@/hooks/useAppContext";
 
-const Stocks = ({ categoryFilter, search, selectedId }: StocksProps) => {
+const Stocks = ({ categoryFilter, search, selectedId, businessId }: StocksProps) => {
   const { addItem } = useCart();
   const { openDialog } = useAppContext();
   const [products, setProducts] = useState<Product[]>([]);
@@ -33,7 +34,9 @@ const Stocks = ({ categoryFilter, search, selectedId }: StocksProps) => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get("/api/dbhandler?model=product");
+      let url = "/api/dbhandler?model=product";
+      if (businessId) url += `&businessId=${businessId}`;
+      const res = await axios.get(url);
       const fetchedProducts: Product[] = res.data;
 
       // Filter and prioritize

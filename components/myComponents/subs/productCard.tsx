@@ -10,6 +10,7 @@ import { Heart, ShoppingCart, Star, Utensils, Edit3, Trash2 } from "lucide-react
 import { PriceDisplay } from "@/components/utility/PriceDisplay";
 import { AddLunchDialog } from "./AddLunchDialog";
 import Link from "next/link";
+import { useParams } from 'next/navigation'
 import * as React from "react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import {
@@ -154,6 +155,10 @@ export function ProductCard({
     }
   };
 
+  const params = useParams();
+  const storeName = (params as any)?.storeName;
+  const productHref = storeName ? `/${storeName}?id=${product.id}` : `/store/${product.id}`;
+
   return (
     <>
       <div className={cn("group relative", className)} {...props}>
@@ -190,7 +195,7 @@ export function ProductCard({
           </div>
         )}
 
-        <Link href={`/store/${product.id}`}>
+        <Link href={productHref}>
           <Card
             className={cn(
               `

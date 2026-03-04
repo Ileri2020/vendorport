@@ -13,6 +13,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useParams } from 'next/navigation'
 import { CiShoppingCart } from "react-icons/ci";
 import { useCart } from "@/hooks/use-cart";
 
@@ -35,6 +36,9 @@ export default function Similar({ similar }: { similar: any }) {
     addItem(product, 1);
   };
 
+  const params = useParams();
+  const storeName = (params as any)?.storeName;
+
   return (
     <>
       {similar.length == 0 && (
@@ -56,7 +60,7 @@ export default function Similar({ similar }: { similar: any }) {
                 key={index}
                 className="basis-1/3 md:basis-1/5 lg:basis-1/7 flex flex-col overflow-clip justify-center items-center w-full ml-2"
               >
-                <Link href={`/store/${product.id}`}>
+                <Link href={storeName ? `/${storeName}?id=${product.id}` : `/store/${product.id}`}>
                   <div className="h-[100px] w-full mx-2 md:mx-0 flex justify-center items-center">
                     <img
                       src={product.images?.[0] ?? ""}
@@ -67,7 +71,7 @@ export default function Similar({ similar }: { similar: any }) {
                 </Link>
 
                 <div className="flex flex-1 flex-col text-center justify-center items-center w-full">
-                  <Link href={`/store/${product.id}`}>
+                  <Link href={storeName ? `/${storeName}?id=${product.id}` : `/store/${product.id}`}>
                     <div className="w-full text-center flex flex-col justify-center items-center">
                       <div className="font-semibold text-sm">
                         {product.name}

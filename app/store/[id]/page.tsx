@@ -121,7 +121,7 @@ export default function ProductDetailPage() {
 
       // Only fetch recommendations once
       if (allProducts.length === 0) {
-        const all = await fetch(`/api/dbhandler?model=product`);
+        const all = await fetch(`/api/dbhandler?model=product&businessId=${data.businessId}`);
         setAllProducts(await all.json());
       }
 
@@ -377,6 +377,8 @@ export default function ProductDetailPage() {
                   <button
                     key={idx}
                     onClick={() => setCurrentImageIndex(idx)}
+                    aria-label={`View image ${idx + 1}`}
+                    title={`View image ${idx + 1}`}
                     className={cn(
                       "w-2.5 h-2.5 rounded-full transition-all shadow-md",
                       currentImageIndex === idx ? "bg-white scale-110" : "bg-white/50 hover:bg-white/80"

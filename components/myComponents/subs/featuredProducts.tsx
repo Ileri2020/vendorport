@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/carousel";
 import { useCart } from "@/hooks/use-cart";
 import { useAppContext } from "@/hooks/useAppContext";
+import { useParams } from 'next/navigation'
 import { useToast } from "@/hooks/use-toast";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Plus } from "lucide-react";
@@ -62,6 +63,9 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
   ================================ */
   const isAdmin = useIsAdmin();
   const { currentBusiness } = useAppContext();
+  const params = useParams();
+  const storeName = (params as any)?.storeName;
+  const viewAllHref = storeName ? `/${storeName}/store` : '/store';
 
   async function fetchProducts() {
     try {
@@ -251,7 +255,7 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
         )}
 
         <div className="mt-12 flex justify-center">
-          <Link href="/store">
+          <Link href={viewAllHref}>
             <Button
               variant="outline"
               size="lg"
