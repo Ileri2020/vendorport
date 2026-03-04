@@ -103,7 +103,24 @@ const FeaturedCategories = () => {
             ))
           ) : (
             categories.map((category: any) => (
-              <div key={category.id} className="relative">
+              <div key={category.id} className="group relative bg-white rounded-[2.5rem] overflow-hidden border-2 border-muted/20 hover:border-accent/20 transition-all shadow-sm hover:shadow-xl hover:scale-105 transform duration-300">
+                {/* Category Image */}
+                <div className="relative h-40 bg-muted/20 overflow-hidden">
+                  <img 
+                    src={category.image || "/placeholder.jpg"} 
+                    alt={category.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all" />
+                </div>
+
+                {/* Category Info */}
+                <div className="p-4 space-y-2">
+                  <h3 className="font-black text-sm uppercase tracking-tight line-clamp-2">{category.name}</h3>
+                  <p className="text-xs text-muted-foreground font-bold">{category.productCount || 0} Products</p>
+                </div>
+
+                {/* Admin Controls */}
                 {isAdmin && (
                   <div className="absolute top-4 left-4 flex gap-2 z-30">
                     <Dialog onOpenChange={(open) => !open && fetchCategories()}>
@@ -126,7 +143,6 @@ const FeaturedCategories = () => {
                     </Button>
                   </div>
                 )}
-                <CategoryCard category={category} />
               </div>
             ))
           )}

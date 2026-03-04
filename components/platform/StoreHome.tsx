@@ -313,7 +313,7 @@ const StoreHome = ({
                      </Button>
                   </div>
                )}
-               <RenderSection section={section} business={business} />
+               <RenderSection section={section} business={business} isAdmin={isAdmin} />
 
                {isAdmin && (
                   <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border">
@@ -331,7 +331,7 @@ const StoreHome = ({
 
 
 // Component to render custom UI based on ProjectSettings section definition
-const RenderSection = ({ section, business }: { section: any, business: Business }) => {
+const RenderSection = ({ section, business, isAdmin }: { section: any, business: Business, isAdmin: boolean }) => {
    // old schema: { id, type, layout, data }
    // new schema: { id, key, type, settings, content }
    const { id } = section;
