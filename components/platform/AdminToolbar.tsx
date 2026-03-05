@@ -20,6 +20,7 @@ import ProductForm from '@/prisma/forms/ProductForm'
 import StaffForm from '@/prisma/forms/StaffForm'
 import PostForm from '@/prisma/forms/PostForm'
 import { DEFAULT_PAGE_TEMPLATES } from '@/lib/storeTemplates'
+import { Switch } from '@/components/ui/switch'
 
 const AdminToolbar = ({
   business,
@@ -48,6 +49,7 @@ const AdminToolbar = ({
   const [newPageName, setNewPageName] = React.useState("");
   const [selectedTemplate, setSelectedTemplate] = React.useState<string>("home");
   const [activeTab, setActiveTab] = React.useState(initialTab || "pages");
+  const [showOutOfStockOverlay, setShowOutOfStockOverlay] = React.useState(business.settings?.showOutOfStockOverlay ?? true);
 
   React.useEffect(() => {
    if (initialTab) setActiveTab(initialTab);
@@ -233,10 +235,19 @@ const AdminToolbar = ({
                    </div>
                  </div>
 
+                 <div className="space-y-4 pt-4 border-t">
+                   <h4 className="text-sm font-black uppercase tracking-widest text-accent">Product Display Settings</h4>
+                   <div className="flex items-center space-x-2">
+                     <Switch id="out-of-stock-overlay" checked={showOutOfStockOverlay} onCheckedChange={setShowOutOfStockOverlay} />
+                     <Label htmlFor="out-of-stock-overlay" className="text-sm font-medium">Show Out of Stock Overlay on Product Cards</Label>
+                   </div>
+                 </div>
+
                   <Button
                    onClick={() => onUpdateSettings({
                     currency,
                     exchangeRate: parseFloat(rate),
+                    showOutOfStockOverlay,
                     siteSettings: {
                       facebook,
                       instagram,

@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useParams } from 'next/navigation'
 import * as React from "react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAppContext } from "@/hooks/useAppContext";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +51,7 @@ export function ProductCard({
   const [isAddingToCart, setIsAddingToCart] = React.useState(false);
   const [isInWishlist, setIsInWishlist] = React.useState(false);
   const [isLunchDialogOpen, setIsLunchDialogOpen] = React.useState(false);
+  const { currentBusiness } = useAppContext();
 
   React.useEffect(() => {
     if (product?.id) {
@@ -348,7 +350,7 @@ export function ProductCard({
                 </CardFooter>
               )}
 
-              {!inStock && (
+              {!inStock && currentBusiness?.settings?.showOutOfStockOverlay && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
                   <Badge className="px-3 py-1 text-sm" variant="destructive">
                     Out of Stock
