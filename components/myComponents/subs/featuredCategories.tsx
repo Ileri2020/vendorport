@@ -39,19 +39,22 @@ async function getCategories(businessId?: string) {
   }));
 }
 
-const FeaturedCategories = () => {
+const FeaturedCategories = ({ businessId: businessIdProp }: { businessId?: string }) => {
   const [categories, setCategories] = useState([]);
   const isAdmin = useIsAdmin();
   const { currentBusiness } = useAppContext();
 
+  const resolvedBusinessId = businessIdProp || currentBusiness?.id;
+
   const fetchCategories = async () => {
-    const cats = await getCategories(currentBusiness?.id);
+    if (!resolvedBusinessId) return;
+    const cats = await getCategories(resolvedBusinessId);
     setCategories(cats);
   };
 
   useEffect(() => {
     fetchCategories(); 
-  }, []); 
+  }, [resolvedBusinessId]); 
 
   const handleDelete = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete category "${name}"?`)) {

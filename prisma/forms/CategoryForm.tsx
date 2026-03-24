@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { AdminFormContainer } from "@/components/utility/AdminFormContainer";
+import { useAppContext } from "@/hooks/useAppContext";
 
 interface CategoriesFormProps {
   initialCategory?: any;
@@ -15,6 +16,7 @@ interface CategoriesFormProps {
 }
 
 export default function CategoriesForm({ initialCategory, hideList = false }: CategoriesFormProps) {
+  const { currentBusiness } = useAppContext();
   const [categories, setCategories] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     id: initialCategory?.id || "",
@@ -40,7 +42,7 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get("/api/dbhandler?model=category");
+      const res = await axios.get(`/api/dbhandler?model=category&businessId=${currentBusiness?.id}`);
       setCategories(res.data);
     } catch (err) {
       console.error("Failed to fetch categories:", err);
@@ -74,6 +76,10 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
       const data = new FormData();
       data.append("name", formData.name);
       data.append("description", formData.description);
+
+      if (!editId && currentBusiness?.id) {
+        data.append("businessId", currentBusiness.id);
+      }
 
       if (file) {
         data.append("file", file);

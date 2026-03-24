@@ -9,6 +9,7 @@ import axios from "axios";
 import { useCart } from "@/hooks/use-cart";
 import { useAppContext } from "@/hooks/useAppContext";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -289,7 +290,8 @@ export default function ProductDetailPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        Loading product…
+        <Skeleton className="h-10 w-10 rounded-full bg-muted/40" />
+        <Skeleton className="h-6 w-[200px] bg-muted/30 ml-4" />
       </div>
     );
   }

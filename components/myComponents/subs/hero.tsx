@@ -210,10 +210,57 @@ const Hero = ({ variant = 'modern-split', title, subtitle, sectionId }: HeroProp
         field={field} 
         model={model} 
         id={id} 
+        type="textarea"
         as="p" 
         className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed" 
         data={sectionId ? { title, text: val } : undefined}
       />
+    );
+  };
+
+  const editableImage = (defaultImg: string) => {
+    const val = sectionId ? (currentBusiness?.sections?.find((s:any) => s.id === sectionId)?.settings?.image || defaultImg) : (currentBusiness?.siteSettings?.heroImage || defaultImg);
+    const model = sectionId ? "businessSection" : "siteSettings";
+    const field = sectionId ? "settings.image" : "heroImage";
+    const id = sectionId || currentBusiness?.siteSettings?.id || "";
+
+    return (
+      <AdminEditable 
+        value={val} 
+        field={field} 
+        model={model} 
+        id={id} 
+        type="image"
+        as="img"
+        className="relative z-10 w-full h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500" 
+      />
+    );
+  };
+
+  const editableCTA = () => {
+    const label = sectionId ? "Shop Now" : (currentBusiness?.siteSettings?.heroCTA || "Shop Now");
+    const link = sectionId ? `${storeBase}/store` : (currentBusiness?.siteSettings?.heroCTALink || `${storeBase}/store`);
+    const model = sectionId ? "section" : "siteSettings";
+    const field = sectionId ? "data.buttonText" : "heroCTA";
+    const linkField = sectionId ? "data.buttonLink" : "heroCTALink";
+    const id = sectionId || currentBusiness?.siteSettings?.id || "";
+
+    return (
+      <AdminEditable
+        value={label}
+        model={model}
+        id={id}
+        field={field}
+        linkField={linkField}
+        type="link"
+        data={sectionId ? { buttonText: label, buttonLink: link } : currentBusiness?.siteSettings}
+      >
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={buttonBounce}>
+           <Button className="h-12 gap-1.5 px-8 transition-all duration-200 bg-accent hover:bg-accent/90 w-full text-white font-bold text-lg shadow-xl shadow-accent/20" size="lg">
+              {label} <ArrowRight className="h-5 w-5 animate-pulse" />
+           </Button>
+        </motion.div>
+      </AdminEditable>
     );
   };
 
@@ -239,14 +286,26 @@ const Hero = ({ variant = 'modern-split', title, subtitle, sectionId }: HeroProp
                   {editableSubtitle("Discover premium products at competitive prices, with fast shipping and exceptional customer service.")}
               </div>
               <ProductCarousel />
-              <CTAButtons />
+              <ProductCarousel />
+              <div className="flex flex-col gap-3 sm:flex-row z-10">
+                 {editableCTA()}
+                 {user?.id === "nil" && (
+                    <Link href="/account" className="w-full max-w-52">
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={buttonBounce} transition={{ delay: 0.2 }}>
+                        <Button className="h-12 px-8 w-full border-2 border-accent text-accent hover:bg-accent/10 transition-colors duration-200 font-semibold" size="lg" variant="outline">
+                          Login
+                        </Button>
+                      </motion.div>
+                    </Link>
+                 )}
+              </div>
               <TrustBadges />
             </motion.div>
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay: 0.2 }} className="relative hidden lg:block h-[500px] w-full">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative w-[400px] h-[400px] bg-accent/10 rounded-full animate-blob mix-blend-multiply filter blur-xl opacity-70"></div>
                 <div className="relative w-[400px] h-[400px] bg-primary/10 rounded-full animate-blob animation-delay-2000 mix-blend-multiply filter blur-xl opacity-70 -ml-20"></div>
-                <img src="/mission-burrito-fast-food-shawarma-kati-roll-breakfast-6dd86711999109a88eae948201cd24bf.png" alt="Featured" className="relative z-10 w-[450px] h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+                {editableImage("/mission-burrito-fast-food-shawarma-kati-roll-breakfast-6dd86711999109a88eae948201cd24bf.png")}
               </div>
             </motion.div>
           </div>

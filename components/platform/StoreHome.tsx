@@ -55,8 +55,27 @@ import {
   MapPin,
   Package,
   Users,
-  FileText
+  FileText,
+  GripHorizontal,
+  Copy,
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Tabs,
   TabsContent,
@@ -79,6 +98,7 @@ import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { CartDetails } from '@/components/myComponents/subs/CartDetails'
+import { cn } from '@/lib/utils'
 import ContactForm from '@/components/utility/contactForm'
 import { ChatInterface } from '@/components/myComponents/subs/ChatInterface'
 import Posts from '@/components/myComponents/subs/posts'
@@ -238,13 +258,41 @@ const StoreHome = ({
     sections = activePage?.sections || [];
   }
 
+  // Active layout sections (handles optimistic drag)
+  const [activeSections, setActiveSections] = React.useState<any[]>(sections);
+  React.useEffect(() => {
+    setActiveSections(sections);
+  }, [sections]);
+
   const {
     handleAddSection,
     handleCreatePage,
     handleRemoveSection,
+    handleMoveSection,
     handleApplyTemplate,
+    handleReorderSections, // newly added
+    handleDuplicateSection,
     updateGlobalSettings,
-  } = useStoreActions({ activePage, sections, settings, storeName, business, onDataChange });
+  } = useStoreActions({ activePage, sections: activeSections, settings, storeName, business, onDataChange });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      const oldIndex = activeSections.findIndex((s) => s.id === active.id);
+      const newIndex = activeSections.findIndex((s) => s.id === over?.id);
+      const newSections = arrayMove(activeSections, oldIndex, newIndex);
+      setActiveSections(newSections);
+      
+      if(handleReorderSections) {
+         handleReorderSections(newSections.map((s, idx) => ({ id: s.id, position: idx })));
+      }
+    }
+  };
 
   // If page doesn't exist, show helper
   if (!activePage) {
@@ -279,11 +327,16 @@ const StoreHome = ({
            isOpen={isAdminToolbarOpen}
            onOpenChange={setIsAdminToolbarOpen}
            initialTab={initialAdminTab}
+           sections={sections}
+           activePage={activePage}
+           onAddSection={handleAddSection}
+           onDeleteSection={handleRemoveSection}
+           onSectionDataChange={onDataChange}
          />
        )}
 
        <main className="w-full flex-1">
-          {sections.length === 0 && (
+          {activeSections.length === 0 && (
              <div className="w-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed border-accent/20 my-10 rounded-[3rem] bg-accent/5 p-10 text-center mx-auto max-w-7xl px-4">
                 <Layout className="h-16 w-16 text-accent/40 mb-6" />
                 <h3 className="text-2xl font-bold text-accent mb-2">This page has no content yet.</h3>
@@ -305,25 +358,23 @@ const StoreHome = ({
              </div>
           )}
 
-          {sections.sort((a,b) => a.order - b.order).map((section, idx) => (
-            <div key={section.id} className="w-full group/section relative">
-               {isAdmin && (
-                  <div className="absolute right-4 top-4 z-40 opacity-100 transition-opacity flex gap-2">
-                     <SectionConfigDialog section={section} onUpdate={() => window.location.reload()} />
-                     <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleRemoveSection(section.id)}>
-                        <Trash2 className="h-4 w-4" />
-                     </Button>
-                  </div>
-               )}
-               <RenderSection section={section} business={business} isAdmin={isAdmin} />
-
-               {isAdmin && (
-                  <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border">
-                     <AddSectionTrigger onAdd={handleAddSection} />
-                  </div>
-               )}
-            </div>
-          ))}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+             <SortableContext items={activeSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                {activeSections.map((section, idx, arr) => (
+                  <SortableSectionRow 
+                     key={section.id} 
+                     section={section} 
+                     idx={idx} 
+                     arr={arr} 
+                     isAdmin={isAdmin} 
+                     business={business}
+                     handleMoveSection={handleMoveSection}
+                     handleRemoveSection={handleRemoveSection}
+                     handleAddSection={handleAddSection}
+                  />
+                ))}
+             </SortableContext>
+          </DndContext>
        </main>
 
        <StoreFooter business={business} />
@@ -331,6 +382,125 @@ const StoreHome = ({
   );
 }
 
+// Draggable wrapper for sections in the layout
+const SortableSectionRow = ({ section, idx, arr, isAdmin, business, handleMoveSection, handleRemoveSection, handleAddSection, handleDuplicateSection }: any) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={`w-full group/section relative ${isDragging ? 'shadow-2xl ring-2 ring-accent scale-[1.02] rounded-3xl overflow-hidden' : ''}`}>
+       {isAdmin && (
+          <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-1 flex-wrap justify-end p-1.5 bg-background/90 backdrop-blur-xl rounded-xl border-2 shadow-xl items-center">
+             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing hover:bg-accent/10 p-2 text-muted-foreground transition-all rounded-lg flex items-center justify-center">
+                <GripHorizontal className="h-4 w-4" />
+             </div>
+             <div className="h-6 w-px bg-border mx-1"></div>
+             
+             <SectionConfigDialog section={section} onUpdate={() => window.location.reload()} />
+             
+             <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-muted-foreground" title="Duplicate Section" onClick={() => handleDuplicateSection(section)}>
+                <Copy className="h-4 w-4" />
+             </Button>
+
+             <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" title="Remove Section" onClick={() => handleRemoveSection(section.id)}>
+                <Trash2 className="h-4 w-4" />
+             </Button>
+          </div>
+       )}
+       
+       {/* Block events from interfering with drag handle logic */}
+       <div className={`${isDragging ? 'pointer-events-none' : ''}`}>
+         <RenderSection section={section} business={business} isAdmin={isAdmin} />
+       </div>
+
+       {isAdmin && (
+          <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border opacity-0 group-hover/section:opacity-100 transition-opacity absolute bottom-[-24px] z-30">
+             <AddSectionTrigger onAdd={handleAddSection} />
+          </div>
+       )}
+    </div>
+  );
+};
+
+const BG_CLASSES: Record<string, string> = {
+  '': '',
+  'muted': 'bg-muted/30',
+  'accent': 'bg-accent text-white',
+  'dark': 'bg-black text-white',
+  'gradient': 'bg-gradient-to-br from-background via-muted/20 to-background',
+}
+
+const RADIUS_CLASSES: Record<string, string> = {
+  'none': 'rounded-none',
+  'sm': 'rounded-sm',
+  'md': 'rounded-md',
+  'lg': 'rounded-lg',
+  'xl': 'rounded-[2.5rem]',
+  'full': 'rounded-full',
+}
+
+const SHADOW_CLASSES: Record<string, string> = {
+  'none': 'shadow-none',
+  'sm': 'shadow-sm',
+  'md': 'shadow-md',
+  'lg': 'shadow-xl',
+  'xl': 'shadow-2xl shadow-accent/10',
+}
+
+const PADDING_CLASSES: Record<string, string> = {
+  'none': 'py-0',
+  'small': 'py-8',
+  'medium': 'py-16 md:py-20',
+  'large': 'py-24 md:py-32',
+  'extra-large': 'py-32 md:py-48',
+}
+
+const ALIGN_CLASSES: Record<string, string> = {
+  'left': 'text-left items-start',
+  'center': 'text-center items-center',
+  'right': 'text-right items-end',
+}
+
+const SectionWrapper = ({ section, children, className = "" }: { section: any, children: React.ReactNode, className?: string }) => {
+  const settings = section.settings || section.data?.settings || section.data || {};
+  const bg = BG_CLASSES[settings.bg as string] || '';
+  const radius = RADIUS_CLASSES[settings.radius as string] || '';
+  const shadow = SHADOW_CLASSES[settings.shadow as string] || '';
+  const padding = PADDING_CLASSES[settings.padding as string] || (section.type === 'hero' ? 'py-0' : 'py-20');
+  const alignment = ALIGN_CLASSES[settings.alignment as string] || '';
+
+  return (
+    <section className={cn(
+      "w-full transition-all duration-500",
+      bg,
+      padding,
+      className
+    )}>
+      <div className={cn(
+        "max-w-7xl mx-auto px-4 md:px-8 flex flex-col transition-all",
+        radius,
+        shadow,
+        alignment,
+        (settings.bg && settings.bg !== 'gradient') ? 'p-8 md:p-12' : ''
+      )}>
+        {children}
+      </div>
+    </section>
+  );
+};
 
 // Component to render custom UI based on ProjectSettings section definition
 const RenderSection = ({ section, business, isAdmin }: { section: any, business: Business, isAdmin: boolean }) => {
@@ -349,7 +519,7 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
    switch (type) {
      case 'hero':
         return (
-          <>
+          <div className="w-full">
             <Hero 
               variant={layout as any || 'modern-split'} 
               title={<AdminEditable value={business.siteSettings?.heroTitle || 'Welcome'} model="siteSettings" id={business.siteSettings?.id || ''} field="heroTitle">{business.siteSettings?.heroTitle || 'Welcome'}</AdminEditable>}
@@ -357,7 +527,7 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
               sectionId={id} 
             />
             {/* AI Product Search Section Below Hero */}
-            <section className="w-full py-12 px-4 md:px-8 bg-gradient-to-br from-background via-muted/30 to-background">
+            <section className="w-full py-12 px-4 md:px-8 bg-gradient-to-br from-background via-muted/30 to-background border-b border-t shadow-sm">
               <div className="max-w-7xl mx-auto">
                 <AIProductSearch businessId={business.id}>
                   <Button 
@@ -370,42 +540,46 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                 <p className="text-sm text-muted-foreground mt-3 text-center md:text-left">Snap a photo or upload a list of products you want to find</p>
               </div>
             </section>
-          </>
+          </div>
         );
      case 'products':
-        if (layout === 'carousel of products') {
-          return (
-            <ScrollScaleWrapper className="w-full flex justify-center py-10">
-               <div className="space-y-4 w-full">
-                  <AdminEditable as="h2" value={data?.title || 'Trending Products'} model="section" id={id} field="data.title" data={data} className="text-3xl font-bold px-10" />
-                  <FeaturedProducts categoryId={data?.categoryId} title={data?.title} />
-               </div>
-            </ScrollScaleWrapper>
-          );
-        }
-        return <FeaturedProducts />;
+        return (
+          <SectionWrapper section={section}>
+             <div className="space-y-8 w-full">
+                <AdminEditable as="h2" value={data?.title || 'Trending Products'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black tracking-tight" />
+                <FeaturedProducts categoryId={data?.categoryId} title={data?.title} businessId={business.id} storeName={storeName as string} />
+             </div>
+          </SectionWrapper>
+        );
      case 'categories':
-        return <FeaturedCategories />;
+        return (
+          <SectionWrapper section={section}>
+             <div className="w-full">
+                <AdminEditable as="h2" value={data?.title || 'Categories'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black tracking-tight mb-8" />
+                <FeaturedCategories businessId={business.id} />
+             </div>
+          </SectionWrapper>
+        );
      case 'features':
-        return <Features />;
+        return <SectionWrapper section={section}><Features /></SectionWrapper>;
      case 'description':
         return (
-          <ScrollScaleWrapper className="w-full py-20 px-4 md:px-20 bg-muted/10 translate-y-[-2px] border-b">
-             <div className="max-w-4xl mx-auto space-y-6 text-center">
+          <SectionWrapper section={section}>
+             <div className="max-w-4xl mx-auto space-y-6">
                 <Info className="h-12 w-12 text-accent mx-auto" strokeWidth={3} />
                 <AdminEditable as="h2" value={data?.title || 'Our Philosophy'} model="section" id={id} field="data.title" data={data} className="text-4xl font-extrabold tracking-tight underline decoration-accent/40" />
                 <div className="w-full">
                   <AdminEditable as="p" value={business.siteSettings?.aboutText || 'This store provides the best service for all customers around the globe.'} model="siteSettings" id={business.siteSettings?.id || ''} field="aboutText" className="text-xl text-muted-foreground leading-loose italic" />
                 </div>
              </div>
-          </ScrollScaleWrapper>
+          </SectionWrapper>
         );
      case 'contact-form':
         return (
-          <div className="w-full py-20 px-4 md:px-20 bg-background">
-             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <SectionWrapper section={section}>
+             <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                 <div className="space-y-8">
-                   <div className="space-y-4 text-center md:text-left">
+                   <div className="space-y-4">
                       <AdminEditable as="h2" value={data?.title || 'Connect with Us'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter text-accent" />
                       <AdminEditable as="p" value={data?.text || "We'd love to hear from you. Fill out the form or use our contact details."} model="section" id={id} field="data.text" data={data} className="text-muted-foreground text-lg" />
                    </div>
@@ -428,45 +602,41 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                    <ContactForm />
                 </div>
              </div>
-          </div>
+          </SectionWrapper>
         );
      case 'chat-interface':
         return (
-          <div className="w-full py-20 px-4 bg-accent/5">
-             <div className="max-w-5xl mx-auto space-y-8">
+          <SectionWrapper section={section}>
+             <div className="w-full space-y-8">
                 <div className="text-center space-y-2">
                    <AdminEditable as="h2" value={data?.title || 'Talk to an Expert'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black tracking-tight" />
                    <AdminEditable as="p" value={data?.text || 'Get instant support and consultation from our licensed team.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
                 </div>
                 <ChatInterface />
              </div>
-          </div>
+          </SectionWrapper>
         );
      case 'blog-posts':
         return (
-          <div className="w-full py-20 px-4 max-w-7xl mx-auto">
-             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
-                <div className="space-y-2 text-center md:text-left">
+          <SectionWrapper section={section}>
+             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6 w-full">
+                <div className="space-y-2">
                    <AdminEditable as="h2" value={data?.title || 'Latest Insights'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black" />
                    <AdminEditable as="p" value={data?.text || 'Knowledge base and updates from our experts.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
                 </div>
                 <Button variant="outline" className="font-bold rounded-full border-2 h-12 px-8">View All Posts</Button>
              </div>
              <Posts page="General" />
-          </div>
+          </SectionWrapper>
         );
      case 'product-list': {
         const productCardLayout = business.settings?.productCardLayout || 'vertical';
         
         const handleLayoutChange = async (newLayout: 'vertical' | 'horizontal') => {
           try {
-            // Save to business settings
             await axios.put(`/api/dbhandler?model=business`, {
               id: business.id,
-              settings: {
-                ...business.settings,
-                productCardLayout: newLayout,
-              },
+              settings: { ...business.settings, productCardLayout: newLayout },
             });
             toast.success(`Layout saved: ${newLayout}`);
             window.location.reload();
@@ -476,8 +646,8 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
         };
         
         return (
-          <div className="w-full py-20 bg-background">
-             <div className="max-w-7xl mx-auto px-4 space-y-12">
+          <SectionWrapper section={section}>
+             <div className="w-full space-y-12">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                    <AdminEditable as="h2" value={data?.title || 'Catalog'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
                    <div className="flex gap-4 items-center flex-wrap">
@@ -510,14 +680,14 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                 </div>
                 <Stocks businessId={business.id} />
              </div>
-          </div>
+          </SectionWrapper>
         );
       }
      case 'newsletter':
         return (
-           <div className="w-full py-20 px-4 md:px-0">
-              <div className="max-w-4xl mx-auto px-6 py-12 bg-accent rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-accent/20">
-                 <div className="space-y-2 flex-1 text-center md:text-left">
+           <SectionWrapper section={section}>
+              <div className="w-full px-6 py-12 bg-accent rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-accent/20">
+                 <div className="space-y-2 flex-1">
                     <AdminEditable as="h3" value={business.siteSettings?.newsletterTitle || 'Join our Newsletter'} model="siteSettings" id={business.siteSettings?.id || ''} field="newsletterTitle" className="text-2xl font-black uppercase tracking-widest" />
                     <AdminEditable as="p" value={business.siteSettings?.newsletterText || 'Be the first to know about new arrivals and exclusive offers.'} model="siteSettings" id={business.siteSettings?.id || ''} field="newsletterText" className="text-white/80 font-medium" />
                  </div>
@@ -526,13 +696,13 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                     <Button className="h-12 px-8 rounded-2xl bg-white text-accent font-black hover:bg-white/90">Join</Button>
                  </div>
               </div>
-           </div>
+           </SectionWrapper>
         );
      case 'stats': {
         const stats = business.stats || [];
         return (
-           <div className="w-full py-20 bg-accent text-white">
-              <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+           <SectionWrapper section={section} className="bg-accent text-white">
+              <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
                  {stats.map(stat => (
                     <div key={stat.id} className="space-y-2">
                        <AdminEditable 
@@ -554,14 +724,14 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                     </div>
                  ))}
               </div>
-           </div>
+           </SectionWrapper>
         );
      }
      case 'partners': {
         const partners = business.partners || [];
         return (
-           <div className="w-full py-20 bg-muted/30">
-              <div className="max-w-7xl mx-auto px-6 text-center space-y-12">
+           <SectionWrapper section={section}>
+              <div className="w-full space-y-12">
                  <AdminEditable as="h2" value={data?.title || 'Our Trusted Partners'} model="section" id={id} field="data.title" data={data} className="text-sm font-black uppercase tracking-widest text-muted-foreground" />
                  <div className="flex flex-wrap justify-center items-center gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
                     {partners.map(partner => (
@@ -579,16 +749,16 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                     ))}
                  </div>
               </div>
-           </div>
+           </SectionWrapper>
         );
      }
      case 'promotions': {
         const promos = business.promotions || [];
         return (
-           <div className="w-full py-20 overflow-hidden">
-              <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+           <SectionWrapper section={section}>
+              <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
                  {promos.map(promo => (
-                    <div key={promo.id} className="relative h-[300px] rounded-[3rem] overflow-hidden group">
+                    <div key={promo.id} className="relative h-[300px] rounded-[3rem] overflow-hidden group shadow-xl">
                        <img
                          src={promo.image || ''}
                          alt={promo.title || 'Promotion image'}
@@ -616,61 +786,65 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                     </div>
                  ))}
               </div>
-           </div>
+           </SectionWrapper>
         );
      }
      case 'cart':
         return (
-          <div className="w-full py-20 px-4 max-w-7xl mx-auto">
-             <div className="mb-12 text-center md:text-left">
-                <h2 className="text-4xl font-black tracking-tighter">Shopping Bag</h2>
-                <p className="text-muted-foreground font-medium">Review your items before checkout.</p>
-             </div>
-             <CartDetails cartId="temp" />
-          </div>
+           <SectionWrapper section={section}>
+              <div className="w-full">
+                 <div className="mb-12">
+                    <h2 className="text-4xl font-black tracking-tighter">Shopping Bag</h2>
+                    <p className="text-muted-foreground font-medium">Review your items before checkout.</p>
+                 </div>
+                 <CartDetails cartId="temp" />
+              </div>
+           </SectionWrapper>
         );
      case 'product-details': {
         const pId = searchParams.get('id');
-        return <ProductDetailView productId={pId || undefined} businessId={business.id} />;
+        return <section className="w-full py-20 px-4 md:px-8"><ProductDetailView productId={pId || undefined} businessId={business.id} /></section>;
      }
      case 'staff': {
         const staff = business.staff || [];
         return (
-          <div className="w-full py-20 px-6 max-w-7xl mx-auto border-t border-dashed">
-             <div className="text-center mb-16 space-y-4">
-                <AdminEditable as="h2" value={data?.title || 'Meet the Experts'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black" />
-                <AdminEditable as="p" value={data?.text || 'Our platform is powered by highly skilled individuals dedicated to your satisfaction.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground max-w-2xl mx-auto" />
-             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                {staff.length > 0 ? staff.map((member, i) => (
-                   <div key={member.id} className="flex flex-col items-center group">
-                      <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-all duration-300 shadow-xl group-hover:shadow-accent/20">
-                         <img src={member.image || 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png'} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
+          <SectionWrapper section={section}>
+             <div className="w-full">
+                <div className="mb-16 space-y-4">
+                   <AdminEditable as="h2" value={data?.title || 'Meet the Experts'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black" />
+                   <AdminEditable as="p" value={data?.text || 'Our platform is powered by highly skilled individuals dedicated to your satisfaction.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground max-w-2xl" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 w-full">
+                   {staff.length > 0 ? staff.map((member, i) => (
+                      <div key={member.id} className="flex flex-col items-center group">
+                         <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-all duration-300 shadow-xl group-hover:shadow-accent/20">
+                            <img src={member.image || 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png'} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
+                         </div>
+                         <AdminEditable 
+                            as="h4" 
+                            value={member.name} 
+                            model="staff" 
+                            id={member.id} 
+                            field="name" 
+                            className="font-bold text-lg group-hover:text-accent transition-colors" 
+                         />
+                         <AdminEditable 
+                            as="p" 
+                            value={member.role} 
+                            model="staff" 
+                            id={member.id} 
+                            field="role" 
+                            className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]" 
+                         />
                       </div>
-                      <AdminEditable 
-                         as="h4" 
-                         value={member.name} 
-                         model="staff" 
-                         id={member.id} 
-                         field="name" 
-                         className="font-bold text-lg group-hover:text-accent transition-colors" 
-                      />
-                      <AdminEditable 
-                         as="p" 
-                         value={member.role} 
-                         model="staff" 
-                         id={member.id} 
-                         field="role" 
-                         className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]" 
-                      />
-                   </div>
-                )) : (
-                   <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
-                      <p>No team members listed yet. Add staff to your business dashboard.</p>
-                   </div>
-                )}
+                   )) : (
+                      <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
+                         <p>No team members listed yet. Add staff to your business dashboard.</p>
+                      </div>
+                   )}
+                </div>
              </div>
-          </div>
+          </SectionWrapper>
         );
      }
      case 'chat':
@@ -697,21 +871,23 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
      case 'help': {
         const articles = business.helpArticles || [];
         return (
-           <div className="w-full py-20 px-6 max-w-5xl mx-auto space-y-12">
-              <div className="text-center space-y-4">
-                 <AdminEditable as="h2" value={data?.title || 'Help Center'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
-                 <AdminEditable as="p" value={data?.text || 'Find answers to common questions.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
+           <SectionWrapper section={section}>
+              <div className="w-full space-y-12">
+                 <div className="space-y-4">
+                    <AdminEditable as="h2" value={data?.title || 'Help Center'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
+                    <AdminEditable as="p" value={data?.text || 'Find answers to common questions.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                    {articles.map(article => (
+                       <div key={article.id} className="p-8 bg-muted/20 rounded-[2rem] border-2 border-transparent hover:border-accent/10 transition-all group">
+                          <AdminEditable as="h4" value={article.title} model="helpArticle" id={article.id} field="title" className="text-lg font-bold mb-3 group-hover:text-accent transition-colors" />
+                          <AdminEditable as="p" value={article.content} model="helpArticle" id={article.id} field="content" className="text-sm text-muted-foreground line-clamp-3" />
+                          <Button variant="link" className="px-0 h-auto mt-4 text-accent font-black">Read More</Button>
+                       </div>
+                    ))}
+                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {articles.map(article => (
-                    <div key={article.id} className="p-8 bg-muted/20 rounded-[2rem] border-2 border-transparent hover:border-accent/10 transition-all group">
-                       <AdminEditable as="h4" value={article.title} model="helpArticle" id={article.id} field="title" className="text-lg font-bold mb-3 group-hover:text-accent transition-colors" />
-                       <AdminEditable as="p" value={article.content} model="helpArticle" id={article.id} field="content" className="text-sm text-muted-foreground line-clamp-3" />
-                       <Button variant="link" className="px-0 h-auto mt-4 text-accent font-black">Read More</Button>
-                    </div>
-                 ))}
-              </div>
-           </div>
+           </SectionWrapper>
         );
      }
      default:

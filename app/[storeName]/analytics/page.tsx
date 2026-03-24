@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import AnalyticsDashboard from '@/app/admin/analytics/page'
 import axios from 'axios'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function StoreAnalyticsPage() {
   const { storeName } = useParams()
@@ -16,7 +17,13 @@ export default function StoreAnalyticsPage() {
     })
   }, [storeName])
 
-  if (!business) return <div className="p-20 text-center font-black animate-pulse">Loading Store Insights...</div>
+   if (!business) return (
+      <div className="p-20 flex flex-col items-center justify-center">
+         <Skeleton className="h-10 w-10 rounded-full bg-muted/40 mb-4" />
+         <Skeleton className="h-6 w-[220px] bg-muted/30 mb-2" />
+         <p className="text-center font-black animate-pulse">Loading Store Insights...</p>
+      </div>
+   );
 
   return (
     <div className="min-h-screen bg-background">

@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-05 08:11:39
+Generated: 2026-03-24 15:31:12
 ================================================================================
 
 
@@ -7175,6 +7175,7 @@ import axios from "axios";
 import { useCart } from "@/hooks/use-cart";
 import { useAppContext } from "@/hooks/useAppContext";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -7455,7 +7456,8 @@ export default function ProductDetailPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        Loading product…
+        <Skeleton className="h-10 w-10 rounded-full bg-muted/40" />
+        <Skeleton className="h-6 w-[200px] bg-muted/30 ml-4" />
       </div>
     );
   }
@@ -7731,6 +7733,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import AnalyticsDashboard from '@/app/admin/analytics/page'
 import axios from 'axios'
+import { Skeleton } from '@/components/ui/skeleton'
 
 export default function StoreAnalyticsPage() {
   const { storeName } = useParams()
@@ -7744,7 +7747,13 @@ export default function StoreAnalyticsPage() {
     })
   }, [storeName])
 
-  if (!business) return <div className="p-20 text-center font-black animate-pulse">Loading Store Insights...</div>
+   if (!business) return (
+      <div className="p-20 flex flex-col items-center justify-center">
+         <Skeleton className="h-10 w-10 rounded-full bg-muted/40 mb-4" />
+         <Skeleton className="h-6 w-[220px] bg-muted/30 mb-2" />
+         <p className="text-center font-black animate-pulse">Loading Store Insights...</p>
+      </div>
+   );
 
   return (
     <div className="min-h-screen bg-background">
@@ -7879,6 +7888,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
 import { usePageCache } from '@/hooks/usePageCache'
 import StoreHome from '@/components/platform/StoreHome'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 
 const DynamicStorePage = () => {
@@ -7906,7 +7916,8 @@ const DynamicStorePage = () => {
   if (isLoading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-accent" />
+        <Skeleton className="h-12 w-12 rounded-full bg-accent/20" />
+        <Skeleton className="h-8 w-[300px] bg-muted/40" />
         <p className="text-xl font-bold animate-pulse text-muted-foreground uppercase tracking-widest text-center">
             {slugArray ? `Navigating to ${pageSlug}...` : `Entering ${storeName}...`}
         </p>
@@ -12619,19 +12630,22 @@ async function getCategories(businessId?: string) {
   }));
 }
 
-const FeaturedCategories = () => {
+const FeaturedCategories = ({ businessId: businessIdProp }: { businessId?: string }) => {
   const [categories, setCategories] = useState([]);
   const isAdmin = useIsAdmin();
   const { currentBusiness } = useAppContext();
 
+  const resolvedBusinessId = businessIdProp || currentBusiness?.id;
+
   const fetchCategories = async () => {
-    const cats = await getCategories(currentBusiness?.id);
+    if (!resolvedBusinessId) return;
+    const cats = await getCategories(resolvedBusinessId);
     setCategories(cats);
   };
 
   useEffect(() => {
     fetchCategories(); 
-  }, []); 
+  }, [resolvedBusinessId]); 
 
   const handleDelete = async (id: string, name: string) => {
     if (confirm(`Are you sure you want to delete category "${name}"?`)) {
@@ -12787,7 +12801,17 @@ export interface FeaturedProductType {
 /* ===============================
    Component
 ================================ */
-const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: string, title?: string }) => {
+const FeaturedProducts = ({
+  categoryId,
+  title: customTitle,
+  businessId: businessIdProp,
+  storeName: storeNameProp,
+}: {
+  categoryId?: string;
+  title?: string;
+  businessId?: string;
+  storeName?: string;
+}) => {
   const [products, setProducts] = useState<FeaturedProductType[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -12806,58 +12830,67 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
   const isAdmin = useIsAdmin();
   const { currentBusiness } = useAppContext();
   const params = useParams();
-  const storeName = (params as any)?.storeName;
-  const viewAllHref = storeName ? `/${storeName}/store` : '/store';
+
+  // Prefer explicit prop, then URL param, then context
+  const resolvedStoreName = storeNameProp || (params as any)?.storeName || currentBusiness?.slug;
+  const resolvedBusinessId = businessIdProp || currentBusiness?.id;
+
+  const viewAllHref = resolvedStoreName ? `/${resolvedStoreName}/store` : '/store';
 
   async function fetchProducts() {
     try {
       let url = "/api/dbhandler?model=featuredProduct";
-      if (currentBusiness?.id) {
-        url += `&businessId=${currentBusiness.id}`;
+      if (resolvedBusinessId) {
+        url += `&businessId=${resolvedBusinessId}`;
       }
       if (categoryId) {
         url = `/api/dbhandler?model=product&categoryId=${categoryId}`;
-        if (currentBusiness?.id) {
-          url += `&businessId=${currentBusiness.id}`;
+        if (resolvedBusinessId) {
+          url += `&businessId=${resolvedBusinessId}`;
         }
       }
       const res = await fetch(url);
       const data = await res.json();
 
       // If categoryId, data is already top level product. If featuredProduct, it is { product: ... }
-      const mapped: FeaturedProductType[] = data.map((item: any) => {
-        const product = categoryId ? item : item.product;
-        if (!product) return null;
-        
-        const totalStock =
-          product.stock?.reduce(
-            (sum: number, s: any) => sum + (s.addedQuantity ?? 0),
-            0
-          ) ?? 0;
+      const mapped: FeaturedProductType[] = data
+        .map((item: any) => {
+          const product = categoryId ? item : item.product;
+          if (!product) return null;
 
-        const rating =
-          product.reviews?.length > 0
-            ? product.reviews.reduce(
-              (acc: number, r: any) => acc + r.rating,
+          // Ensure product belongs to current business
+          if (resolvedBusinessId && product.businessId !== resolvedBusinessId) return null;
+
+          const totalStock =
+            product.stock?.reduce(
+              (sum: number, s: any) => sum + (s.addedQuantity ?? 0),
               0
-            ) / product.reviews.length
-            : undefined;
+            ) ?? 0;
 
-        return {
-          id: product.id,
-          name: product.name,
-          category: {
-            name: product.category?.name || "Uncategorized",
-          },
-          price: product.price,
-          images:
-            product.images?.length > 0
-              ? product.images
-              : ["/placeholder.png"],
-          inStock: totalStock > 0,
-          rating,
-        };
-      }).filter(Boolean);
+          const rating =
+            product.reviews?.length > 0
+              ? product.reviews.reduce(
+                  (acc: number, r: any) => acc + r.rating,
+                  0
+                ) / product.reviews.length
+              : undefined;
+
+          return {
+            id: product.id,
+            name: product.name,
+            category: {
+              name: product.category?.name || "Uncategorized",
+            },
+            price: product.price,
+            images:
+              product.images?.length > 0
+                ? product.images
+                : ["/placeholder.png"],
+            inStock: totalStock > 0,
+            rating,
+          };
+        })
+        .filter(Boolean);
 
       setProducts(mapped);
     } catch (err) {
@@ -12869,7 +12902,9 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
 
   useEffect(() => {
     fetchProducts();
-  }, [categoryId]);
+  // re-fetch whenever the resolved business id changes (e.g. context loads late)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId, resolvedBusinessId]);
 
   /* ===============================
      Split products for dual carousel
@@ -14918,10 +14953,57 @@ const Hero = ({ variant = 'modern-split', title, subtitle, sectionId }: HeroProp
         field={field} 
         model={model} 
         id={id} 
+        type="textarea"
         as="p" 
         className="max-w-[600px] text-lg text-muted-foreground md:text-xl leading-relaxed" 
         data={sectionId ? { title, text: val } : undefined}
       />
+    );
+  };
+
+  const editableImage = (defaultImg: string) => {
+    const val = sectionId ? (currentBusiness?.sections?.find((s:any) => s.id === sectionId)?.settings?.image || defaultImg) : (currentBusiness?.siteSettings?.heroImage || defaultImg);
+    const model = sectionId ? "businessSection" : "siteSettings";
+    const field = sectionId ? "settings.image" : "heroImage";
+    const id = sectionId || currentBusiness?.siteSettings?.id || "";
+
+    return (
+      <AdminEditable 
+        value={val} 
+        field={field} 
+        model={model} 
+        id={id} 
+        type="image"
+        as="img"
+        className="relative z-10 w-full h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500" 
+      />
+    );
+  };
+
+  const editableCTA = () => {
+    const label = sectionId ? "Shop Now" : (currentBusiness?.siteSettings?.heroCTA || "Shop Now");
+    const link = sectionId ? `${storeBase}/store` : (currentBusiness?.siteSettings?.heroCTALink || `${storeBase}/store`);
+    const model = sectionId ? "section" : "siteSettings";
+    const field = sectionId ? "data.buttonText" : "heroCTA";
+    const linkField = sectionId ? "data.buttonLink" : "heroCTALink";
+    const id = sectionId || currentBusiness?.siteSettings?.id || "";
+
+    return (
+      <AdminEditable
+        value={label}
+        model={model}
+        id={id}
+        field={field}
+        linkField={linkField}
+        type="link"
+        data={sectionId ? { buttonText: label, buttonLink: link } : currentBusiness?.siteSettings}
+      >
+        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={buttonBounce}>
+           <Button className="h-12 gap-1.5 px-8 transition-all duration-200 bg-accent hover:bg-accent/90 w-full text-white font-bold text-lg shadow-xl shadow-accent/20" size="lg">
+              {label} <ArrowRight className="h-5 w-5 animate-pulse" />
+           </Button>
+        </motion.div>
+      </AdminEditable>
     );
   };
 
@@ -14947,14 +15029,26 @@ const Hero = ({ variant = 'modern-split', title, subtitle, sectionId }: HeroProp
                   {editableSubtitle("Discover premium products at competitive prices, with fast shipping and exceptional customer service.")}
               </div>
               <ProductCarousel />
-              <CTAButtons />
+              <ProductCarousel />
+              <div className="flex flex-col gap-3 sm:flex-row z-10">
+                 {editableCTA()}
+                 {user?.id === "nil" && (
+                    <Link href="/account" className="w-full max-w-52">
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} animate={buttonBounce} transition={{ delay: 0.2 }}>
+                        <Button className="h-12 px-8 w-full border-2 border-accent text-accent hover:bg-accent/10 transition-colors duration-200 font-semibold" size="lg" variant="outline">
+                          Login
+                        </Button>
+                      </motion.div>
+                    </Link>
+                 )}
+              </div>
               <TrustBadges />
             </motion.div>
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, delay: 0.2 }} className="relative hidden lg:block h-[500px] w-full">
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="relative w-[400px] h-[400px] bg-accent/10 rounded-full animate-blob mix-blend-multiply filter blur-xl opacity-70"></div>
                 <div className="relative w-[400px] h-[400px] bg-primary/10 rounded-full animate-blob animation-delay-2000 mix-blend-multiply filter blur-xl opacity-70 -ml-20"></div>
-                <img src="/mission-burrito-fast-food-shawarma-kati-roll-breakfast-6dd86711999109a88eae948201cd24bf.png" alt="Featured" className="relative z-10 w-[450px] h-auto object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500" />
+                {editableImage("/mission-burrito-fast-food-shawarma-kati-roll-breakfast-6dd86711999109a88eae948201cd24bf.png")}
               </div>
             </motion.div>
           </div>
@@ -15820,6 +15914,7 @@ import Link from "next/link";
 import { useParams } from 'next/navigation'
 import * as React from "react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { useAppContext } from "@/hooks/useAppContext";
 import {
   Dialog,
   DialogContent,
@@ -15857,6 +15952,7 @@ export function ProductCard({
   const [isAddingToCart, setIsAddingToCart] = React.useState(false);
   const [isInWishlist, setIsInWishlist] = React.useState(false);
   const [isLunchDialogOpen, setIsLunchDialogOpen] = React.useState(false);
+  const { currentBusiness } = useAppContext();
 
   React.useEffect(() => {
     if (product?.id) {
@@ -16155,7 +16251,7 @@ export function ProductCard({
                 </CardFooter>
               )}
 
-              {!inStock && (
+              {!inStock && currentBusiness?.settings?.showOutOfStockOverlay && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
                   <Badge className="px-3 py-1 text-sm" variant="destructive">
                     Out of Stock
@@ -21234,57 +21330,253 @@ LOCATION: components\platform\AddSectionTrigger.tsx
 "use client"
 import React from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import { PlusCircle } from 'lucide-react'
+import {
+  PlusCircle, LayoutPanelTop, Grid3X3, AlignLeft, Sparkles,
+  MessageCircle, Bell, Mail, BookOpen, ShoppingBag,
+  Star, Users, HelpCircle, Megaphone, ShoppingCart,
+  Package, Layers
+} from 'lucide-react'
+
+const SECTION_TYPES = [
+  {
+    id: 'hero',
+    label: 'Hero Banner',
+    description: 'Full-width banner with headline, subtitle & CTA button',
+    icon: LayoutPanelTop,
+    color: 'from-violet-500 to-purple-600',
+    layout: 'modern-split',
+  },
+  {
+    id: 'products',
+    label: 'Products Carousel',
+    description: 'A scrollable carousel of featured products',
+    icon: Sparkles,
+    color: 'from-pink-500 to-rose-600',
+    layout: 'carousel of products',
+  },
+  {
+    id: 'product-list',
+    label: 'Product Catalog',
+    description: 'Full grid of products with search and filters',
+    icon: ShoppingBag,
+    color: 'from-orange-500 to-amber-600',
+    layout: 'grid',
+  },
+  {
+    id: 'categories',
+    label: 'Categories Grid',
+    description: 'Visual grid of product categories',
+    icon: Grid3X3,
+    color: 'from-sky-500 to-blue-600',
+    layout: 'grid',
+  },
+  {
+    id: 'description',
+    label: 'Text / About',
+    description: 'Rich text block for your brand story or info',
+    icon: AlignLeft,
+    color: 'from-teal-500 to-green-600',
+    layout: 'UI of description',
+  },
+  {
+    id: 'features',
+    label: 'Trust Features',
+    description: 'Highlight key benefits with icons and short copy',
+    icon: Star,
+    color: 'from-yellow-500 to-orange-600',
+    layout: 'trust-bars',
+  },
+  {
+    id: 'staff',
+    label: 'Team Members',
+    description: 'Showcase staff photos, names and roles',
+    icon: Users,
+    color: 'from-indigo-500 to-violet-600',
+    layout: 'grid',
+  },
+  {
+    id: 'blog-posts',
+    label: 'Blog / Posts',
+    description: 'Display your latest articles and updates',
+    icon: BookOpen,
+    color: 'from-emerald-500 to-teal-600',
+    layout: 'masonry',
+  },
+  {
+    id: 'newsletter',
+    label: 'Newsletter',
+    description: 'Email signup with a compelling call-to-action',
+    icon: Mail,
+    color: 'from-fuchsia-500 to-pink-600',
+    layout: 'centered',
+  },
+  {
+    id: 'contact-form',
+    label: 'Contact Form',
+    description: 'Let customers reach you with a form + info cards',
+    icon: Mail,
+    color: 'from-cyan-500 to-sky-600',
+    layout: 'standard',
+  },
+  {
+    id: 'chat-interface',
+    label: 'Chat Interface',
+    description: 'Embedded live chat panel for customer support',
+    icon: MessageCircle,
+    color: 'from-blue-500 to-indigo-600',
+    layout: 'standard',
+  },
+  {
+    id: 'chat',
+    label: 'Chat Button',
+    description: 'Floating chat bubble that opens a support window',
+    icon: MessageCircle,
+    color: 'from-green-500 to-emerald-600',
+    layout: 'UI of chat',
+  },
+  {
+    id: 'notifications',
+    label: 'Announcement Bar',
+    description: 'Prominent banner for promotions and announcements',
+    icon: Bell,
+    color: 'from-red-500 to-rose-600',
+    layout: 'UI of notifications',
+  },
+  {
+    id: 'stats',
+    label: 'Stats Counter',
+    description: 'Highlight business milestones with big numbers',
+    icon: Sparkles,
+    color: 'from-violet-600 to-fuchsia-600',
+    layout: 'UI of stats',
+  },
+  {
+    id: 'partners',
+    label: 'Partners / Logos',
+    description: 'Brand trust strip of logos and partner names',
+    icon: Layers,
+    color: 'from-slate-500 to-gray-600',
+    layout: 'UI of partners',
+  },
+  {
+    id: 'promotions',
+    label: 'Promotions',
+    description: 'Visually bold promo cards with discount badges',
+    icon: Megaphone,
+    color: 'from-amber-500 to-yellow-600',
+    layout: 'wide-cards',
+  },
+  {
+    id: 'cart',
+    label: 'Cart Details',
+    description: 'Shopping cart page with item list and checkout',
+    icon: ShoppingCart,
+    color: 'from-rose-500 to-pink-600',
+    layout: 'full-details',
+  },
+  {
+    id: 'product-details',
+    label: 'Product Details',
+    description: 'Individual product page with images, price and add-to-cart',
+    icon: Package,
+    color: 'from-teal-600 to-cyan-600',
+    layout: 'premium',
+  },
+  {
+    id: 'help',
+    label: 'Help Center',
+    description: 'FAQ articles and help content grid',
+    icon: HelpCircle,
+    color: 'from-indigo-400 to-blue-500',
+    layout: 'UI of help',
+  },
+]
 
 const AddSectionTrigger = ({ onAdd }: { onAdd: (type: string, layout: string) => void }) => {
+  const [open, setOpen] = React.useState(false)
+  const [search, setSearch] = React.useState('')
+
+  const filtered = SECTION_TYPES.filter(
+    (s) =>
+      s.label.toLowerCase().includes(search.toLowerCase()) ||
+      s.description.toLowerCase().includes(search.toLowerCase())
+  )
+
+  const handleSelect = (section: typeof SECTION_TYPES[number]) => {
+    onAdd(section.id, section.layout)
+    setOpen(false)
+    setSearch('')
+  }
+
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" className="border-2 border-accent text-accent font-black hover:bg-accent hover:text-white transition-all scale-90 hover:scale-100 shadow-sm px-4">
-           <PlusCircle className="h-4 w-4 mr-2" /> Add Section Here
+        <Button
+          variant="ghost"
+          size="sm"
+          className="border-2 border-accent text-accent font-black hover:bg-accent hover:text-white transition-all scale-90 hover:scale-100 shadow-sm px-4"
+        >
+          <PlusCircle className="h-4 w-4 mr-2" /> Add Section Here
         </Button>
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add New Section</DialogTitle>
+
+      <DialogContent className="max-w-3xl p-0 overflow-hidden rounded-3xl">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-accent/5 to-accent/10">
+          <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-accent flex items-center justify-center">
+              <PlusCircle className="h-5 w-5 text-white" />
+            </div>
+            Add a Section
+          </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Pick a section type to add to your page.
+          </p>
+          {/* Search */}
+          <input
+            type="text"
+            placeholder="Search sections…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mt-3 w-full border-2 rounded-xl px-4 py-2 text-sm font-medium outline-none focus:border-accent transition-colors bg-background"
+            autoFocus
+          />
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-           <div className="space-y-2">
-              <Label>Section Type</Label>
-              <Select onValueChange={(v) => onAdd(v, `UI of ${v}`)}>
-                 <SelectTrigger>
-                    <SelectValue placeholder="Select type..." />
-                 </SelectTrigger>
-                 <SelectContent>
-                    <SelectItem value="hero">Hero Section</SelectItem>
-                    <SelectItem value="products">Products Display</SelectItem>
-                    <SelectItem value="categories">Categories Grid</SelectItem>
-                    <SelectItem value="description">Text/About Section</SelectItem>
-                    <SelectItem value="features">Trust Features</SelectItem>
-                    <SelectItem value="chat">Chat Button</SelectItem>
-                    <SelectItem value="notifications">Announcement Bar</SelectItem>
-                    <SelectItem value="contact-form">Contact Form</SelectItem>
-                    <SelectItem value="chat-interface">Chat Interface</SelectItem>
-                    <SelectItem value="blog-posts">Blog Posts</SelectItem>
-                    <SelectItem value="product-list">Product List</SelectItem>
-                    <SelectItem value="newsletter">Newsletter</SelectItem>
-                    <SelectItem value="cart">Cart Details</SelectItem>
-                    <SelectItem value="product-details">Product Details</SelectItem>
-                    <SelectItem value="staff">Staff/Team</SelectItem>
-                 </SelectContent>
-              </Select>
-           </div>
+
+        <div className="overflow-y-auto max-h-[60vh] p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {filtered.map((section) => {
+              const Icon = section.icon
+              return (
+                <button
+                  key={section.id}
+                  onClick={() => handleSelect(section)}
+                  className="group flex flex-col items-start gap-3 p-4 rounded-2xl border-2 border-transparent bg-muted/30 hover:border-accent hover:bg-accent/5 transition-all text-left"
+                >
+                  <div className={`h-10 w-10 rounded-xl bg-gradient-to-br ${section.color} flex items-center justify-center shrink-0 shadow-md`}>
+                    <Icon className="h-5 w-5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm group-hover:text-accent transition-colors">{section.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug">{section.description}</p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+          {filtered.length === 0 && (
+            <div className="py-12 text-center text-muted-foreground">
+              <p className="font-bold">No sections match "{search}"</p>
+              <p className="text-sm mt-1">Try a different keyword</p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
 export default AddSectionTrigger
-
 
 
 
@@ -21308,12 +21600,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { PlusCircle, Settings as SettingsIcon, Layout, Palette, Globe, Package, Users, FileText, BarChart3, Home as HomeIcon, Trash2, CreditCard } from 'lucide-react'
+import {
+  PlusCircle, Settings as SettingsIcon, Layout, Palette, Globe,
+  Package, Users, FileText, BarChart3, Home as HomeIcon, Trash2,
+  CreditCard, Layers, ChevronRight, Eye, ArrowLeft
+} from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import ProductForm from '@/prisma/forms/ProductForm'
 import StaffForm from '@/prisma/forms/StaffForm'
 import PostForm from '@/prisma/forms/PostForm'
 import { DEFAULT_PAGE_TEMPLATES } from '@/lib/storeTemplates'
+import { Switch } from '@/components/ui/switch'
+import { SectionManagerPanel } from './SectionManagerPanel'
 
 const AdminToolbar = ({
   business,
@@ -21321,14 +21619,24 @@ const AdminToolbar = ({
   onCreatePage,
   isOpen,
   onOpenChange,
-  initialTab = "pages"
+  initialTab = "pages",
+  sections = [],
+  activePage,
+  onAddSection,
+  onDeleteSection,
+  onSectionDataChange,
 }: {
   business: any,
   onUpdateSettings: (data: any) => void,
   onCreatePage: (name: string, slug: string, template?: string) => void,
   isOpen: boolean,
   onOpenChange: (open: boolean) => void,
-  initialTab?: string | null
+  initialTab?: string | null,
+  sections?: any[],
+  activePage?: any,
+  onAddSection?: (type: string, layout: string) => void,
+  onDeleteSection?: (id: string) => void,
+  onSectionDataChange?: () => void,
 }) => {
   const [currency, setCurrency] = React.useState(business.settings?.currency || "USD");
   const [rate, setRate] = React.useState(business.settings?.exchangeRate?.toString() || "1.0");
@@ -21342,9 +21650,13 @@ const AdminToolbar = ({
   const [newPageName, setNewPageName] = React.useState("");
   const [selectedTemplate, setSelectedTemplate] = React.useState<string>("home");
   const [activeTab, setActiveTab] = React.useState(initialTab || "pages");
+  const [showOutOfStockOverlay, setShowOutOfStockOverlay] = React.useState(business.settings?.showOutOfStockOverlay ?? true);
+
+  // Which page is expanded in the section manager sub-view
+  const [expandedPageId, setExpandedPageId] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-   if (initialTab) setActiveTab(initialTab);
+    if (initialTab) setActiveTab(initialTab);
   }, [initialTab]);
 
   const handleAddPage = () => {
@@ -21362,185 +21674,318 @@ const AdminToolbar = ({
     }
   };
 
-  return (
-   <div className="fixed bottom-6 left-6 z-[100]">
-     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-       <DialogTrigger asChild>
-         <Button className="rounded-full h-14 w-14 shadow-2xl bg-black text-white hover:bg-gray-800 transition-all hover:scale-110 border-2 border-white/20">
-           <SettingsIcon className="h-6 w-6" />
-         </Button>
-       </DialogTrigger>
-       <DialogContent className="max-w-2xl w-[95vw] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
-         <div className="bg-accent p-6 text-white">
-           <DialogTitle className="text-2xl font-black flex items-center gap-2">
-             <div className="bg-white/20 p-2 rounded-xl"><SettingsIcon className="h-5 w-5" /></div>
-             Store Control Center
-           </DialogTitle>
-           <p className="text-white/70 text-sm mt-1">Manage your pages, design, and world settings.</p>
-         </div>
+  const expandedPage = business.settings?.pages?.find((p: any) => p.id === expandedPageId);
+  // For the current active page, we use the passed-in sections; for any other page, use page.sections
+  const expandedSections: any[] = expandedPageId
+    ? (expandedPage?.slug === activePage?.slug
+        ? sections
+        : expandedPage?.sections || [])
+    : [];
 
-         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-           <div className="px-6 border-b bg-muted/30">
-             <TabsList className="bg-transparent h-14 w-full justify-start gap-4 p-0">
-               <TabsTrigger value="pages" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                 <Layout className="h-4 w-4 mr-2" /> Pages
-               </TabsTrigger>
-               <TabsTrigger value="design" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
-                 <Palette className="h-4 w-4 mr-2" /> Design
-               </TabsTrigger>
-                <TabsTrigger value="settings" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+  return (
+    <div className="fixed bottom-6 left-6 z-[100]">
+      <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <DialogTrigger asChild>
+          <Button className="rounded-full h-14 w-14 shadow-2xl bg-black text-white hover:bg-gray-800 transition-all hover:scale-110 border-2 border-white/20">
+            <SettingsIcon className="h-6 w-6" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl w-[95vw] rounded-3xl p-0 overflow-hidden border-none shadow-2xl">
+          <div className="bg-accent p-6 text-white">
+            <DialogTitle className="text-2xl font-black flex items-center gap-2">
+              <div className="bg-white/20 p-2 rounded-xl"><SettingsIcon className="h-5 w-5" /></div>
+              Store Control Center
+            </DialogTitle>
+            <p className="text-white/70 text-sm mt-1">Manage your pages, sections, design, and settings.</p>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setExpandedPageId(null); }} className="w-full">
+            <div className="px-6 border-b bg-muted/30">
+              <TabsList className="bg-transparent h-14 w-full justify-start gap-4 p-0 overflow-x-auto">
+                <TabsTrigger value="pages" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest shrink-0">
+                  <Layout className="h-4 w-4 mr-2" /> Pages
+                </TabsTrigger>
+                <TabsTrigger value="sections" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest shrink-0">
+                  <Layers className="h-4 w-4 mr-2" /> Sections
+                </TabsTrigger>
+                <TabsTrigger value="design" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest shrink-0">
+                  <Palette className="h-4 w-4 mr-2" /> Design
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest shrink-0">
                   <Globe className="h-4 w-4 mr-2" /> Settings
                 </TabsTrigger>
-                <TabsTrigger value="inventory" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                <TabsTrigger value="inventory" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest shrink-0">
                   <Package className="h-4 w-4 mr-2" /> Inventory
                 </TabsTrigger>
-                <TabsTrigger value="team" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                <TabsTrigger value="team" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest shrink-0">
                   <Users className="h-4 w-4 mr-2" /> Team
                 </TabsTrigger>
-                <TabsTrigger value="posts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest">
+                <TabsTrigger value="posts" className="data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-4 data-[state=active]:border-accent rounded-none h-full px-0 font-bold text-xs uppercase tracking-widest shrink-0">
                   <FileText className="h-4 w-4 mr-2" /> Posts
                 </TabsTrigger>
-             </TabsList>
-           </div>
+              </TabsList>
+            </div>
 
-           <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
-             <TabsContent value="pages" className="mt-0 space-y-6">
-               <div className="space-y-4">
-                 <div className="p-4 bg-accent/5 rounded-2xl space-y-4 border-2 border-accent/10">
-                   <h4 className="text-sm font-black uppercase tracking-widest text-accent">Create New Page</h4>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                     <div className="space-y-2">
-                       <Label className="text-[10px] font-black uppercase tracking-widest">Page Name</Label>
-                       <Input
-                        placeholder="e.g. Services"
-                        className="font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors h-11"
-                        value={newPageName}
-                        onChange={(e) => setNewPageName(e.target.value)}
-                       />
-                     </div>
-                     <div className="space-y-2">
-                       <Label className="text-[10px] font-black uppercase tracking-widest">Starting Template</Label>
-                       <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-                         <SelectTrigger className="h-11 border-2">
-                           <SelectValue placeholder="Choose template..." />
-                         </SelectTrigger>
-                         <SelectContent>
-                           {Object.entries(DEFAULT_PAGE_TEMPLATES).map(([slug, tpl]) => (
-                             'name' in tpl ? (
-                               <SelectItem key={slug} value={slug}>{tpl.name} Layout</SelectItem>
-                             ) : null
-                           ))}
-                         </SelectContent>
-                       </Select>
-                     </div>
-                   </div>
-                   <Button onClick={handleAddPage} className="w-full font-black bg-accent hover:bg-accent/90 h-12 shadow-lg shadow-accent/20">
-                     <PlusCircle className="h-4 w-4 mr-2" /> Launch New Page
-                   </Button>
-                 </div>
+            <div className="p-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
 
-                 <div className="grid grid-cols-1 gap-3">
-                   {business.settings?.pages?.map((p: any) => (
-                     <div key={p.id} className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border-2 border-transparent hover:border-accent/10 hover:bg-white transition-all group shadow-sm">
-                       <div className="flex items-center gap-4">
-                         <div className={`h-12 w-12 flex items-center justify-center rounded-xl border-2 transition-colors ${p.slug === 'home' ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-background border-muted text-muted-foreground'}`}>
-                           {p.slug === 'home' ? <HomeIcon className="h-5 w-5" /> : <Layout className="h-5 w-5" />}
-                         </div>
-                         <div>
-                           <div className="font-black text-[15px] flex items-center gap-2">
-                             {p.name}
-                             {p.slug === 'home' && <Badge className="text-[9px] h-4 bg-accent/20 text-accent hover:bg-accent/30 border-none px-1">HOME</Badge>}
-                           </div>
-                           <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60">/{p.slug}</div>
-                         </div>
-                       </div>
-                       <div className="flex gap-2">
-                         <Button size="sm" variant="outline" className="h-9 font-black text-[10px] border-2 px-3 tracking-tighter" onClick={() => window.location.href=`/${business.slug}/${p.slug === 'home' ? '' : p.slug}`}>
-                           EDIT
-                         </Button>
-                         {p.slug !== 'home' && (
-                           <Button size="icon" variant="destructive" className="h-9 w-9 text-white shrink-0 shadow-lg shadow-red-500/10" onClick={() => deletePage(p.id)}>
-                             <Trash2 className="h-4 w-4" />
-                           </Button>
-                         )}
-                       </div>
-                     </div>
-                   ))}
-                 </div>
-               </div>
-             </TabsContent>
+              {/* ═══ PAGES TAB ═══ */}
+              <TabsContent value="pages" className="mt-0 space-y-6">
+                <div className="space-y-4">
+                  {/* Create new page form */}
+                  <div className="p-4 bg-accent/5 rounded-2xl space-y-4 border-2 border-accent/10">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-accent">Create New Page</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest">Page Name</Label>
+                        <Input
+                          placeholder="e.g. Services"
+                          className="font-medium border-2 hover:border-accent/40 focus:border-accent transition-colors h-11"
+                          value={newPageName}
+                          onChange={(e) => setNewPageName(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddPage()}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black uppercase tracking-widest">Starting Template</Label>
+                        <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                          <SelectTrigger className="h-11 border-2">
+                            <SelectValue placeholder="Choose template..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(DEFAULT_PAGE_TEMPLATES).map(([slug, tpl]) => (
+                              'name' in tpl ? (
+                                <SelectItem key={slug} value={slug}>{tpl.name} Layout</SelectItem>
+                              ) : null
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <Button onClick={handleAddPage} className="w-full font-black bg-accent hover:bg-accent/90 h-12 shadow-lg shadow-accent/20">
+                      <PlusCircle className="h-4 w-4 mr-2" /> Launch New Page
+                    </Button>
+                  </div>
 
-             <TabsContent value="design" className="mt-0 space-y-6">
-               <div className="p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-4 bg-muted/20">
-                 <Palette className="h-12 w-12 text-accent/40" />
-                 <div>
-                   <h4 className="font-bold text-lg">Visual Customizer</h4>
-                   <p className="text-sm text-muted-foreground">Coming soon! You'll be able to change colors, fonts, and themes globally.</p>
-                 </div>
-                 <Button disabled variant="outline" className="font-bold border-2">Launch Designer</Button>
-               </div>
-             </TabsContent>
+                  {/* Page list */}
+                  <div className="grid grid-cols-1 gap-3">
+                    {business.settings?.pages?.map((p: any) => {
+                      const sectionCount = p.sections?.length ?? 0
+                      const isActive = p.slug === activePage?.slug
+                      return (
+                        <div
+                          key={p.id}
+                          className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border-2 border-transparent hover:border-accent/20 hover:bg-white transition-all group shadow-sm"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={`h-12 w-12 flex items-center justify-center rounded-xl border-2 transition-colors ${p.slug === 'home' ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-background border-muted text-muted-foreground'}`}>
+                              {p.slug === 'home' ? <HomeIcon className="h-5 w-5" /> : <Layout className="h-5 w-5" />}
+                            </div>
+                            <div>
+                              <div className="font-black text-[15px] flex items-center gap-2">
+                                {p.name}
+                                {p.slug === 'home' && <Badge className="text-[9px] h-4 bg-accent/20 text-accent hover:bg-accent/30 border-none px-1">HOME</Badge>}
+                                {isActive && <Badge className="text-[9px] h-4 bg-green-100 text-green-700 border-none px-1">CURRENT</Badge>}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60 flex items-center gap-2">
+                                /{p.slug}
+                                {sectionCount > 0 && (
+                                  <span className="bg-muted rounded-full px-2 py-0.5">{sectionCount} section{sectionCount !== 1 ? 's' : ''}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-9 font-black text-[10px] border-2 px-3 tracking-tighter"
+                              onClick={() => window.location.href = `/${business.slug}/${p.slug === 'home' ? '' : p.slug}`}
+                            >
+                              <Eye className="h-3 w-3 mr-1" /> VISIT
+                            </Button>
+                            {p.slug !== 'home' && (
+                              <Button
+                                size="icon"
+                                variant="destructive"
+                                className="h-9 w-9 text-white shrink-0 shadow-lg shadow-red-500/10"
+                                onClick={() => deletePage(p.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </TabsContent>
 
-             <TabsContent value="settings" className="mt-0 space-y-6">
-               <div className="space-y-6">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                   <div className="space-y-2">
-                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Store Currency</Label>
-                     <div className="relative">
-                       <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                       <Input value={currency} onChange={(e) => setCurrency(e.target.value)} className="font-black border-2 pl-10 h-11" />
-                     </div>
-                   </div>
-                   <div className="space-y-2">
-                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Exchange Rate</Label>
-                     <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} step="0.01" className="font-black border-2 h-11" />
-                   </div>
-                   <div className="space-y-2">
-                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Email</Label>
-                     <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="font-black border-2 h-11" />
-                   </div>
-                   <div className="space-y-2">
-                     <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Phone</Label>
-                     <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="font-black border-2 h-11" />
-                   </div>
-                 </div>
+              {/* ═══ SECTIONS TAB ═══ */}
+              <TabsContent value="sections" className="mt-0">
+                {expandedPageId ? (
+                  <div className="space-y-4">
+                    {/* Back header */}
+                    <button
+                      onClick={() => setExpandedPageId(null)}
+                      className="flex items-center gap-2 text-sm font-bold text-muted-foreground hover:text-accent transition-colors"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      All Pages
+                      <ChevronRight className="h-3 w-3 opacity-40" />
+                      <span className="text-foreground">{expandedPage?.name}</span>
+                    </button>
 
-                 <div className="space-y-4 pt-4 border-t">
-                   <h4 className="text-sm font-black uppercase tracking-widest text-accent">Social Links</h4>
-                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                     <div className="space-y-1">
-                       <Label className="text-[9px] uppercase font-bold text-muted-foreground">Facebook URL</Label>
-                       <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="https://..." className="h-10 border-2" />
-                     </div>
-                     <div className="space-y-1">
-                       <Label className="text-[9px] uppercase font-bold text-muted-foreground">Instagram URL</Label>
-                       <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="https://..." className="h-10 border-2" />
-                     </div>
-                     <div className="space-y-1">
-                       <Label className="text-[9px] uppercase font-bold text-muted-foreground">Twitter URL</Label>
-                       <Input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="https://..." className="h-10 border-2" />
-                     </div>
-                     <div className="space-y-1">
-                       <Label className="text-[9px] uppercase font-bold text-muted-foreground">LinkedIn URL</Label>
-                       <Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://..." className="h-10 border-2" />
-                     </div>
-                   </div>
-                 </div>
+                    <SectionManagerPanel
+                      sections={expandedSections}
+                      business={business}
+                      activePage={expandedPage}
+                      onAddSection={onAddSection || (() => {})}
+                      onDeleteSection={onDeleteSection || (() => {})}
+                      onDataChange={onSectionDataChange}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-accent/5 rounded-2xl border-2 border-accent/10">
+                      <h4 className="text-sm font-black uppercase tracking-widest text-accent mb-1">
+                        Page Sections
+                      </h4>
+                      <p className="text-xs text-muted-foreground">
+                        Select a page to manage its sections, drag-and-drop to reorder, or add new sections.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-3">
+                      {business.settings?.pages?.map((p: any) => {
+                        const sectionCount = p.sections?.length ?? 0
+                        const isActive = p.slug === activePage?.slug
+                        const displayCount = isActive ? sections.length : sectionCount
+                        return (
+                          <button
+                            key={p.id}
+                            onClick={() => setExpandedPageId(p.id)}
+                            className="flex items-center justify-between p-4 bg-muted/40 rounded-2xl border-2 border-transparent hover:border-accent/30 hover:bg-white transition-all group shadow-sm text-left w-full"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className={`h-12 w-12 flex items-center justify-center rounded-xl border-2 transition-colors ${p.slug === 'home' ? 'bg-accent/10 border-accent/20 text-accent' : 'bg-background border-muted text-muted-foreground'}`}>
+                                {p.slug === 'home' ? <HomeIcon className="h-5 w-5" /> : <Layout className="h-5 w-5" />}
+                              </div>
+                              <div>
+                                <div className="font-black text-[15px] flex items-center gap-2">
+                                  {p.name}
+                                  {isActive && <Badge className="text-[9px] h-4 bg-green-100 text-green-700 border-none px-1">CURRENT</Badge>}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60">
+                                  {displayCount} section{displayCount !== 1 ? 's' : ''}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-muted-foreground group-hover:text-accent transition-colors">
+                              <span className="text-xs font-bold hidden sm:block">Manage</span>
+                              <ChevronRight className="h-5 w-5" />
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+
+                    {/* Quick add for the CURRENT page */}
+                    {activePage && onAddSection && (
+                      <div className="pt-2 border-t space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                          Quick add to current page ({activePage.name})
+                        </p>
+                        <div onClick={() => setExpandedPageId(activePage.id)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full border-2 border-accent text-accent font-black hover:bg-accent hover:text-white h-11"
+                          >
+                            <PlusCircle className="h-4 w-4 mr-2" /> Add Section to This Page
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* ═══ DESIGN TAB ═══ */}
+              <TabsContent value="design" className="mt-0 space-y-6">
+                <div className="p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-4 bg-muted/20">
+                  <Palette className="h-12 w-12 text-accent/40" />
+                  <div>
+                    <h4 className="font-bold text-lg">Visual Customizer</h4>
+                    <p className="text-sm text-muted-foreground">Coming soon! You'll be able to change colors, fonts, and themes globally.</p>
+                  </div>
+                  <Button disabled variant="outline" className="font-bold border-2">Launch Designer</Button>
+                </div>
+              </TabsContent>
+
+              {/* ═══ SETTINGS TAB ═══ */}
+              <TabsContent value="settings" className="mt-0 space-y-6">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Store Currency</Label>
+                      <div className="relative">
+                        <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                        <Input value={currency} onChange={(e) => setCurrency(e.target.value)} className="font-black border-2 pl-10 h-11" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Exchange Rate</Label>
+                      <Input type="number" value={rate} onChange={(e) => setRate(e.target.value)} step="0.01" className="font-black border-2 h-11" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Email</Label>
+                      <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} className="font-black border-2 h-11" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground ml-1">Support Phone</Label>
+                      <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} className="font-black border-2 h-11" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-accent">Social Links</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <Label className="text-[9px] uppercase font-bold text-muted-foreground">Facebook URL</Label>
+                        <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] uppercase font-bold text-muted-foreground">Instagram URL</Label>
+                        <Input value={instagram} onChange={(e) => setInstagram(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] uppercase font-bold text-muted-foreground">Twitter URL</Label>
+                        <Input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-[9px] uppercase font-bold text-muted-foreground">LinkedIn URL</Label>
+                        <Input value={linkedin} onChange={(e) => setLinkedin(e.target.value)} placeholder="https://..." className="h-10 border-2" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 pt-4 border-t">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-accent">Product Display Settings</h4>
+                    <div className="flex items-center space-x-2">
+                      <Switch id="out-of-stock-overlay" checked={showOutOfStockOverlay} onCheckedChange={setShowOutOfStockOverlay} />
+                      <Label htmlFor="out-of-stock-overlay" className="text-sm font-medium">Show Out of Stock Overlay on Product Cards</Label>
+                    </div>
+                  </div>
 
                   <Button
-                   onClick={() => onUpdateSettings({
-                    currency,
-                    exchangeRate: parseFloat(rate),
-                    siteSettings: {
-                      facebook,
-                      instagram,
-                      twitter,
-                      linkedin,
-                      contactPhone,
-                      contactEmail
-                    }
-                   })}
-                   className="w-full font-black bg-accent shadow-lg shadow-accent/20 h-12 transition-all hover:scale-[1.01]"
+                    onClick={() => onUpdateSettings({
+                      currency,
+                      exchangeRate: parseFloat(rate),
+                      showOutOfStockOverlay,
+                      siteSettings: { facebook, instagram, twitter, linkedin, contactPhone, contactEmail }
+                    })}
+                    className="w-full font-black bg-accent shadow-lg shadow-accent/20 h-12 transition-all hover:scale-[1.01]"
                   >
                     Commit All Changes
                   </Button>
@@ -21559,10 +22004,10 @@ const AdminToolbar = ({
                 <PostForm />
               </TabsContent>
             </div>
-         </Tabs>
-       </DialogContent>
-     </Dialog>
-   </div>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -22241,150 +22686,859 @@ LOCATION: components\platform\SectionConfigDialog.tsx
 import React from 'react'
 import axios from 'axios'
 import { toast } from 'sonner'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { Settings as SettingsIcon } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Settings as SettingsIcon, Save, Image, Type, Layout, Sliders } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
-const SectionConfigDialog = ({ section, onUpdate }: { section: any, onUpdate: () => void }) => {
-  // section may come from old schema (data) or new businessSection (content/settings)
-  const [configData, setConfigData] = React.useState(section.data || section.content || {});
-  const [categories, setCategories] = React.useState<any[]>([]);
+const HERO_VARIANTS = [
+  { value: 'modern-split', label: 'Modern Split' },
+  { value: 'immersive', label: 'Immersive Full-screen' },
+  { value: 'carousel', label: 'Carousel' },
+  { value: 'story', label: 'Story Style' },
+  { value: 'menu', label: 'Menu Style' },
+  { value: 'experience', label: 'Experience' },
+  { value: 'local', label: 'Local Business' },
+  { value: 'simple-centered', label: 'Simple Centered' },
+  { value: 'bold-hero', label: 'Bold Hero' },
+]
+
+const LAYOUT_OPTIONS: Record<string, { value: string; label: string }[]> = {
+  products: [
+    { value: 'carousel of products', label: 'Carousel' },
+    { value: 'grid', label: 'Grid' },
+    { value: 'flex', label: 'Flex Row' },
+  ],
+  'product-list': [
+    { value: 'grid', label: 'Grid (default)' },
+    { value: 'grid-with-filters', label: 'Grid + Filters' },
+    { value: 'menu-grid', label: 'Menu Style Grid' },
+  ],
+  categories: [
+    { value: 'grid', label: 'Grid' },
+    { value: 'carousel', label: 'Carousel' },
+    { value: 'auto-carousel', label: 'Auto Carousel' },
+    { value: 'stack', label: 'Stack' },
+  ],
+  staff: [
+    { value: 'grid', label: 'Grid' },
+    { value: 'flex', label: 'Flex Row' },
+  ],
+  'blog-posts': [
+    { value: 'masonry', label: 'Masonry' },
+    { value: 'grid', label: 'Grid' },
+    { value: 'list', label: 'List' },
+  ],
+  partners: [
+    { value: 'flex', label: 'Flex Row' },
+    { value: 'grid', label: 'Grid' },
+    { value: 'auto-carousel', label: 'Auto Carousel' },
+  ],
+  promotions: [
+    { value: 'wide-cards', label: 'Wide Cards' },
+    { value: 'grid', label: 'Grid' },
+  ],
+}
+
+const PADDING_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'small', label: 'Small' },
+  { value: 'medium', label: 'Medium (default)' },
+  { value: 'large', label: 'Large' },
+  { value: 'extra-large', label: 'Extra Large' },
+]
+
+const BG_OPTIONS = [
+  { value: '', label: 'Default (page bg)' },
+  { value: 'muted', label: 'Muted / Light Gray' },
+  { value: 'accent', label: 'Accent Color' },
+  { value: 'dark', label: 'Dark / Black' },
+  { value: 'gradient', label: 'Soft Gradient' },
+]
+
+const RADIUS_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'sm', label: 'Small' },
+  { value: 'md', label: 'Medium' },
+  { value: 'lg', label: 'Large' },
+  { value: 'xl', label: 'Rounded 2xl' },
+  { value: 'full', label: 'Full' },
+]
+
+const SHADOW_OPTIONS = [
+  { value: 'none', label: 'None' },
+  { value: 'sm', label: 'Subtle' },
+  { value: 'md', label: 'Medium' },
+  { value: 'lg', label: 'Large' },
+  { value: 'xl', label: 'Deep' },
+]
+
+const ALIGN_OPTIONS = [
+  { value: 'left', label: 'Left' },
+  { value: 'center', label: 'Center' },
+  { value: 'right', label: 'Right' },
+]
+
+const SECTION_LABEL: Record<string, string> = {
+  hero: 'Hero Banner',
+  products: 'Products Carousel',
+  'product-list': 'Product Catalog',
+  categories: 'Categories Grid',
+  description: 'Text / About',
+  features: 'Trust Features',
+  staff: 'Team Members',
+  'blog-posts': 'Blog Posts',
+  newsletter: 'Newsletter',
+  'contact-form': 'Contact Form',
+  'chat-interface': 'Chat Interface',
+  chat: 'Chat Button',
+  notifications: 'Announcement Bar',
+  stats: 'Stats Counter',
+  partners: 'Partners / Logos',
+  promotions: 'Promotions',
+  cart: 'Cart Details',
+  'product-details': 'Product Details',
+  help: 'Help Center',
+}
+
+const SectionConfigDialog = ({ section, onUpdate }: { section: any; onUpdate: () => void }) => {
+  const [open, setOpen] = React.useState(false)
+  const [saving, setSaving] = React.useState(false)
+  const [configData, setConfigData] = React.useState(section.data || section.content || {})
+  const [categories, setCategories] = React.useState<any[]>([])
+
+  const type = section.type || section.key || ''
+  const useMaster = Object.prototype.hasOwnProperty.call(section, 'businessId')
+
+  const currentLayout =
+    (configData.settings && configData.settings.layout) ||
+    configData.layout ||
+    section.layout ||
+    section.settings?.layout ||
+    (type === 'hero' ? 'modern-split' : 'grid')
+
+  const currentPadding = configData.padding || section.settings?.padding || 'medium'
+  const currentBg = configData.bg || section.settings?.bg || ''
 
   React.useEffect(() => {
-    const fetchCats = async () => {
-      const res = await axios.get('/api/dbhandler?model=category');
-      setCategories(res.data);
-    };
-    if (section.type === 'products') fetchCats();
-  }, [section.type]);
+    if (type === 'products' && open) {
+      axios.get('/api/dbhandler?model=category').then((r) => setCategories(r.data)).catch(() => {})
+    }
+  }, [type, open])
 
-  // hero variants that admins can choose
-  const heroVariants = [
-    'modern-split',
-    'immersive',
-    'carousel',
-    'story',
-    'menu',
-    'experience',
-    'local',
-  ];
+  const patchConfig = (patch: Record<string, any>) =>
+    setConfigData((prev: any) => ({ ...prev, ...patch }))
+
+  const setLayout = (v: string) => {
+    setConfigData((prev: any) => ({
+      ...prev,
+      layout: v,
+      settings: { ...(prev.settings || {}), layout: v },
+    }))
+  }
 
   const handleSave = async () => {
+    setSaving(true)
     try {
-      // determine whether to update old section or new businessSection
-      const useMaster = Object.prototype.hasOwnProperty.call(section, 'businessId');
-      const layoutValue = (configData.settings && configData.settings.layout) || configData.layout;
-      
+      const layoutValue =
+        (configData.settings && configData.settings.layout) ||
+        configData.layout ||
+        currentLayout
+
       if (useMaster) {
-        // update content/settings with layout variant
-        await axios.put(`/api/dbhandler?model=businessSection`, {
+        await axios.put('/api/dbhandler?model=businessSection', {
           id: section.id,
           content: configData,
           settings: {
             ...section.settings,
             layout: layoutValue,
+            padding: currentPadding,
+            bg: currentBg,
           },
-        });
+        })
       } else {
-        // update old section model with layout
-        await axios.put(`/api/dbhandler?model=section`, {
+        await axios.put('/api/dbhandler?model=section', {
           id: section.id,
           data: configData,
           layout: layoutValue,
-        });
+        })
       }
-      toast.success("Section updated");
-      onUpdate();
-    } catch (err) {
-      toast.error("Update failed");
+      toast.success('Section updated!')
+      onUpdate()
+      setOpen(false)
+    } catch {
+      toast.error('Failed to save section')
+    } finally {
+      setSaving(false)
     }
-  };
+  }
+
+  const hasLayoutOptions = [
+    'hero', 'products', 'product-list', 'categories', 'staff',
+    'blog-posts', 'partners', 'promotions',
+  ].includes(type)
 
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button size="icon" variant="secondary" className="h-8 w-8">
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>
+        <Button size="icon" variant="secondary" className="h-8 w-8 shadow-md backdrop-blur" title="Edit section">
           <SettingsIcon className="h-4 w-4" />
         </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Configure Section: {section.type}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-4">
-          {section.type === 'products' && (
-            <div className="space-y-2">
-              <Label>Product Category</Label>
-              <Select
-               value={configData.categoryId || "featured"}
-               onValueChange={(v) => setConfigData({ ...configData, categoryId: v === 'featured' ? null : v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Featured Products" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="featured">Featured (Global)</SelectItem>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+      </SheetTrigger>
+
+      <SheetContent side="right" className="w-full sm:max-w-[420px] p-0 flex flex-col overflow-hidden">
+        {/* Header */}
+        <SheetHeader className="px-5 py-4 border-b bg-accent text-white shrink-0">
+          <SheetTitle className="text-white font-black text-lg flex items-center gap-2">
+            <SettingsIcon className="h-5 w-5 opacity-80" />
+            {SECTION_LABEL[type] || type}
+          </SheetTitle>
+          <Badge variant="outline" className="w-fit border-white/30 text-white/80 text-[10px] font-bold uppercase tracking-widest">
+            {type}
+          </Badge>
+        </SheetHeader>
+
+        {/* Tabs */}
+        <Tabs defaultValue="content" className="flex flex-col flex-1 overflow-hidden">
+          <TabsList className="w-full rounded-none border-b justify-start h-11 bg-muted/40 px-4 gap-1 shrink-0">
+            <TabsTrigger value="content" className="text-xs font-bold uppercase tracking-wider data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+              <Type className="h-3.5 w-3.5 mr-1.5" /> Content
+            </TabsTrigger>
+            {hasLayoutOptions && (
+              <TabsTrigger value="layout" className="text-xs font-bold uppercase tracking-wider data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+                <Layout className="h-3.5 w-3.5 mr-1.5" /> Layout
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="advanced" className="text-xs font-bold uppercase tracking-wider data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg">
+              <Palette className="h-3.5 w-3.5 mr-1.5" /> Styles
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ─── CONTENT TAB ─── */}
+          <TabsContent value="content" className="flex-1 overflow-y-auto p-5 space-y-5 mt-0">
+            {/* Title */}
+            {['hero', 'products', 'product-list', 'categories', 'description', 'staff',
+              'blog-posts', 'contact-form', 'chat-interface', 'stats', 'partners',
+              'promotions', 'help', 'notifications',
+            ].includes(type) && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                  Section Title
+                </Label>
+                <Input
+                  value={configData.title || ''}
+                  onChange={(e) => patchConfig({ title: e.target.value })}
+                  placeholder="Enter title…"
+                  className="border-2 h-11 font-medium focus:border-accent"
+                />
+              </div>
+            )}
+
+            {/* Subtitle / Body text */}
+            {['hero', 'description', 'contact-form', 'chat-interface', 'blog-posts', 'help', 'staff'].includes(type) && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                  Subtitle / Body Text
+                </Label>
+                <Textarea
+                  value={configData.text || ''}
+                  onChange={(e) => patchConfig({ text: e.target.value })}
+                  placeholder="Supporting description…"
+                  rows={3}
+                  className="border-2 font-medium focus:border-accent resize-none"
+                />
+              </div>
+            )}
+
+            {/* Announcement text */}
+            {type === 'notifications' && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                  Announcement Message
+                </Label>
+                <Input
+                  value={configData.text || ''}
+                  onChange={(e) => patchConfig({ text: e.target.value })}
+                  placeholder="e.g. Summer Sale – 30% OFF this weekend!"
+                  className="border-2 h-11 font-medium focus:border-accent"
+                />
+              </div>
+            )}
+
+            {/* Products – category selector */}
+            {type === 'products' && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                  Product Category
+                </Label>
+                <Select
+                  value={configData.categoryId || 'featured'}
+                  onValueChange={(v) => patchConfig({ categoryId: v === 'featured' ? null : v })}
+                >
+                  <SelectTrigger className="h-11 border-2">
+                    <SelectValue placeholder="Featured (All)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="featured">Featured (Global)</SelectItem>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Hero – background image */}
+            {type === 'hero' && (
+              <div className="space-y-1.5">
+                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <Image className="h-3 w-3" /> Background Image URL
+                </Label>
+                <Input
+                  value={configData.image || configData.backgroundImage || ''}
+                  onChange={(e) => patchConfig({ image: e.target.value, backgroundImage: e.target.value })}
+                  placeholder="https://…"
+                  className="border-2 h-11 font-medium focus:border-accent"
+                />
+              </div>
+            )}
+
+            {/* Hero – CTA */}
+            {type === 'hero' && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                    Button Label
+                  </Label>
+                  <Input
+                    value={configData.cta || configData.buttonText || ''}
+                    onChange={(e) => patchConfig({ cta: e.target.value, buttonText: e.target.value })}
+                    placeholder="Shop Now"
+                    className="border-2 h-10"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                    Button Link
+                  </Label>
+                  <Input
+                    value={configData.ctaLink || configData.buttonLink || ''}
+                    onChange={(e) => patchConfig({ ctaLink: e.target.value, buttonLink: e.target.value })}
+                    placeholder="/store"
+                    className="border-2 h-10"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Newsletter */}
+            {type === 'newsletter' && (
+              <>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Newsletter Headline</Label>
+                  <Input
+                    value={configData.title || ''}
+                    onChange={(e) => patchConfig({ title: e.target.value })}
+                    placeholder="Join our Newsletter"
+                    className="border-2 h-11"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Tagline</Label>
+                  <Input
+                    value={configData.text || ''}
+                    onChange={(e) => patchConfig({ text: e.target.value })}
+                    placeholder="Be the first to know about new arrivals…"
+                    className="border-2 h-11"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Generic fallback */}
+          </TabsContent>
+
+          {/* ─── LAYOUT TAB ─── */}
+          {hasLayoutOptions && (
+            <TabsContent value="layout" className="flex-1 overflow-y-auto p-5 space-y-5 mt-0">
+              <div className="space-y-3">
+                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                  Layout Style
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(type === 'hero' ? HERO_VARIANTS : (LAYOUT_OPTIONS[type] || [
+                    { value: 'grid', label: 'Grid' },
+                    { value: 'flex', label: 'Flex Row' },
+                    { value: 'auto-carousel', label: 'Auto Carousel' },
+                  ])).map((v) => (
+                    <button
+                      key={v.value}
+                      onClick={() => setLayout(v.value)}
+                      className={`p-3 rounded-xl border-2 text-left text-[11px] font-black uppercase tracking-tight transition-all ${
+                        currentLayout === v.value
+                          ? 'border-accent bg-accent/10 text-accent'
+                          : 'border-border hover:border-accent/40'
+                      }`}
+                    >
+                      {v.label}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+              </div>
+            </TabsContent>
           )}
-          {/* Layout options for dynamic sections */}
-          {['products','product-list','categories','posts','staff','partners','hero'].includes(section.type) && (
-            <div className="space-y-2">
-              <Label>Layout</Label>
-              <Select
-                value={(configData.settings && configData.settings.layout) || configData.layout || (section.type === 'hero' ? 'modern-split' : 'grid')}
-                onValueChange={(v) => {
-                  const next = { ...configData };
-                  if (!next.settings) next.settings = {};
-                  next.settings.layout = v;
-                  next.layout = v;
-                  setConfigData(next);
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select layout" />
-                </SelectTrigger>
-                <SelectContent>
-                  {section.type === 'hero' ? (
-                    heroVariants.map((v) => (
-                      <SelectItem key={v} value={v}>{v.replace(/-/g, ' ')}</SelectItem>
-                    ))
-                  ) : (
-                    <>
-                      <SelectItem value="grid">Grid</SelectItem>
-                      <SelectItem value="flex">Flex Box</SelectItem>
-                      <SelectItem value="auto-carousel">Auto Carousel</SelectItem>
-                      <SelectItem value="manual-carousel">Manual Carousel</SelectItem>
-                      <SelectItem value="two-layer-auto-carousel">2-Layer Auto Carousel</SelectItem>
-                      <SelectItem value="stack">Stack Layout</SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+
+          {/* ─── STYLES TAB ─── */}
+          <TabsContent value="advanced" className="flex-1 overflow-y-auto p-5 space-y-6 mt-0">
+            <div className="space-y-3">
+              <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                Background Style
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                {BG_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => patchConfig({ bg: opt.value })}
+                    className={`p-3 rounded-xl border-2 text-left text-[11px] font-black uppercase tracking-tight transition-all ${
+                      (configData.bg || section.settings?.bg) === opt.value
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-border hover:border-accent/40'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
-          )}
-          <div className="space-y-2">
-            <Label>Section Title (Overlay)</Label>
-            <Input
-             value={configData.title || ""}
-             onChange={(e) => setConfigData({ ...configData, title: e.target.value })}
-            />
-          </div>
+
+            <div className="space-y-3">
+              <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                Corner Radius
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {RADIUS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => patchConfig({ radius: opt.value })}
+                    className={`p-2 rounded-xl border-2 text-center text-[10px] font-black uppercase tracking-tight transition-all ${
+                      (configData.radius || section.settings?.radius) === opt.value
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-border hover:border-accent/40'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                Shadow Level
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {SHADOW_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => patchConfig({ shadow: opt.value })}
+                    className={`p-2 rounded-xl border-2 text-center text-[10px] font-black uppercase tracking-tight transition-all ${
+                      (configData.shadow || section.settings?.shadow) === opt.value
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-border hover:border-accent/40'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                Content Alignment
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {ALIGN_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => patchConfig({ alignment: opt.value })}
+                    className={`p-2 rounded-xl border-2 text-center text-[10px] font-black uppercase tracking-tight transition-all ${
+                      (configData.alignment || section.settings?.alignment) === opt.value
+                        ? 'border-accent bg-accent/10 text-accent'
+                        : 'border-border hover:border-accent/40'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+               <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Anchor Name</Label>
+               <Input 
+                 value={configData.anchorId || ''} 
+                 onChange={(e) => patchConfig({ anchorId: e.target.value })}
+                 className="h-11 border-2 font-mono text-xs uppercase"
+                 placeholder="e.g. SHOP-NOW"
+               />
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Save Footer */}
+        <div className="px-5 py-4 border-t bg-muted/20 shrink-0">
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full h-12 font-black bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20 text-white"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Saving…' : 'Save Changes'}
+          </Button>
         </div>
-        <Button onClick={handleSave} className="w-full border-2 border-accent text-accent hover:bg-accent hover:text-white font-bold">Save Changes</Button>
-      </DialogContent>
-    </Dialog>
-  );
+      </SheetContent>
+    </Sheet>
+  )
 }
 
 export default SectionConfigDialog
+
+
+
+================================================================================
+LOCATION: components\platform\SectionManagerPanel.tsx
+================================================================================
+
+"use client"
+import React from 'react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { toast } from 'sonner'
+import axios from 'axios'
+import {
+  GripVertical, Eye, EyeOff, Trash2, Plus, LayoutPanelTop,
+  Sparkles, Grid3X3, AlignLeft, Star, Users, BookOpen, Mail,
+  MessageCircle, Bell, ShoppingBag, ShoppingCart, Package,
+  HelpCircle, Megaphone, Layers, BarChart2
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import AddSectionTrigger from './AddSectionTrigger'
+
+const SECTION_ICON: Record<string, React.ElementType> = {
+  hero: LayoutPanelTop,
+  products: Sparkles,
+  'product-list': ShoppingBag,
+  categories: Grid3X3,
+  description: AlignLeft,
+  features: Star,
+  staff: Users,
+  'blog-posts': BookOpen,
+  newsletter: Mail,
+  'contact-form': Mail,
+  'chat-interface': MessageCircle,
+  chat: MessageCircle,
+  notifications: Bell,
+  stats: BarChart2,
+  partners: Layers,
+  promotions: Megaphone,
+  cart: ShoppingCart,
+  'product-details': Package,
+  help: HelpCircle,
+}
+
+const SECTION_LABEL: Record<string, string> = {
+  hero: 'Hero Banner',
+  products: 'Products Carousel',
+  'product-list': 'Product Catalog',
+  categories: 'Categories Grid',
+  description: 'Text / About',
+  features: 'Trust Features',
+  staff: 'Team Members',
+  'blog-posts': 'Blog Posts',
+  newsletter: 'Newsletter',
+  'contact-form': 'Contact Form',
+  'chat-interface': 'Chat Interface',
+  chat: 'Chat Button',
+  notifications: 'Announcement Bar',
+  stats: 'Stats Counter',
+  partners: 'Partners / Logos',
+  promotions: 'Promotions',
+  cart: 'Cart Details',
+  'product-details': 'Product Details',
+  help: 'Help Center',
+}
+
+interface SortableSectionRowProps {
+  section: any
+  index: number
+  onDelete: (id: string) => void
+  activeId: string | null
+}
+
+function SortableSectionRow({ section, index, onDelete, activeId }: SortableSectionRowProps) {
+  const type = section.type || section.key || ''
+  const Icon = SECTION_ICON[type] || LayoutPanelTop
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group flex items-center gap-3 p-3 rounded-xl border-2 bg-background transition-all cursor-default
+        ${isDragging ? 'opacity-40 border-accent shadow-lg z-50' : 'border-border hover:border-accent/40 hover:bg-accent/5'}
+      `}
+    >
+      {/* Drag handle */}
+      <div
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-accent transition-colors touch-none"
+        title="Drag to reorder"
+      >
+        <GripVertical className="h-4 w-4" />
+      </div>
+
+      {/* Icon */}
+      <div className="h-9 w-9 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+        <Icon className="h-4 w-4" />
+      </div>
+
+      {/* Label */}
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-sm truncate">{SECTION_LABEL[type] || type}</p>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold opacity-60">
+          Position {index + 1}
+        </p>
+      </div>
+
+      {/* Delete */}
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10 transition-all"
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete(section.id)
+        }}
+        title="Remove section"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  )
+}
+
+interface SectionManagerPanelProps {
+  sections: any[]
+  business: any
+  activePage: any
+  onAddSection: (type: string, layout: string) => void
+  onDeleteSection: (id: string) => void
+  onDataChange?: () => void
+}
+
+export function SectionManagerPanel({
+  sections,
+  business,
+  activePage,
+  onAddSection,
+  onDeleteSection,
+  onDataChange,
+}: SectionManagerPanelProps) {
+  const [items, setItems] = React.useState(() =>
+    [...sections].sort(
+      (a, b) => (a.position ?? a.order ?? 0) - (b.position ?? b.order ?? 0)
+    )
+  )
+  const [activeId, setActiveId] = React.useState<string | null>(null)
+  const [saving, setSaving] = React.useState(false)
+  const [hasChanges, setHasChanges] = React.useState(false)
+
+  // Sync if external sections change
+  React.useEffect(() => {
+    setItems(
+      [...sections].sort(
+        (a, b) => (a.position ?? a.order ?? 0) - (b.position ?? b.order ?? 0)
+      )
+    )
+    setHasChanges(false)
+  }, [sections])
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveId(null)
+    if (!over || active.id === over.id) return
+    const oldIdx = items.findIndex((s) => s.id === active.id)
+    const newIdx = items.findIndex((s) => s.id === over.id)
+    const reordered = arrayMove(items, oldIdx, newIdx)
+    setItems(reordered)
+    setHasChanges(true)
+  }
+
+  const handleSaveOrder = async () => {
+    setSaving(true)
+    const useMaster = Boolean(business && business.sections)
+    try {
+      await Promise.all(
+        items.map((sec, idx) =>
+          useMaster
+            ? axios.put('/api/dbhandler?model=businessSection', { id: sec.id, position: idx })
+            : axios.put('/api/dbhandler?model=section', { id: sec.id, order: idx })
+        )
+      )
+      toast.success('Section order saved!')
+      setHasChanges(false)
+      onDataChange?.()
+      window.location.reload()
+    } catch {
+      toast.error('Failed to save order')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const activeSection = items.find((s) => s.id === activeId)
+
+  return (
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-sm font-black uppercase tracking-widest text-accent">
+            Sections on this Page
+          </h4>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            Drag rows to reorder · delete to remove
+          </p>
+        </div>
+        {hasChanges && (
+          <Button
+            size="sm"
+            onClick={handleSaveOrder}
+            disabled={saving}
+            className="h-8 font-black text-xs bg-accent text-white shadow-lg shadow-accent/30 animate-pulse"
+          >
+            {saving ? 'Saving…' : 'Save Order ✦'}
+          </Button>
+        )}
+      </div>
+
+      {/* Drag-and-drop list */}
+      {items.length > 0 ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={items.map((s) => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-2">
+              {items.map((section, idx) => (
+                <SortableSectionRow
+                  key={section.id}
+                  section={section}
+                  index={idx}
+                  onDelete={onDeleteSection}
+                  activeId={activeId}
+                />
+              ))}
+            </div>
+          </SortableContext>
+
+          {/* Drag overlay */}
+          <DragOverlay>
+            {activeSection ? (
+              <div className="flex items-center gap-3 p-3 rounded-xl border-2 border-accent bg-accent/5 shadow-2xl">
+                <GripVertical className="h-4 w-4 text-accent" />
+                <div className="h-9 w-9 rounded-lg bg-accent/10 text-accent flex items-center justify-center shrink-0">
+                  {React.createElement(
+                    SECTION_ICON[activeSection.type || activeSection.key] || LayoutPanelTop,
+                    { className: 'h-4 w-4' }
+                  )}
+                </div>
+                <p className="font-bold text-sm">
+                  {SECTION_LABEL[activeSection.type || activeSection.key] || activeSection.type}
+                </p>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      ) : (
+        <div className="py-10 text-center border-2 border-dashed rounded-2xl bg-muted/20 space-y-2">
+          <LayoutPanelTop className="h-8 w-8 text-muted-foreground/40 mx-auto" />
+          <p className="text-sm text-muted-foreground font-medium">No sections yet</p>
+          <p className="text-xs text-muted-foreground">Add your first section below</p>
+        </div>
+      )}
+
+      {/* Add section button */}
+      <div className="pt-2">
+        <AddSectionTrigger onAdd={onAddSection} />
+      </div>
+    </div>
+  )
+}
 
 
 
@@ -22542,8 +23696,27 @@ import {
   MapPin,
   Package,
   Users,
-  FileText
+  FileText,
+  GripHorizontal,
+  Copy,
 } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
   Tabs,
   TabsContent,
@@ -22566,6 +23739,7 @@ import Link from 'next/link'
 import { useParams, useSearchParams } from 'next/navigation'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { CartDetails } from '@/components/myComponents/subs/CartDetails'
+import { cn } from '@/lib/utils'
 import ContactForm from '@/components/utility/contactForm'
 import { ChatInterface } from '@/components/myComponents/subs/ChatInterface'
 import Posts from '@/components/myComponents/subs/posts'
@@ -22725,13 +23899,41 @@ const StoreHome = ({
     sections = activePage?.sections || [];
   }
 
+  // Active layout sections (handles optimistic drag)
+  const [activeSections, setActiveSections] = React.useState<any[]>(sections);
+  React.useEffect(() => {
+    setActiveSections(sections);
+  }, [sections]);
+
   const {
     handleAddSection,
     handleCreatePage,
     handleRemoveSection,
+    handleMoveSection,
     handleApplyTemplate,
+    handleReorderSections, // newly added
+    handleDuplicateSection,
     updateGlobalSettings,
-  } = useStoreActions({ activePage, sections, settings, storeName, business, onDataChange });
+  } = useStoreActions({ activePage, sections: activeSections, settings, storeName, business, onDataChange });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (active.id !== over?.id) {
+      const oldIndex = activeSections.findIndex((s) => s.id === active.id);
+      const newIndex = activeSections.findIndex((s) => s.id === over?.id);
+      const newSections = arrayMove(activeSections, oldIndex, newIndex);
+      setActiveSections(newSections);
+      
+      if(handleReorderSections) {
+         handleReorderSections(newSections.map((s, idx) => ({ id: s.id, position: idx })));
+      }
+    }
+  };
 
   // If page doesn't exist, show helper
   if (!activePage) {
@@ -22766,11 +23968,16 @@ const StoreHome = ({
            isOpen={isAdminToolbarOpen}
            onOpenChange={setIsAdminToolbarOpen}
            initialTab={initialAdminTab}
+           sections={sections}
+           activePage={activePage}
+           onAddSection={handleAddSection}
+           onDeleteSection={handleRemoveSection}
+           onSectionDataChange={onDataChange}
          />
        )}
 
        <main className="w-full flex-1">
-          {sections.length === 0 && (
+          {activeSections.length === 0 && (
              <div className="w-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed border-accent/20 my-10 rounded-[3rem] bg-accent/5 p-10 text-center mx-auto max-w-7xl px-4">
                 <Layout className="h-16 w-16 text-accent/40 mb-6" />
                 <h3 className="text-2xl font-bold text-accent mb-2">This page has no content yet.</h3>
@@ -22792,25 +23999,23 @@ const StoreHome = ({
              </div>
           )}
 
-          {sections.sort((a,b) => a.order - b.order).map((section, idx) => (
-            <div key={section.id} className="w-full group/section relative">
-               {isAdmin && (
-                  <div className="absolute right-4 top-4 z-40 opacity-100 transition-opacity flex gap-2">
-                     <SectionConfigDialog section={section} onUpdate={() => window.location.reload()} />
-                     <Button size="icon" variant="destructive" className="h-8 w-8" onClick={() => handleRemoveSection(section.id)}>
-                        <Trash2 className="h-4 w-4" />
-                     </Button>
-                  </div>
-               )}
-               <RenderSection section={section} business={business} isAdmin={isAdmin} />
-
-               {isAdmin && (
-                  <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border">
-                     <AddSectionTrigger onAdd={handleAddSection} />
-                  </div>
-               )}
-            </div>
-          ))}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+             <SortableContext items={activeSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                {activeSections.map((section, idx, arr) => (
+                  <SortableSectionRow 
+                     key={section.id} 
+                     section={section} 
+                     idx={idx} 
+                     arr={arr} 
+                     isAdmin={isAdmin} 
+                     business={business}
+                     handleMoveSection={handleMoveSection}
+                     handleRemoveSection={handleRemoveSection}
+                     handleAddSection={handleAddSection}
+                  />
+                ))}
+             </SortableContext>
+          </DndContext>
        </main>
 
        <StoreFooter business={business} />
@@ -22818,6 +24023,125 @@ const StoreHome = ({
   );
 }
 
+// Draggable wrapper for sections in the layout
+const SortableSectionRow = ({ section, idx, arr, isAdmin, business, handleMoveSection, handleRemoveSection, handleAddSection, handleDuplicateSection }: any) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: section.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className={`w-full group/section relative ${isDragging ? 'shadow-2xl ring-2 ring-accent scale-[1.02] rounded-3xl overflow-hidden' : ''}`}>
+       {isAdmin && (
+          <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-1 flex-wrap justify-end p-1.5 bg-background/90 backdrop-blur-xl rounded-xl border-2 shadow-xl items-center">
+             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing hover:bg-accent/10 p-2 text-muted-foreground transition-all rounded-lg flex items-center justify-center">
+                <GripHorizontal className="h-4 w-4" />
+             </div>
+             <div className="h-6 w-px bg-border mx-1"></div>
+             
+             <SectionConfigDialog section={section} onUpdate={() => window.location.reload()} />
+             
+             <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-muted-foreground" title="Duplicate Section" onClick={() => handleDuplicateSection(section)}>
+                <Copy className="h-4 w-4" />
+             </Button>
+
+             <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" title="Remove Section" onClick={() => handleRemoveSection(section.id)}>
+                <Trash2 className="h-4 w-4" />
+             </Button>
+          </div>
+       )}
+       
+       {/* Block events from interfering with drag handle logic */}
+       <div className={`${isDragging ? 'pointer-events-none' : ''}`}>
+         <RenderSection section={section} business={business} isAdmin={isAdmin} />
+       </div>
+
+       {isAdmin && (
+          <div className="h-12 w-full flex justify-center items-center bg-accent/5 border-b dash-border opacity-0 group-hover/section:opacity-100 transition-opacity absolute bottom-[-24px] z-30">
+             <AddSectionTrigger onAdd={handleAddSection} />
+          </div>
+       )}
+    </div>
+  );
+};
+
+const BG_CLASSES: Record<string, string> = {
+  '': '',
+  'muted': 'bg-muted/30',
+  'accent': 'bg-accent text-white',
+  'dark': 'bg-black text-white',
+  'gradient': 'bg-gradient-to-br from-background via-muted/20 to-background',
+}
+
+const RADIUS_CLASSES: Record<string, string> = {
+  'none': 'rounded-none',
+  'sm': 'rounded-sm',
+  'md': 'rounded-md',
+  'lg': 'rounded-lg',
+  'xl': 'rounded-[2.5rem]',
+  'full': 'rounded-full',
+}
+
+const SHADOW_CLASSES: Record<string, string> = {
+  'none': 'shadow-none',
+  'sm': 'shadow-sm',
+  'md': 'shadow-md',
+  'lg': 'shadow-xl',
+  'xl': 'shadow-2xl shadow-accent/10',
+}
+
+const PADDING_CLASSES: Record<string, string> = {
+  'none': 'py-0',
+  'small': 'py-8',
+  'medium': 'py-16 md:py-20',
+  'large': 'py-24 md:py-32',
+  'extra-large': 'py-32 md:py-48',
+}
+
+const ALIGN_CLASSES: Record<string, string> = {
+  'left': 'text-left items-start',
+  'center': 'text-center items-center',
+  'right': 'text-right items-end',
+}
+
+const SectionWrapper = ({ section, children, className = "" }: { section: any, children: React.ReactNode, className?: string }) => {
+  const settings = section.settings || section.data?.settings || section.data || {};
+  const bg = BG_CLASSES[settings.bg as string] || '';
+  const radius = RADIUS_CLASSES[settings.radius as string] || '';
+  const shadow = SHADOW_CLASSES[settings.shadow as string] || '';
+  const padding = PADDING_CLASSES[settings.padding as string] || (section.type === 'hero' ? 'py-0' : 'py-20');
+  const alignment = ALIGN_CLASSES[settings.alignment as string] || '';
+
+  return (
+    <section className={cn(
+      "w-full transition-all duration-500",
+      bg,
+      padding,
+      className
+    )}>
+      <div className={cn(
+        "max-w-7xl mx-auto px-4 md:px-8 flex flex-col transition-all",
+        radius,
+        shadow,
+        alignment,
+        (settings.bg && settings.bg !== 'gradient') ? 'p-8 md:p-12' : ''
+      )}>
+        {children}
+      </div>
+    </section>
+  );
+};
 
 // Component to render custom UI based on ProjectSettings section definition
 const RenderSection = ({ section, business, isAdmin }: { section: any, business: Business, isAdmin: boolean }) => {
@@ -22836,7 +24160,7 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
    switch (type) {
      case 'hero':
         return (
-          <>
+          <div className="w-full">
             <Hero 
               variant={layout as any || 'modern-split'} 
               title={<AdminEditable value={business.siteSettings?.heroTitle || 'Welcome'} model="siteSettings" id={business.siteSettings?.id || ''} field="heroTitle">{business.siteSettings?.heroTitle || 'Welcome'}</AdminEditable>}
@@ -22844,7 +24168,7 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
               sectionId={id} 
             />
             {/* AI Product Search Section Below Hero */}
-            <section className="w-full py-12 px-4 md:px-8 bg-gradient-to-br from-background via-muted/30 to-background">
+            <section className="w-full py-12 px-4 md:px-8 bg-gradient-to-br from-background via-muted/30 to-background border-b border-t shadow-sm">
               <div className="max-w-7xl mx-auto">
                 <AIProductSearch businessId={business.id}>
                   <Button 
@@ -22857,42 +24181,46 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                 <p className="text-sm text-muted-foreground mt-3 text-center md:text-left">Snap a photo or upload a list of products you want to find</p>
               </div>
             </section>
-          </>
+          </div>
         );
      case 'products':
-        if (layout === 'carousel of products') {
-          return (
-            <ScrollScaleWrapper className="w-full flex justify-center py-10">
-               <div className="space-y-4 w-full">
-                  <AdminEditable as="h2" value={data?.title || 'Trending Products'} model="section" id={id} field="data.title" data={data} className="text-3xl font-bold px-10" />
-                  <FeaturedProducts categoryId={data?.categoryId} title={data?.title} />
-               </div>
-            </ScrollScaleWrapper>
-          );
-        }
-        return <FeaturedProducts />;
+        return (
+          <SectionWrapper section={section}>
+             <div className="space-y-8 w-full">
+                <AdminEditable as="h2" value={data?.title || 'Trending Products'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black tracking-tight" />
+                <FeaturedProducts categoryId={data?.categoryId} title={data?.title} businessId={business.id} storeName={storeName as string} />
+             </div>
+          </SectionWrapper>
+        );
      case 'categories':
-        return <FeaturedCategories />;
+        return (
+          <SectionWrapper section={section}>
+             <div className="w-full">
+                <AdminEditable as="h2" value={data?.title || 'Categories'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black tracking-tight mb-8" />
+                <FeaturedCategories businessId={business.id} />
+             </div>
+          </SectionWrapper>
+        );
      case 'features':
-        return <Features />;
+        return <SectionWrapper section={section}><Features /></SectionWrapper>;
      case 'description':
         return (
-          <ScrollScaleWrapper className="w-full py-20 px-4 md:px-20 bg-muted/10 translate-y-[-2px] border-b">
-             <div className="max-w-4xl mx-auto space-y-6 text-center">
+          <SectionWrapper section={section}>
+             <div className="max-w-4xl mx-auto space-y-6">
                 <Info className="h-12 w-12 text-accent mx-auto" strokeWidth={3} />
                 <AdminEditable as="h2" value={data?.title || 'Our Philosophy'} model="section" id={id} field="data.title" data={data} className="text-4xl font-extrabold tracking-tight underline decoration-accent/40" />
                 <div className="w-full">
                   <AdminEditable as="p" value={business.siteSettings?.aboutText || 'This store provides the best service for all customers around the globe.'} model="siteSettings" id={business.siteSettings?.id || ''} field="aboutText" className="text-xl text-muted-foreground leading-loose italic" />
                 </div>
              </div>
-          </ScrollScaleWrapper>
+          </SectionWrapper>
         );
      case 'contact-form':
         return (
-          <div className="w-full py-20 px-4 md:px-20 bg-background">
-             <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+          <SectionWrapper section={section}>
+             <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                 <div className="space-y-8">
-                   <div className="space-y-4 text-center md:text-left">
+                   <div className="space-y-4">
                       <AdminEditable as="h2" value={data?.title || 'Connect with Us'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter text-accent" />
                       <AdminEditable as="p" value={data?.text || "We'd love to hear from you. Fill out the form or use our contact details."} model="section" id={id} field="data.text" data={data} className="text-muted-foreground text-lg" />
                    </div>
@@ -22915,45 +24243,41 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                    <ContactForm />
                 </div>
              </div>
-          </div>
+          </SectionWrapper>
         );
      case 'chat-interface':
         return (
-          <div className="w-full py-20 px-4 bg-accent/5">
-             <div className="max-w-5xl mx-auto space-y-8">
+          <SectionWrapper section={section}>
+             <div className="w-full space-y-8">
                 <div className="text-center space-y-2">
                    <AdminEditable as="h2" value={data?.title || 'Talk to an Expert'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black tracking-tight" />
                    <AdminEditable as="p" value={data?.text || 'Get instant support and consultation from our licensed team.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
                 </div>
                 <ChatInterface />
              </div>
-          </div>
+          </SectionWrapper>
         );
      case 'blog-posts':
         return (
-          <div className="w-full py-20 px-4 max-w-7xl mx-auto">
-             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
-                <div className="space-y-2 text-center md:text-left">
+          <SectionWrapper section={section}>
+             <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6 w-full">
+                <div className="space-y-2">
                    <AdminEditable as="h2" value={data?.title || 'Latest Insights'} model="section" id={id} field="data.title" data={data} className="text-3xl font-black" />
                    <AdminEditable as="p" value={data?.text || 'Knowledge base and updates from our experts.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
                 </div>
                 <Button variant="outline" className="font-bold rounded-full border-2 h-12 px-8">View All Posts</Button>
              </div>
              <Posts page="General" />
-          </div>
+          </SectionWrapper>
         );
      case 'product-list': {
         const productCardLayout = business.settings?.productCardLayout || 'vertical';
         
         const handleLayoutChange = async (newLayout: 'vertical' | 'horizontal') => {
           try {
-            // Save to business settings
             await axios.put(`/api/dbhandler?model=business`, {
               id: business.id,
-              settings: {
-                ...business.settings,
-                productCardLayout: newLayout,
-              },
+              settings: { ...business.settings, productCardLayout: newLayout },
             });
             toast.success(`Layout saved: ${newLayout}`);
             window.location.reload();
@@ -22963,8 +24287,8 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
         };
         
         return (
-          <div className="w-full py-20 bg-background">
-             <div className="max-w-7xl mx-auto px-4 space-y-12">
+          <SectionWrapper section={section}>
+             <div className="w-full space-y-12">
                 <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                    <AdminEditable as="h2" value={data?.title || 'Catalog'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
                    <div className="flex gap-4 items-center flex-wrap">
@@ -22997,14 +24321,14 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                 </div>
                 <Stocks businessId={business.id} />
              </div>
-          </div>
+          </SectionWrapper>
         );
       }
      case 'newsletter':
         return (
-           <div className="w-full py-20 px-4 md:px-0">
-              <div className="max-w-4xl mx-auto px-6 py-12 bg-accent rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-accent/20">
-                 <div className="space-y-2 flex-1 text-center md:text-left">
+           <SectionWrapper section={section}>
+              <div className="w-full px-6 py-12 bg-accent rounded-[3rem] text-white flex flex-col md:flex-row items-center justify-between gap-8 shadow-2xl shadow-accent/20">
+                 <div className="space-y-2 flex-1">
                     <AdminEditable as="h3" value={business.siteSettings?.newsletterTitle || 'Join our Newsletter'} model="siteSettings" id={business.siteSettings?.id || ''} field="newsletterTitle" className="text-2xl font-black uppercase tracking-widest" />
                     <AdminEditable as="p" value={business.siteSettings?.newsletterText || 'Be the first to know about new arrivals and exclusive offers.'} model="siteSettings" id={business.siteSettings?.id || ''} field="newsletterText" className="text-white/80 font-medium" />
                  </div>
@@ -23013,13 +24337,13 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                     <Button className="h-12 px-8 rounded-2xl bg-white text-accent font-black hover:bg-white/90">Join</Button>
                  </div>
               </div>
-           </div>
+           </SectionWrapper>
         );
      case 'stats': {
         const stats = business.stats || [];
         return (
-           <div className="w-full py-20 bg-accent text-white">
-              <div className="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
+           <SectionWrapper section={section} className="bg-accent text-white">
+              <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-12 text-center">
                  {stats.map(stat => (
                     <div key={stat.id} className="space-y-2">
                        <AdminEditable 
@@ -23041,14 +24365,14 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                     </div>
                  ))}
               </div>
-           </div>
+           </SectionWrapper>
         );
      }
      case 'partners': {
         const partners = business.partners || [];
         return (
-           <div className="w-full py-20 bg-muted/30">
-              <div className="max-w-7xl mx-auto px-6 text-center space-y-12">
+           <SectionWrapper section={section}>
+              <div className="w-full space-y-12">
                  <AdminEditable as="h2" value={data?.title || 'Our Trusted Partners'} model="section" id={id} field="data.title" data={data} className="text-sm font-black uppercase tracking-widest text-muted-foreground" />
                  <div className="flex flex-wrap justify-center items-center gap-12 opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
                     {partners.map(partner => (
@@ -23066,16 +24390,16 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                     ))}
                  </div>
               </div>
-           </div>
+           </SectionWrapper>
         );
      }
      case 'promotions': {
         const promos = business.promotions || [];
         return (
-           <div className="w-full py-20 overflow-hidden">
-              <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+           <SectionWrapper section={section}>
+              <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
                  {promos.map(promo => (
-                    <div key={promo.id} className="relative h-[300px] rounded-[3rem] overflow-hidden group">
+                    <div key={promo.id} className="relative h-[300px] rounded-[3rem] overflow-hidden group shadow-xl">
                        <img
                          src={promo.image || ''}
                          alt={promo.title || 'Promotion image'}
@@ -23103,61 +24427,65 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
                     </div>
                  ))}
               </div>
-           </div>
+           </SectionWrapper>
         );
      }
      case 'cart':
         return (
-          <div className="w-full py-20 px-4 max-w-7xl mx-auto">
-             <div className="mb-12 text-center md:text-left">
-                <h2 className="text-4xl font-black tracking-tighter">Shopping Bag</h2>
-                <p className="text-muted-foreground font-medium">Review your items before checkout.</p>
-             </div>
-             <CartDetails cartId="temp" />
-          </div>
+           <SectionWrapper section={section}>
+              <div className="w-full">
+                 <div className="mb-12">
+                    <h2 className="text-4xl font-black tracking-tighter">Shopping Bag</h2>
+                    <p className="text-muted-foreground font-medium">Review your items before checkout.</p>
+                 </div>
+                 <CartDetails cartId="temp" />
+              </div>
+           </SectionWrapper>
         );
      case 'product-details': {
         const pId = searchParams.get('id');
-        return <ProductDetailView productId={pId || undefined} businessId={business.id} />;
+        return <section className="w-full py-20 px-4 md:px-8"><ProductDetailView productId={pId || undefined} businessId={business.id} /></section>;
      }
      case 'staff': {
         const staff = business.staff || [];
         return (
-          <div className="w-full py-20 px-6 max-w-7xl mx-auto border-t border-dashed">
-             <div className="text-center mb-16 space-y-4">
-                <AdminEditable as="h2" value={data?.title || 'Meet the Experts'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black" />
-                <AdminEditable as="p" value={data?.text || 'Our platform is powered by highly skilled individuals dedicated to your satisfaction.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground max-w-2xl mx-auto" />
-             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-                {staff.length > 0 ? staff.map((member, i) => (
-                   <div key={member.id} className="flex flex-col items-center group">
-                      <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-all duration-300 shadow-xl group-hover:shadow-accent/20">
-                         <img src={member.image || 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png'} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
+          <SectionWrapper section={section}>
+             <div className="w-full">
+                <div className="mb-16 space-y-4">
+                   <AdminEditable as="h2" value={data?.title || 'Meet the Experts'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black" />
+                   <AdminEditable as="p" value={data?.text || 'Our platform is powered by highly skilled individuals dedicated to your satisfaction.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground max-w-2xl" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8 w-full">
+                   {staff.length > 0 ? staff.map((member, i) => (
+                      <div key={member.id} className="flex flex-col items-center group">
+                         <div className="h-40 w-40 rounded-full overflow-hidden mb-4 border-4 border-accent/10 group-hover:border-accent transition-all duration-300 shadow-xl group-hover:shadow-accent/20">
+                            <img src={member.image || 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png'} alt={member.name} className="h-full w-full object-cover scale-110 group-hover:scale-100 transition-transform duration-500" />
+                         </div>
+                         <AdminEditable 
+                            as="h4" 
+                            value={member.name} 
+                            model="staff" 
+                            id={member.id} 
+                            field="name" 
+                            className="font-bold text-lg group-hover:text-accent transition-colors" 
+                         />
+                         <AdminEditable 
+                            as="p" 
+                            value={member.role} 
+                            model="staff" 
+                            id={member.id} 
+                            field="role" 
+                            className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]" 
+                         />
                       </div>
-                      <AdminEditable 
-                         as="h4" 
-                         value={member.name} 
-                         model="staff" 
-                         id={member.id} 
-                         field="name" 
-                         className="font-bold text-lg group-hover:text-accent transition-colors" 
-                      />
-                      <AdminEditable 
-                         as="p" 
-                         value={member.role} 
-                         model="staff" 
-                         id={member.id} 
-                         field="role" 
-                         className="text-sm text-muted-foreground uppercase tracking-widest font-bold text-[10px]" 
-                      />
-                   </div>
-                )) : (
-                   <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
-                      <p>No team members listed yet. Add staff to your business dashboard.</p>
-                   </div>
-                )}
+                   )) : (
+                      <div className="col-span-full py-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">
+                         <p>No team members listed yet. Add staff to your business dashboard.</p>
+                      </div>
+                   )}
+                </div>
              </div>
-          </div>
+          </SectionWrapper>
         );
      }
      case 'chat':
@@ -23184,21 +24512,23 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
      case 'help': {
         const articles = business.helpArticles || [];
         return (
-           <div className="w-full py-20 px-6 max-w-5xl mx-auto space-y-12">
-              <div className="text-center space-y-4">
-                 <AdminEditable as="h2" value={data?.title || 'Help Center'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
-                 <AdminEditable as="p" value={data?.text || 'Find answers to common questions.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
+           <SectionWrapper section={section}>
+              <div className="w-full space-y-12">
+                 <div className="space-y-4">
+                    <AdminEditable as="h2" value={data?.title || 'Help Center'} model="section" id={id} field="data.title" data={data} className="text-4xl font-black tracking-tighter" />
+                    <AdminEditable as="p" value={data?.text || 'Find answers to common questions.'} model="section" id={id} field="data.text" data={data} className="text-muted-foreground" />
+                 </div>
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                    {articles.map(article => (
+                       <div key={article.id} className="p-8 bg-muted/20 rounded-[2rem] border-2 border-transparent hover:border-accent/10 transition-all group">
+                          <AdminEditable as="h4" value={article.title} model="helpArticle" id={article.id} field="title" className="text-lg font-bold mb-3 group-hover:text-accent transition-colors" />
+                          <AdminEditable as="p" value={article.content} model="helpArticle" id={article.id} field="content" className="text-sm text-muted-foreground line-clamp-3" />
+                          <Button variant="link" className="px-0 h-auto mt-4 text-accent font-black">Read More</Button>
+                       </div>
+                    ))}
+                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                 {articles.map(article => (
-                    <div key={article.id} className="p-8 bg-muted/20 rounded-[2rem] border-2 border-transparent hover:border-accent/10 transition-all group">
-                       <AdminEditable as="h4" value={article.title} model="helpArticle" id={article.id} field="title" className="text-lg font-bold mb-3 group-hover:text-accent transition-colors" />
-                       <AdminEditable as="p" value={article.content} model="helpArticle" id={article.id} field="content" className="text-sm text-muted-foreground line-clamp-3" />
-                       <Button variant="link" className="px-0 h-auto mt-4 text-accent font-black">Read More</Button>
-                    </div>
-                 ))}
-              </div>
-           </div>
+           </SectionWrapper>
         );
      }
      default:
@@ -29030,21 +30360,40 @@ import React, { useState } from 'react'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Edit2, Check, X } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { 
+  Edit2, 
+  Check, 
+  X, 
+  Image as ImageIcon, 
+  Link as LinkIcon, 
+  Palette, 
+  Upload,
+  ExternalLink
+} from 'lucide-react'
 import axios from 'axios'
 import { toast } from 'sonner'
-import { useAppContext } from '@/hooks/useAppContext'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Label } from '@/components/ui/label'
 
 interface AdminEditableProps {
-  value: string
-  model: string // e.g., 'section', 'business'
+  value: any
+  model: string // e.g., 'section', 'business', 'siteSettings'
   id: string
   field: string // e.g., 'data.title', 'name'
+  type?: 'text' | 'textarea' | 'image' | 'link' | 'color'
   data?: any   // The whole data object if field is nested in data
-  onSave?: (newValue: string) => void
+  onSave?: (newValue: any) => void
   className?: string
-  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'span' | 'div'
+  as?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'span' | 'div' | 'img'
   children?: React.ReactNode
+  linkField?: string // For 'link' type, the field for the URL
 }
 
 export const AdminEditable = ({ 
@@ -29052,34 +30401,58 @@ export const AdminEditable = ({
   model, 
   id, 
   field, 
+  type = 'text',
   data,
   onSave, 
   className = "", 
   as: Component = 'span',
-  children
+  children,
+  linkField
 }: AdminEditableProps) => {
   const isAdmin = useIsBusinessAdmin();
   const [isEditing, setIsEditing] = useState(false);
   const [currentValue, setCurrentValue] = useState(value);
+  const [currentLink, setCurrentLink] = useState(data ? data[linkField || ''] : '');
   const [isLoading, setIsLoading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
 
-  const handleSave = async () => {
+  const handleSave = async (overriddenValue?: any) => {
     setIsLoading(true);
     try {
+      const valToSave = overriddenValue !== undefined ? overriddenValue : currentValue;
       const updateData: any = { id };
+      
       if (field.startsWith('data.')) {
         const key = field.replace('data.', '');
-        updateData.data = { ...data, [key]: currentValue };
+        const newData = { ...data, [key]: valToSave };
+        if (type === 'link' && linkField) {
+           newData[linkField] = currentLink;
+        }
+        updateData.data = newData;
       } else {
-        updateData[field] = currentValue;
+        updateData[field] = valToSave;
+        if (type === 'link' && linkField) {
+           updateData[linkField] = currentLink;
+        }
+      }
+
+      // Handle file upload if present
+      if (file && type === 'image') {
+        const formData = new FormData();
+        formData.append('id', id);
+        formData.append('file', file);
+        // Map field correctly for multipart
+        const uploadModel = model === 'section' ? 'section' : model;
+        await axios.put(`/api/dbhandler?model=${uploadModel}`, formData);
+      } else {
+        await axios.put(`/api/dbhandler?model=${model}`, updateData);
       }
       
-      await axios.put(`/api/dbhandler?model=${model}`, updateData);
-      
-      if (onSave) onSave(currentValue);
+      if (onSave) onSave(valToSave);
       setIsEditing(false);
       toast.success("Updated successfully");
-      // Optional: window.location.reload() if we want to ensure context sync
+      window.location.reload(); // Refresh to show changes across components
     } catch (err) {
       console.error(err);
       toast.error("Failed to update");
@@ -29088,43 +30461,145 @@ export const AdminEditable = ({
     }
   };
 
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setPreview(URL.createObjectURL(selectedFile));
+    }
+  };
+
   if (!isAdmin) {
+    if (type === 'image' && Component === 'img') {
+        return <img src={value} className={className} alt="" />;
+    }
     return <Component className={className}>{children || value}</Component>;
   }
 
+  // --- Inline Editors (Text/Color) ---
+  if (isEditing && (type === 'text' || type === 'color')) {
+    return (
+      <div className={`flex items-center gap-1 ${className}`}>
+        <Input 
+          type={type === 'color' ? 'color' : 'text'}
+          value={currentValue} 
+          onChange={(e) => setCurrentValue(e.target.value)}
+          className={`h-8 py-0 px-2 ${type === 'color' ? 'w-12 p-0 border-none overflow-hidden' : 'min-w-[150px]'}`}
+          autoFocus
+        />
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={() => handleSave()} disabled={isLoading}>
+          <Check className="h-4 w-4" />
+        </Button>
+        <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={() => setIsEditing(false)}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  }
+
   return (
-    <div className={`group relative inline-flex items-center gap-2 ${className}`}>
-      {isEditing ? (
-        <div className="flex items-center gap-1 w-full">
-          <Input 
-            value={currentValue} 
-            onChange={(e) => setCurrentValue(e.target.value)}
-            className="h-8 py-0 px-2 min-w-[200px]"
-            autoFocus
-          />
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600" onClick={handleSave} disabled={isLoading}>
-            <Check className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-red-600" onClick={() => { setIsEditing(false); setCurrentValue(value); }}>
-            <X className="h-4 w-4" />
-          </Button>
+    <>
+      <div 
+        className={`group relative cursor-pointer ring-0 hover:ring-2 ring-accent ring-offset-2 rounded-lg transition-all ${className}`}
+        onClick={() => setIsEditing(true)}
+      >
+        <div className="absolute -top-3 -right-3 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+          <div className="bg-accent text-white p-1.5 rounded-full shadow-lg border-2 border-white">
+            {type === 'image' ? <ImageIcon className="h-3 w-3" /> : 
+             type === 'link' ? <LinkIcon className="h-3 w-3" /> : 
+             type === 'color' ? <Palette className="h-3 w-3" /> : 
+             <Edit2 className="h-3 w-3" />}
+          </div>
         </div>
-      ) : (
-        <>
-          <Component className={className}>{children || value}</Component>
-          <Button 
-            size="icon" 
-            variant="ghost" 
-            className="h-6 w-6 opacity-100 transition-opacity bg-accent/10 hover:bg-accent/20"
-            onClick={() => setIsEditing(true)}
-          >
-            <Edit2 className="h-3 w-3" />
-          </Button>
-        </>
-      )}
-    </div>
+        
+        {type === 'image' && Component === 'img' ? (
+           <img src={value} className={className} alt="" />
+        ) : children || value}
+      </div>
+
+      <Dialog open={isEditing && (type === 'image' || type === 'link' || type === 'textarea')} onOpenChange={setIsEditing}>
+         <DialogContent className="max-w-md rounded-3xl border-none shadow-2xl">
+            <DialogHeader>
+               <DialogTitle className="text-xl font-black uppercase tracking-tight flex items-center gap-2">
+                  Edit {type === 'image' ? 'Image' : type === 'link' ? 'Link' : 'Content'}
+               </DialogTitle>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+               {type === 'textarea' && (
+                  <div className="space-y-2">
+                     <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Text Content</Label>
+                     <Textarea 
+                       value={currentValue}
+                       onChange={(e) => setCurrentValue(e.target.value)}
+                       rows={6}
+                       className="border-2 rounded-2xl resize-none font-medium"
+                     />
+                  </div>
+               )}
+
+               {type === 'image' && (
+                  <div className="space-y-4">
+                     <div className="aspect-video rounded-2xl overflow-hidden border-4 border-muted/20 bg-muted/10 relative group">
+                        <img src={preview || value} className="w-full h-full object-cover" alt="Preview" />
+                        <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center cursor-pointer transition-opacity">
+                           <Upload className="h-8 w-8 text-white animate-bounce" />
+                           <input type="file" className="hidden" onChange={onFileChange} accept="image/*" />
+                        </label>
+                     </div>
+                     <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Or provide Image URL</Label>
+                        <Input 
+                          value={preview ? '' : currentValue}
+                          onChange={(e) => { setPreview(null); setCurrentValue(e.target.value); }}
+                          placeholder="https://images.unsplash.com/..."
+                          className="border-2 h-11 rounded-xl"
+                        />
+                     </div>
+                  </div>
+               )}
+
+               {type === 'link' && (
+                  <div className="space-y-4">
+                     <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Button Label</Label>
+                        <Input 
+                          value={currentValue}
+                          onChange={(e) => setCurrentValue(e.target.value)}
+                          placeholder="Shop Now"
+                          className="border-2 h-11 rounded-xl font-bold"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">Target URL</Label>
+                        <div className="relative">
+                           <ExternalLink className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" />
+                           <Input 
+                             value={currentLink}
+                             onChange={(e) => setCurrentLink(e.target.value)}
+                             placeholder="/store or https://..."
+                             className="border-2 h-11 rounded-xl pl-10"
+                           />
+                        </div>
+                     </div>
+                  </div>
+               )}
+            </div>
+
+            <DialogFooter className="gap-2">
+               <Button variant="outline" onClick={() => setIsEditing(false)} className="h-12 border-2 rounded-2xl font-bold flex-1">
+                  Cancel
+               </Button>
+               <Button onClick={() => handleSave()} disabled={isLoading} className="h-12 bg-accent hover:bg-accent/90 text-white font-black rounded-2xl shadow-lg shadow-accent/20 flex-1">
+                  {isLoading ? 'Saving...' : 'Save Changes'}
+               </Button>
+            </DialogFooter>
+         </DialogContent>
+      </Dialog>
+    </>
   )
 }
+
 
 
 
@@ -33163,17 +34638,15 @@ export function useStoreActions({
   business,
   onDataChange,
 }: Params) {
+  const useMaster = Boolean(business && business.sections);
+
   const handleAddSection = async (type: string, layout: string) => {
-    // Determine whether we are using the new master BusinessSection system
-    const useMaster = Boolean(business && business.sections);
     try {
       if (useMaster) {
         const newSection = {
           businessId: business.id,
           page: activePage?.slug || 'home',
-          // `key` should identify the section kind (e.g. 'hero'), not the layout
           key: type,
-          // `type` here represents the section classification (static/dynamic/collection)
           type: 'static',
           position: sections.length,
           heading: `New ${type}`,
@@ -33239,7 +34712,6 @@ export function useStoreActions({
 
   const handleRemoveSection = async (id: string) => {
     try {
-      const useMaster = Boolean(business && business.sections);
       if (useMaster) {
         await axios.delete(`/api/dbhandler?model=businessSection&id=${id}`);
       } else {
@@ -33253,20 +34725,70 @@ export function useStoreActions({
     }
   };
 
+  /**
+   * Move a section up (-1) or down (+1) by swapping positions with its neighbour.
+   * Uses an optimistic approach – no page reload needed; parent triggers onDataChange.
+   */
+  const handleMoveSection = async (id: string, direction: 'up' | 'down') => {
+    const sorted = [...sections].sort(
+      (a, b) =>
+        (a.position ?? a.order ?? 0) - (b.position ?? b.order ?? 0)
+    );
+    const currentIdx = sorted.findIndex((s) => s.id === id);
+    if (currentIdx === -1) return;
+
+    const targetIdx = direction === 'up' ? currentIdx - 1 : currentIdx + 1;
+    if (targetIdx < 0 || targetIdx >= sorted.length) return;
+
+    const current = sorted[currentIdx];
+    const target = sorted[targetIdx];
+    const currentPos = current.position ?? current.order ?? currentIdx;
+    const targetPos = target.position ?? target.order ?? targetIdx;
+
+    try {
+      if (useMaster) {
+        await Promise.all([
+          axios.put('/api/dbhandler?model=businessSection', {
+            id: current.id,
+            position: targetPos,
+          }),
+          axios.put('/api/dbhandler?model=businessSection', {
+            id: target.id,
+            position: currentPos,
+          }),
+        ]);
+      } else {
+        await Promise.all([
+          axios.put('/api/dbhandler?model=section', {
+            id: current.id,
+            order: targetPos,
+          }),
+          axios.put('/api/dbhandler?model=section', {
+            id: target.id,
+            order: currentPos,
+          }),
+        ]);
+      }
+      toast.success(`Section moved ${direction}`);
+      onDataChange?.();
+      window.location.reload();
+    } catch {
+      toast.error('Failed to move section');
+    }
+  };
+
   const handleApplyTemplate = async (templateSlug: string) => {
-    if (!activePage && !(business && business.sections)) return;
+    if (!activePage && !useMaster) return;
     const template =
       DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
     if (!template || !('sections' in template)) return;
 
     try {
-      const useMaster = Boolean(business && business.sections);
       for (const s of template.sections) {
         if (useMaster) {
           await axios.post('/api/dbhandler?model=businessSection', {
             businessId: business.id,
             page: activePage?.slug || 'home',
-            // use the section type as the key (e.g. 'hero')
             key: s.type,
             type: 'static',
             position: s.order,
@@ -33294,20 +34816,18 @@ export function useStoreActions({
 
   const updateGlobalSettings = async (data: any) => {
     try {
-      // Update SiteSettings if present
       if (data.siteSettings) {
-        await axios.put(`/api/dbhandler?model=siteSettings`, {
+        await axios.put('/api/dbhandler?model=siteSettings', {
           id: business?.siteSettings?.id,
           ...data.siteSettings,
         });
       }
 
-      // Update ProjectSettings if present (currency, etc)
       const projectData = { ...data };
       delete projectData.siteSettings;
 
       if (Object.keys(projectData).length > 0) {
-        await axios.put(`/api/dbhandler?model=projectSettings`, {
+        await axios.put('/api/dbhandler?model=projectSettings', {
           id: settings?.id,
           ...projectData,
         });
@@ -33321,10 +34841,55 @@ export function useStoreActions({
     }
   };
 
+  const handleReorderSections = async (updates: { id: string, position: number }[]) => {
+    try {
+      const promises = updates.map(u => 
+        useMaster 
+          ? axios.put('/api/dbhandler?model=businessSection', { id: u.id, position: u.position })
+          : axios.put('/api/dbhandler?model=section', { id: u.id, order: u.position })
+      );
+      await Promise.all(promises);
+      toast.success('Layout updated successfully');
+    } catch {
+      toast.error('Failed to save layout order');
+    }
+  };
+
+  const handleDuplicateSection = async (section: any) => {
+    try {
+      const { id, createdAt, updatedAt, position, order, ...rest } = section;
+      const nextPos = (position ?? order ?? 0) + 1;
+
+      if (useMaster) {
+        await axios.post('/api/dbhandler?model=businessSection', {
+          ...rest,
+          businessId: business.id,
+          page: activePage?.slug || 'home',
+          position: nextPos,
+        });
+      } else {
+        await axios.post('/api/dbhandler?model=section', {
+          ...rest,
+          pageId: activePage.id,
+          order: nextPos,
+        });
+      }
+
+      toast.success('Section duplicated!');
+      onDataChange?.();
+      window.location.reload();
+    } catch (err) {
+      toast.error('Failed to duplicate section');
+    }
+  };
+
   return {
     handleAddSection,
     handleCreatePage,
     handleRemoveSection,
+    handleMoveSection,
+    handleReorderSections,
+    handleDuplicateSection,
     handleApplyTemplate,
     updateGlobalSettings,
   };
@@ -34873,6 +36438,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { AdminFormContainer } from "@/components/utility/AdminFormContainer";
+import { useAppContext } from "@/hooks/useAppContext";
 
 interface CategoriesFormProps {
   initialCategory?: any;
@@ -34880,6 +36446,7 @@ interface CategoriesFormProps {
 }
 
 export default function CategoriesForm({ initialCategory, hideList = false }: CategoriesFormProps) {
+  const { currentBusiness } = useAppContext();
   const [categories, setCategories] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     id: initialCategory?.id || "",
@@ -34905,7 +36472,7 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get("/api/dbhandler?model=category");
+      const res = await axios.get(`/api/dbhandler?model=category&businessId=${currentBusiness?.id}`);
       setCategories(res.data);
     } catch (err) {
       console.error("Failed to fetch categories:", err);
@@ -34939,6 +36506,10 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
       const data = new FormData();
       data.append("name", formData.name);
       data.append("description", formData.description);
+
+      if (!editId && currentBusiness?.id) {
+        data.append("businessId", currentBusiness.id);
+      }
 
       if (file) {
         data.append("file", file);
@@ -45323,5 +46894,5 @@ main();
 
 
 ================================================================================
-TOTAL FILES CONSOLIDATED: 378
+TOTAL FILES CONSOLIDATED: 379
 ================================================================================

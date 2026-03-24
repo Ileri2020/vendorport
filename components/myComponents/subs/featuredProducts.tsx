@@ -45,7 +45,17 @@ export interface FeaturedProductType {
 /* ===============================
    Component
 ================================ */
-const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: string, title?: string }) => {
+const FeaturedProducts = ({
+  categoryId,
+  title: customTitle,
+  businessId: businessIdProp,
+  storeName: storeNameProp,
+}: {
+  categoryId?: string;
+  title?: string;
+  businessId?: string;
+  storeName?: string;
+}) => {
   const [products, setProducts] = useState<FeaturedProductType[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -64,58 +74,67 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
   const isAdmin = useIsAdmin();
   const { currentBusiness } = useAppContext();
   const params = useParams();
-  const storeName = (params as any)?.storeName;
-  const viewAllHref = storeName ? `/${storeName}/store` : '/store';
+
+  // Prefer explicit prop, then URL param, then context
+  const resolvedStoreName = storeNameProp || (params as any)?.storeName || currentBusiness?.slug;
+  const resolvedBusinessId = businessIdProp || currentBusiness?.id;
+
+  const viewAllHref = resolvedStoreName ? `/${resolvedStoreName}/store` : '/store';
 
   async function fetchProducts() {
     try {
       let url = "/api/dbhandler?model=featuredProduct";
-      if (currentBusiness?.id) {
-        url += `&businessId=${currentBusiness.id}`;
+      if (resolvedBusinessId) {
+        url += `&businessId=${resolvedBusinessId}`;
       }
       if (categoryId) {
         url = `/api/dbhandler?model=product&categoryId=${categoryId}`;
-        if (currentBusiness?.id) {
-          url += `&businessId=${currentBusiness.id}`;
+        if (resolvedBusinessId) {
+          url += `&businessId=${resolvedBusinessId}`;
         }
       }
       const res = await fetch(url);
       const data = await res.json();
 
       // If categoryId, data is already top level product. If featuredProduct, it is { product: ... }
-      const mapped: FeaturedProductType[] = data.map((item: any) => {
-        const product = categoryId ? item : item.product;
-        if (!product) return null;
-        
-        const totalStock =
-          product.stock?.reduce(
-            (sum: number, s: any) => sum + (s.addedQuantity ?? 0),
-            0
-          ) ?? 0;
+      const mapped: FeaturedProductType[] = data
+        .map((item: any) => {
+          const product = categoryId ? item : item.product;
+          if (!product) return null;
 
-        const rating =
-          product.reviews?.length > 0
-            ? product.reviews.reduce(
-              (acc: number, r: any) => acc + r.rating,
+          // Ensure product belongs to current business
+          if (resolvedBusinessId && product.businessId !== resolvedBusinessId) return null;
+
+          const totalStock =
+            product.stock?.reduce(
+              (sum: number, s: any) => sum + (s.addedQuantity ?? 0),
               0
-            ) / product.reviews.length
-            : undefined;
+            ) ?? 0;
 
-        return {
-          id: product.id,
-          name: product.name,
-          category: {
-            name: product.category?.name || "Uncategorized",
-          },
-          price: product.price,
-          images:
-            product.images?.length > 0
-              ? product.images
-              : ["/placeholder.png"],
-          inStock: totalStock > 0,
-          rating,
-        };
-      }).filter(Boolean);
+          const rating =
+            product.reviews?.length > 0
+              ? product.reviews.reduce(
+                  (acc: number, r: any) => acc + r.rating,
+                  0
+                ) / product.reviews.length
+              : undefined;
+
+          return {
+            id: product.id,
+            name: product.name,
+            category: {
+              name: product.category?.name || "Uncategorized",
+            },
+            price: product.price,
+            images:
+              product.images?.length > 0
+                ? product.images
+                : ["/placeholder.png"],
+            inStock: totalStock > 0,
+            rating,
+          };
+        })
+        .filter(Boolean);
 
       setProducts(mapped);
     } catch (err) {
@@ -127,7 +146,9 @@ const FeaturedProducts = ({ categoryId, title: customTitle }: { categoryId?: str
 
   useEffect(() => {
     fetchProducts();
-  }, [categoryId]);
+  // re-fetch whenever the resolved business id changes (e.g. context loads late)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryId, resolvedBusinessId]);
 
   /* ===============================
      Split products for dual carousel

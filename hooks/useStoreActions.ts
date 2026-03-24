@@ -21,17 +21,15 @@ export function useStoreActions({
   business,
   onDataChange,
 }: Params) {
+  const useMaster = Boolean(business && business.sections);
+
   const handleAddSection = async (type: string, layout: string) => {
-    // Determine whether we are using the new master BusinessSection system
-    const useMaster = Boolean(business && business.sections);
     try {
       if (useMaster) {
         const newSection = {
           businessId: business.id,
           page: activePage?.slug || 'home',
-          // `key` should identify the section kind (e.g. 'hero'), not the layout
           key: type,
-          // `type` here represents the section classification (static/dynamic/collection)
           type: 'static',
           position: sections.length,
           heading: `New ${type}`,
@@ -97,7 +95,6 @@ export function useStoreActions({
 
   const handleRemoveSection = async (id: string) => {
     try {
-      const useMaster = Boolean(business && business.sections);
       if (useMaster) {
         await axios.delete(`/api/dbhandler?model=businessSection&id=${id}`);
       } else {
@@ -111,20 +108,70 @@ export function useStoreActions({
     }
   };
 
+  /**
+   * Move a section up (-1) or down (+1) by swapping positions with its neighbour.
+   * Uses an optimistic approach – no page reload needed; parent triggers onDataChange.
+   */
+  const handleMoveSection = async (id: string, direction: 'up' | 'down') => {
+    const sorted = [...sections].sort(
+      (a, b) =>
+        (a.position ?? a.order ?? 0) - (b.position ?? b.order ?? 0)
+    );
+    const currentIdx = sorted.findIndex((s) => s.id === id);
+    if (currentIdx === -1) return;
+
+    const targetIdx = direction === 'up' ? currentIdx - 1 : currentIdx + 1;
+    if (targetIdx < 0 || targetIdx >= sorted.length) return;
+
+    const current = sorted[currentIdx];
+    const target = sorted[targetIdx];
+    const currentPos = current.position ?? current.order ?? currentIdx;
+    const targetPos = target.position ?? target.order ?? targetIdx;
+
+    try {
+      if (useMaster) {
+        await Promise.all([
+          axios.put('/api/dbhandler?model=businessSection', {
+            id: current.id,
+            position: targetPos,
+          }),
+          axios.put('/api/dbhandler?model=businessSection', {
+            id: target.id,
+            position: currentPos,
+          }),
+        ]);
+      } else {
+        await Promise.all([
+          axios.put('/api/dbhandler?model=section', {
+            id: current.id,
+            order: targetPos,
+          }),
+          axios.put('/api/dbhandler?model=section', {
+            id: target.id,
+            order: currentPos,
+          }),
+        ]);
+      }
+      toast.success(`Section moved ${direction}`);
+      onDataChange?.();
+      window.location.reload();
+    } catch {
+      toast.error('Failed to move section');
+    }
+  };
+
   const handleApplyTemplate = async (templateSlug: string) => {
-    if (!activePage && !(business && business.sections)) return;
+    if (!activePage && !useMaster) return;
     const template =
       DEFAULT_PAGE_TEMPLATES[templateSlug as keyof typeof DEFAULT_PAGE_TEMPLATES];
     if (!template || !('sections' in template)) return;
 
     try {
-      const useMaster = Boolean(business && business.sections);
       for (const s of template.sections) {
         if (useMaster) {
           await axios.post('/api/dbhandler?model=businessSection', {
             businessId: business.id,
             page: activePage?.slug || 'home',
-            // use the section type as the key (e.g. 'hero')
             key: s.type,
             type: 'static',
             position: s.order,
@@ -152,20 +199,18 @@ export function useStoreActions({
 
   const updateGlobalSettings = async (data: any) => {
     try {
-      // Update SiteSettings if present
       if (data.siteSettings) {
-        await axios.put(`/api/dbhandler?model=siteSettings`, {
+        await axios.put('/api/dbhandler?model=siteSettings', {
           id: business?.siteSettings?.id,
           ...data.siteSettings,
         });
       }
 
-      // Update ProjectSettings if present (currency, etc)
       const projectData = { ...data };
       delete projectData.siteSettings;
 
       if (Object.keys(projectData).length > 0) {
-        await axios.put(`/api/dbhandler?model=projectSettings`, {
+        await axios.put('/api/dbhandler?model=projectSettings', {
           id: settings?.id,
           ...projectData,
         });
@@ -179,10 +224,55 @@ export function useStoreActions({
     }
   };
 
+  const handleReorderSections = async (updates: { id: string, position: number }[]) => {
+    try {
+      const promises = updates.map(u => 
+        useMaster 
+          ? axios.put('/api/dbhandler?model=businessSection', { id: u.id, position: u.position })
+          : axios.put('/api/dbhandler?model=section', { id: u.id, order: u.position })
+      );
+      await Promise.all(promises);
+      toast.success('Layout updated successfully');
+    } catch {
+      toast.error('Failed to save layout order');
+    }
+  };
+
+  const handleDuplicateSection = async (section: any) => {
+    try {
+      const { id, createdAt, updatedAt, position, order, ...rest } = section;
+      const nextPos = (position ?? order ?? 0) + 1;
+
+      if (useMaster) {
+        await axios.post('/api/dbhandler?model=businessSection', {
+          ...rest,
+          businessId: business.id,
+          page: activePage?.slug || 'home',
+          position: nextPos,
+        });
+      } else {
+        await axios.post('/api/dbhandler?model=section', {
+          ...rest,
+          pageId: activePage.id,
+          order: nextPos,
+        });
+      }
+
+      toast.success('Section duplicated!');
+      onDataChange?.();
+      window.location.reload();
+    } catch (err) {
+      toast.error('Failed to duplicate section');
+    }
+  };
+
   return {
     handleAddSection,
     handleCreatePage,
     handleRemoveSection,
+    handleMoveSection,
+    handleReorderSections,
+    handleDuplicateSection,
     handleApplyTemplate,
     updateGlobalSettings,
   };

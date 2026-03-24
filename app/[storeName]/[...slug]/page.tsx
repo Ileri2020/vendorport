@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
 import { usePageCache } from '@/hooks/usePageCache'
 import StoreHome from '@/components/platform/StoreHome'
+import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
 
 const DynamicStorePage = () => {
@@ -36,7 +37,8 @@ const DynamicStorePage = () => {
   if (isLoading) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-accent" />
+        <Skeleton className="h-12 w-12 rounded-full bg-accent/20" />
+        <Skeleton className="h-8 w-[300px] bg-muted/40" />
         <p className="text-xl font-bold animate-pulse text-muted-foreground uppercase tracking-widest text-center">
             {slugArray ? `Navigating to ${pageSlug}...` : `Entering ${storeName}...`}
         </p>
