@@ -11,6 +11,8 @@ import { GlobalCart } from '@/components/utility/GlobalCart'
 import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 import TemplateSelector from './TemplateSelector'
 
+import { AdminEditable } from '@/components/utility/AdminEditable'
+
 interface Business {
   id: string
   name: string
@@ -63,9 +65,16 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
        )}
        <Button variant="ghost" size="icon"><Search className="h-5 w-5" /></Button>
        <GlobalCart />
-       <Button variant="outline" className="rounded-full font-bold md:flex hidden">
-         {business.siteSettings?.headerCTA || 'Join Platform'}
-       </Button>
+       <AdminEditable 
+          value={business.siteSettings?.headerCTA || 'Join Platform'} 
+          model="siteSettings" 
+          id={business.siteSettings?.id || ''} 
+          field="headerCTA"
+       >
+          <Button variant="outline" className="rounded-full font-bold md:flex hidden">
+            {business.siteSettings?.headerCTA || 'Join Platform'}
+          </Button>
+       </AdminEditable>
 
        <Sheet>
          <SheetTrigger asChild>

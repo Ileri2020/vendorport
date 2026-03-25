@@ -58,6 +58,12 @@ import {
   FileText,
   GripHorizontal,
   Copy,
+  Monitor,
+  Tablet,
+  Smartphone,
+  Eye,
+  Settings,
+  Pointer,
 } from 'lucide-react'
 import {
   DndContext,
@@ -116,19 +122,19 @@ import { useStoreActions } from '@/hooks/useStoreActions'
 import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 import { BusinessProductSearch } from '@/components/utility/BusinessProductSearch'
 
-interface Section {
-   id: string;
-   type: string;
-   layout?: string;
-   data?: any;
-   order?: number;
+interface NormalizedSection {
+  id: string;
+  type: string;
+  variant: string;
+  props: any;
+  order: number;
 }
 
 interface Page {
   id: string
   name: string
   slug: string
-  sections: any[]
+  sections: NormalizedSection[]
 }
 
 interface Staff {
@@ -231,6 +237,8 @@ const StoreHome = ({
   const isAdmin = useIsBusinessAdmin();
   const [business, setBusiness] = React.useState(initialBusiness);
   const [isAdminToolbarOpen, setIsAdminToolbarOpen] = React.useState(!!initialAdminTab);
+  const [buildMode, setBuildMode] = React.useState(isAdmin);
+  const [device, setDevice] = React.useState<'mobile' | 'tablet' | 'desktop'>('desktop');
   const { storeName } = useParams();
 
   React.useEffect(() => {
@@ -248,15 +256,44 @@ const StoreHome = ({
   const activePage = settings?.pages?.find(p => p.slug === activePageSlug) ||
     (activePageSlug === 'home' && settings?.pages?.[0]?.slug === 'home' ? settings.pages[0] : null);
 
-  // if business.sections exists (master section system), filter by page slug and sort by position
-  let sections: any[] = [];
-  if (business.sections && business.sections.length) {
-    sections = business.sections
-      .filter((s: any) => s.page === activePageSlug)
-      .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
-  } else {
-    sections = activePage?.sections || [];
+  // detect global reusable components (header/footer) and page-specific section list
+  const normalizeSec = (s: any): NormalizedSection => {
+    if (business.sections && business.sections.length) {
+      // businessSection model mapping
+      return {
+        id: s.id,
+        type: s.key || s.type,
+        variant: s.settings?.layout || s.layout || 'default',
+        props: s.content || s.data || {},
+        order: s.position ?? 0
+      }
+    } else {
+      // section model mapping
+      return {
+        id: s.id,
+        type: s.type,
+        variant: s.layout || 'default',
+        props: s.data || {},
+        order: s.order ?? 0
+      }
+    }
   }
+
+  const rawSections = (business.sections?.length
+    ? business.sections.filter((s: any) => s.page === activePageSlug && s.isActive !== false)
+    : activePage?.sections || []
+  );
+
+  const sections: NormalizedSection[] = rawSections
+    .map(normalizeSec)
+    .sort((a, b) => a.order - b.order);
+
+  const globalHeaderSections = (business.sections || [])
+    .filter((s: any) => s.page === 'header' && s.isActive !== false)
+    .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
+  const globalFooterSections = (business.sections || [])
+    .filter((s: any) => s.page === 'footer' && s.isActive !== false)
+    .sort((a: any, b: any) => (a.position ?? 0) - (b.position ?? 0));
 
   // Active layout sections (handles optimistic drag)
   const [activeSections, setActiveSections] = React.useState<any[]>(sections);
@@ -319,6 +356,59 @@ const StoreHome = ({
     <div className="flex flex-col items-center w-full relative">
        <StoreNavbar business={business} businessId={business.id} />
 
+       {/* Global header components as reusable blocks */}
+       {globalHeaderSections.map((section) => (
+         <RenderSection key={`header-${section.id}`} section={section} business={business} isAdmin={isAdmin} />
+       ))}
+
+       {isAdmin && (
+          <div className="sticky top-4 z-[100] w-full flex justify-center mb-6 px-4">
+             <div className="bg-background/80 backdrop-blur-2xl border-2 shadow-2xl rounded-2xl p-1.5 flex items-center gap-2 ring-1 ring-black/5 animate-in slide-in-from-top-4 duration-500">
+                <div className="flex bg-muted/30 rounded-xl p-1 gap-1">
+                   <Button 
+                      variant={device === 'desktop' ? 'secondary' : 'ghost'} 
+                      size="sm" 
+                      onClick={() => setDevice('desktop')}
+                      className="h-9 w-9 p-0 rounded-lg transition-all"
+                   >
+                      <Monitor className="h-4 w-4" />
+                   </Button>
+                   <Button 
+                      variant={device === 'tablet' ? 'secondary' : 'ghost'} 
+                      size="sm" 
+                      onClick={() => setDevice('tablet')}
+                      className="h-9 w-9 p-0 rounded-lg transition-all"
+                   >
+                      <Tablet className="h-4 w-4" />
+                   </Button>
+                   <Button 
+                      variant={device === 'mobile' ? 'secondary' : 'ghost'} 
+                      size="sm" 
+                      onClick={() => setDevice('mobile')}
+                      className="h-9 w-9 p-0 rounded-lg transition-all"
+                   >
+                      <Smartphone className="h-4 w-4" />
+                   </Button>
+                </div>
+                
+                <div className="h-6 w-px bg-border mx-1"></div>
+                
+                <Button 
+                   variant={buildMode ? 'default' : 'ghost'} 
+                   size="sm" 
+                   onClick={() => setBuildMode(!buildMode)}
+                   className={cn(
+                      "gap-2 px-4 h-9 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all",
+                      buildMode ? "bg-accent text-white shadow-lg shadow-accent/20" : "text-muted-foreground"
+                   )}
+                >
+                   {buildMode ? <Settings className="h-3.5 w-3.5 animate-spin-slow" /> : <Eye className="h-3.5 w-3.5" />}
+                   {buildMode ? 'Build Mode' : 'Preview Mode'}
+                </Button>
+             </div>
+          </div>
+        )}
+
        {isAdmin && (
          <AdminToolbar
            business={business}
@@ -331,51 +421,71 @@ const StoreHome = ({
            activePage={activePage}
            onAddSection={handleAddSection}
            onDeleteSection={handleRemoveSection}
+           onMoveSection={handleMoveSection}
+           onDuplicateSection={handleDuplicateSection}
            onSectionDataChange={onDataChange}
          />
        )}
 
-       <main className="w-full flex-1">
-          {activeSections.length === 0 && (
-             <div className="w-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed border-accent/20 my-10 rounded-[3rem] bg-accent/5 p-10 text-center mx-auto max-w-7xl px-4">
-                <Layout className="h-16 w-16 text-accent/40 mb-6" />
-                <h3 className="text-2xl font-bold text-accent mb-2">This page has no content yet.</h3>
-                <p className="max-w-md text-muted-foreground mb-8">Start from scratch or jump-start your design with one of our professional templates.</p>
+        <main className={cn(
+           "flex-1 transition-all duration-500 ease-in-out origin-top border-x-[12px] border-transparent bg-slate-100/30",
+           device === 'mobile' ? "max-w-[430px] shadow-2xl ring-12 ring-black/90 rounded-[3.5rem] my-12 min-h-[850px] border-black overflow-hidden" : 
+           device === 'tablet' ? "max-w-[800px] shadow-2xl ring-12 ring-black/80 rounded-[2.5rem] my-12 min-h-[1024px] border-black overflow-hidden" : 
+           "w-full px-0"
+        )}>
+           <div className="w-full bg-white shadow-sm ring-1 ring-black/5">
+             {/* Global Header Builder Sections */}
+             {globalHeaderSections.map((s: any) => (
+               <RenderSection key={s.id} section={normalizeSec(s)} business={business} isAdmin={false} />
+             ))}
 
-                {isAdmin && (
-                   <div className="flex flex-wrap justify-center gap-4">
-                      <AddSectionTrigger onAdd={handleAddSection} />
-                      <div className="h-10 w-px bg-accent/20 mx-2 hidden md:block" />
-                      <div className="flex flex-wrap gap-2 justify-center">
-                         {Object.keys(DEFAULT_PAGE_TEMPLATES).map((key) => (
-                            <Button key={key} variant="outline" size="sm" onClick={() => handleApplyTemplate(key)} className="capitalize font-bold">
-                               Apply {key} Layout
-                            </Button>
-                         ))}
+             {activeSections.length === 0 && (
+                <div className="w-full min-h-[400px] flex flex-col items-center justify-center border-4 border-dashed border-accent/20 my-10 rounded-[3rem] bg-accent/5 p-10 text-center mx-auto max-w-7xl px-4">
+                   <Layout className="h-16 w-16 text-accent/40 mb-6" />
+                   <h3 className="text-2xl font-bold text-accent mb-2">This page has no content yet.</h3>
+                   <p className="max-w-md text-muted-foreground mb-8">Start from scratch or jump-start your design with one of our professional templates.</p>
+
+                   {isAdmin && (
+                      <div className="flex flex-wrap justify-center gap-4">
+                         <AddSectionTrigger onAdd={handleAddSection} />
+                         <div className="h-10 w-px bg-accent/20 mx-2 hidden md:block" />
+                         <div className="flex flex-wrap gap-2 justify-center">
+                            {Object.keys(DEFAULT_PAGE_TEMPLATES).map((key) => (
+                               <Button key={key} variant="outline" size="sm" onClick={() => handleApplyTemplate(key)} className="capitalize font-bold">
+                                  Apply {key} Layout
+                               </Button>
+                            ))}
+                         </div>
                       </div>
-                   </div>
-                )}
-             </div>
-          )}
+                   )}
+                </div>
+             )}
 
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-             <SortableContext items={activeSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
-                {activeSections.map((section, idx, arr) => (
-                  <SortableSectionRow 
-                     key={section.id} 
-                     section={section} 
-                     idx={idx} 
-                     arr={arr} 
-                     isAdmin={isAdmin} 
-                     business={business}
-                     handleMoveSection={handleMoveSection}
-                     handleRemoveSection={handleRemoveSection}
-                     handleAddSection={handleAddSection}
-                  />
-                ))}
-             </SortableContext>
-          </DndContext>
-       </main>
+             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={activeSections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+                   {activeSections.map((section, idx, arr) => (
+                     <SortableSectionRow 
+                        key={section.id} 
+                        section={section} 
+                        idx={idx} 
+                        arr={arr} 
+                        isAdmin={isAdmin && buildMode} 
+                        business={business}
+                        handleMoveSection={handleMoveSection}
+                        handleRemoveSection={handleRemoveSection}
+                        handleAddSection={handleAddSection}
+                        handleDuplicateSection={handleDuplicateSection}
+                     />
+                   ))}
+                </SortableContext>
+             </DndContext>
+             
+             {/* Global Footer Builder Sections */}
+             {globalFooterSections.map((s: any) => (
+               <RenderSection key={s.id} section={normalizeSec(s)} business={business} isAdmin={false} />
+             ))}
+           </div>
+        </main>
 
        <StoreFooter business={business} />
     </div>

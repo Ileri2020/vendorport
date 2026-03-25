@@ -94,6 +94,10 @@ model Page {
   projectSettingsId String          @db.ObjectId
   projectSettings   ProjectSettings @relation(fields: [projectSettingsId], references: [id])
   sections          Section[]
+  seoTitle          String?
+  seoDescription    String?
+  seoImage          String?
+  seoKeywords       String?
 }
 
 model Section {

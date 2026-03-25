@@ -25,7 +25,7 @@ import {
   GripVertical, Eye, EyeOff, Trash2, Plus, LayoutPanelTop,
   Sparkles, Grid3X3, AlignLeft, Star, Users, BookOpen, Mail,
   MessageCircle, Bell, ShoppingBag, ShoppingCart, Package,
-  HelpCircle, Megaphone, Layers, BarChart2
+  HelpCircle, Megaphone, Layers, BarChart2, Copy
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -79,10 +79,12 @@ interface SortableSectionRowProps {
   section: any
   index: number
   onDelete: (id: string) => void
+  onMove: (id: string, direction: 'up' | 'down') => void
+  onDuplicate: (section: any) => void
   activeId: string | null
 }
 
-function SortableSectionRow({ section, index, onDelete, activeId }: SortableSectionRowProps) {
+function SortableSectionRow({ section, index, onDelete, onMove, onDuplicate, activeId }: SortableSectionRowProps) {
   const type = section.type || section.key || ''
   const Icon = SECTION_ICON[type] || LayoutPanelTop
 
@@ -131,7 +133,39 @@ function SortableSectionRow({ section, index, onDelete, activeId }: SortableSect
         </p>
       </div>
 
-      {/* Delete */}
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-muted-foreground hover:bg-accent/10"
+          onClick={(e) => { e.stopPropagation(); onMove(section.id, 'up') }}
+          title="Move section up"
+          disabled={index === 0}
+        >
+          <div className="font-black">↑</div>
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-muted-foreground hover:bg-accent/10"
+          onClick={(e) => { e.stopPropagation(); onMove(section.id, 'down') }}
+          title="Move section down"
+        >
+          <div className="font-black">↓</div>
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-muted-foreground hover:bg-accent/10"
+          onClick={(e) => {
+            e.stopPropagation()
+            onDuplicate(section)
+          }}
+          title="Duplicate section"
+        >
+          <Copy className="h-3.5 w-3.5" />
+        </Button>
+      </div>
       <Button
         size="icon"
         variant="ghost"
@@ -154,6 +188,8 @@ interface SectionManagerPanelProps {
   activePage: any
   onAddSection: (type: string, layout: string) => void
   onDeleteSection: (id: string) => void
+  onMoveSection: (id: string, direction: 'up' | 'down') => void
+  onDuplicateSection: (section: any) => void
   onDataChange?: () => void
 }
 
@@ -163,6 +199,8 @@ export function SectionManagerPanel({
   activePage,
   onAddSection,
   onDeleteSection,
+  onMoveSection,
+  onDuplicateSection,
   onDataChange,
 }: SectionManagerPanelProps) {
   const [items, setItems] = React.useState(() =>
@@ -271,6 +309,8 @@ export function SectionManagerPanel({
                   section={section}
                   index={idx}
                   onDelete={onDeleteSection}
+                  onMove={onMoveSection}
+                  onDuplicate={onDuplicateSection}
                   activeId={activeId}
                 />
               ))}

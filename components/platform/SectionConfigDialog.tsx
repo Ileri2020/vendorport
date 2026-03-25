@@ -21,8 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Settings as SettingsIcon, Save, Image, Type, Layout, Sliders, Palette } from 'lucide-react'
+import { Settings as SettingsIcon, Save, Image, Type, Layout, Sliders, Palette, Settings } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 const HERO_VARIANTS = [
   { value: 'modern-split', label: 'Modern Split' },
@@ -300,24 +301,37 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any; onUpdate: ()
 
             {/* Products – category selector */}
             {type === 'products' && (
-              <div className="space-y-1.5">
-                <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
-                  Product Category
-                </Label>
-                <Select
-                  value={configData.categoryId || 'featured'}
-                  onValueChange={(v) => patchConfig({ categoryId: v === 'featured' ? null : v })}
-                >
-                  <SelectTrigger className="h-11 border-2">
-                    <SelectValue placeholder="Featured (All)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="featured">Featured (Global)</SelectItem>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                    Product Category
+                  </Label>
+                  <Select
+                    value={configData.categoryId || 'featured'}
+                    onValueChange={(v) => patchConfig({ categoryId: v === 'featured' ? null : v })}
+                  >
+                    <SelectTrigger className="h-11 border-2">
+                      <SelectValue placeholder="Featured (All)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="featured">Featured (Global)</SelectItem>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
+                    Item Limit
+                  </Label>
+                  <Input 
+                    type="number" 
+                    value={configData.limit || 8} 
+                    onChange={(e) => patchConfig({ limit: parseInt(e.target.value) })}
+                    className="h-11 border-2 font-bold"
+                  />
+                </div>
               </div>
             )}
 
@@ -389,12 +403,22 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any; onUpdate: ()
             )}
 
             {/* Generic fallback */}
+            {!['hero', 'products', 'product-list', 'categories', 'description',
+                'staff', 'blog-posts', 'contact-form', 'chat-interface', 'stats',
+                'partners', 'promotions', 'help', 'notifications', 'newsletter',
+              ].includes(type) && (
+              <div className="py-10 text-center text-muted-foreground space-y-1">
+                <SettingsIcon className="h-8 w-8 mx-auto opacity-30" />
+                <p className="text-sm font-medium">Use inline editing</p>
+                <p className="text-xs">Click on text in the page to edit content directly.</p>
+              </div>
+            )}
           </TabsContent>
 
           {/* ─── LAYOUT TAB ─── */}
           {hasLayoutOptions && (
             <TabsContent value="layout" className="flex-1 overflow-y-auto p-5 space-y-5 mt-0">
-              <div className="space-y-3">
+              <div className="space-y-1.5">
                 <Label className="text-[10px] uppercase font-black tracking-widest text-muted-foreground">
                   Layout Style
                 </Label>
@@ -407,13 +431,21 @@ const SectionConfigDialog = ({ section, onUpdate }: { section: any; onUpdate: ()
                     <button
                       key={v.value}
                       onClick={() => setLayout(v.value)}
-                      className={`p-3 rounded-xl border-2 text-left text-[11px] font-black uppercase tracking-tight transition-all ${
+                      className={`p-4 rounded-2xl border-2 text-left transition-all flex flex-col gap-3 group/opt ${
                         currentLayout === v.value
-                          ? 'border-accent bg-accent/10 text-accent'
-                          : 'border-border hover:border-accent/40'
+                          ? 'border-accent bg-accent/5 text-accent'
+                          : 'border-border hover:border-accent/40 bg-muted/5'
                       }`}
                     >
-                      {v.label}
+                      <div className={cn(
+                        "h-12 w-full rounded-lg border-2 border-dashed flex items-center justify-center opacity-40 group-hover/opt:opacity-70 transition-opacity",
+                        currentLayout === v.value ? "border-accent/40 bg-accent/10" : "border-muted-foreground/30 bg-muted/10"
+                      )}>
+                        {v.value.includes('grid') ? <Layout className="h-5 w-5" /> : 
+                         v.value.includes('carousel') ? <Settings className="h-5 w-5 animate-pulse" /> : 
+                         <Type className="h-5 w-5" />}
+                      </div>
+                      <span className="text-[11px] font-black uppercase tracking-tight">{v.label}</span>
                     </button>
                   ))}
                 </div>

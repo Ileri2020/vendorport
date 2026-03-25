@@ -143,10 +143,10 @@ export const AdminEditable = ({
   return (
     <>
       <div 
-        className={`group relative cursor-pointer ring-0 hover:ring-2 ring-accent ring-offset-2 rounded-lg transition-all ${className}`}
+        className={`group relative cursor-pointer ring-0 hover:ring-[3px] ring-accent ring-offset-4 rounded-xl transition-all duration-300 ease-out active:scale-[0.99] ${className}`}
         onClick={() => setIsEditing(true)}
       >
-        <div className="absolute -top-3 -right-3 opacity-0 group-hover:opacity-100 transition-opacity z-50">
+        <div className="absolute -top-3 -right-3 opacity-0 group-hover:opacity-100 transition-all duration-300 z-50 transform group-hover:translate-x-1 group-hover:-translate-y-1 scale-75 group-hover:scale-100">
           <div className="bg-accent text-white p-1.5 rounded-full shadow-lg border-2 border-white">
             {type === 'image' ? <ImageIcon className="h-3 w-3" /> : 
              type === 'link' ? <LinkIcon className="h-3 w-3" /> : 

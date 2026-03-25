@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   PlusCircle, Settings as SettingsIcon, Layout, Palette, Globe,
   Package, Users, FileText, BarChart3, Home as HomeIcon, Trash2,
@@ -38,6 +39,8 @@ const AdminToolbar = ({
   activePage,
   onAddSection,
   onDeleteSection,
+  onMoveSection,
+  onDuplicateSection,
   onSectionDataChange,
 }: {
   business: any,
@@ -50,6 +53,8 @@ const AdminToolbar = ({
   activePage?: any,
   onAddSection?: (type: string, layout: string) => void,
   onDeleteSection?: (id: string) => void,
+  onMoveSection?: (id: string, direction: 'up' | 'down') => void,
+  onDuplicateSection?: (section: any) => void,
   onSectionDataChange?: () => void,
 }) => {
   const [currency, setCurrency] = React.useState(business.settings?.currency || "USD");
@@ -65,9 +70,19 @@ const AdminToolbar = ({
   const [selectedTemplate, setSelectedTemplate] = React.useState<string>("home");
   const [activeTab, setActiveTab] = React.useState(initialTab || "pages");
   const [showOutOfStockOverlay, setShowOutOfStockOverlay] = React.useState(business.settings?.showOutOfStockOverlay ?? true);
+  const [primaryColor, setPrimaryColor] = React.useState(business.siteSettings?.primaryColor || '#0ea5e9');
+  const [secondaryColor, setSecondaryColor] = React.useState(business.siteSettings?.secondaryColor || '#f43f5e');
+  const [fontFamily, setFontFamily] = React.useState(business.settings?.fontFamily || 'Inter, sans-serif');
+  const [sectionPadding, setSectionPadding] = React.useState(business.settings?.sectionPadding || 'medium');
 
   // Which page is expanded in the section manager sub-view
   const [expandedPageId, setExpandedPageId] = React.useState<string | null>(null);
+  const [seoDialogOpen, setSeoDialogOpen] = React.useState(false);
+  const [seoPage, setSeoPage] = React.useState<any>(null);
+  const [seoTitle, setSeoTitle] = React.useState('');
+  const [seoDescription, setSeoDescription] = React.useState('');
+  const [seoImage, setSeoImage] = React.useState('');
+  const [seoKeywords, setSeoKeywords] = React.useState('');
 
   React.useEffect(() => {
     if (initialTab) setActiveTab(initialTab);
@@ -85,6 +100,24 @@ const AdminToolbar = ({
       await axios.delete(`/api/dbhandler?model=page&id=${id}`);
       toast.success("Page deleted");
       window.location.href = `/${business.slug}`;
+    }
+  };
+
+  const savePageSeo = async () => {
+    if (!seoPage?.id) return;
+    try {
+      await axios.put(`/api/dbhandler?model=page`, {
+        id: seoPage.id,
+        seoTitle,
+        seoDescription,
+        seoImage,
+        seoKeywords,
+      });
+      toast.success('SEO settings saved');
+      setSeoDialogOpen(false);
+      window.location.reload();
+    } catch (err) {
+      toast.error('Failed to save SEO settings');
     }
   };
 
@@ -217,6 +250,21 @@ const AdminToolbar = ({
                             >
                               <Eye className="h-3 w-3 mr-1" /> VISIT
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="h-9 font-black text-[10px] border-2 px-3 tracking-tighter"
+                              onClick={() => {
+                                setSeoPage(p);
+                                setSeoTitle(p.seoTitle || '');
+                                setSeoDescription(p.seoDescription || '');
+                                setSeoImage(p.seoImage || '');
+                                setSeoKeywords(p.seoKeywords || '');
+                                setSeoDialogOpen(true);
+                              }}
+                            >
+                              SEO
+                            </Button>
                             {p.slug !== 'home' && (
                               <Button
                                 size="icon"
@@ -232,6 +280,29 @@ const AdminToolbar = ({
                       )
                     })}
                   </div>
+
+                  <Dialog open={seoDialogOpen} onOpenChange={setSeoDialogOpen}>
+                    <DialogContent className="max-w-lg rounded-3xl p-0 overflow-hidden">
+                      <div className="bg-accent p-5 text-white">
+                        <DialogTitle className="text-lg font-black">Page SEO Settings</DialogTitle>
+                        <p className="text-xs text-white/80">Configure metadata for the page.</p>
+                      </div>
+                      <div className="p-5 space-y-4">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">SEO Title</Label>
+                        <Input value={seoTitle} onChange={(e) => setSeoTitle(e.target.value)} className="h-11 border-2" />
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">SEO Description</Label>
+                        <Textarea value={seoDescription} onChange={(e) => setSeoDescription(e.target.value)} className="border-2 h-24" />
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">OG Image URL</Label>
+                        <Input value={seoImage} onChange={(e) => setSeoImage(e.target.value)} className="h-11 border-2" />
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Keywords (comma separated)</Label>
+                        <Input value={seoKeywords} onChange={(e) => setSeoKeywords(e.target.value)} className="h-11 border-2" />
+                      </div>
+                      <div className="p-5 border-t flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setSeoDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={savePageSeo} className="bg-accent text-white">Save SEO</Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </TabsContent>
 
@@ -256,6 +327,8 @@ const AdminToolbar = ({
                       activePage={expandedPage}
                       onAddSection={onAddSection || (() => {})}
                       onDeleteSection={onDeleteSection || (() => {})}
+                      onMoveSection={(id, direction) => onMoveSection ? onMoveSection(id, direction) : undefined}
+                      onDuplicateSection={(section) => onDuplicateSection ? onDuplicateSection(section) : undefined}
                       onDataChange={onSectionDataChange}
                     />
                   </div>
@@ -327,13 +400,58 @@ const AdminToolbar = ({
 
               {/* ═══ DESIGN TAB ═══ */}
               <TabsContent value="design" className="mt-0 space-y-6">
-                <div className="p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-4 bg-muted/20">
-                  <Palette className="h-12 w-12 text-accent/40" />
-                  <div>
-                    <h4 className="font-bold text-lg">Visual Customizer</h4>
-                    <p className="text-sm text-muted-foreground">Coming soon! You'll be able to change colors, fonts, and themes globally.</p>
+                <div className="space-y-6">
+                  <div className="p-4 bg-muted/10 rounded-2xl border border-muted/30">
+                    <h4 className="text-sm font-black uppercase tracking-widest text-accent">Theme &amp; Typography</h4>
+                    <p className="text-xs text-muted-foreground mt-1">Set global styles for the site builder and preview instantly.</p>
                   </div>
-                  <Button disabled variant="outline" className="font-bold border-2">Launch Designer</Button>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">Primary Accent Color</Label>
+                      <Input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} className="h-11 w-20 p-0 border-2" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">Secondary Color</Label>
+                      <Input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} className="h-11 w-20 p-0 border-2" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">Font Family</Label>
+                      <Select value={fontFamily} onValueChange={setFontFamily}>
+                        <SelectTrigger className="h-11 border-2">
+                          <SelectValue placeholder="Select font" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Inter, sans-serif">Inter</SelectItem>
+                          <SelectItem value="Roboto, sans-serif">Roboto</SelectItem>
+                          <SelectItem value="Poppins, sans-serif">Poppins</SelectItem>
+                          <SelectItem value="Montserrat, sans-serif">Montserrat</SelectItem>
+                          <SelectItem value="Georgia, serif">Georgia</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-[10px] uppercase tracking-widest font-black text-muted-foreground">Section Padding</Label>
+                      <Select value={sectionPadding} onValueChange={setSectionPadding}>
+                        <SelectTrigger className="h-11 border-2">
+                          <SelectValue placeholder="Padding size" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="small">Small</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="large">Large</SelectItem>
+                          <SelectItem value="extra-large">Extra Large</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border p-4 bg-white">
+                    <h5 className="uppercase tracking-widest text-xs text-muted-foreground font-black">Preview</h5>
+                    <div className="mt-3 p-3 rounded-xl" style={{ background: `linear-gradient(90deg, ${primaryColor}20, ${secondaryColor}20)` }}>
+                      <p className="text-sm" style={{ fontFamily }}>This text reflects selected typography and colors.</p>
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 
@@ -397,7 +515,18 @@ const AdminToolbar = ({
                       currency,
                       exchangeRate: parseFloat(rate),
                       showOutOfStockOverlay,
-                      siteSettings: { facebook, instagram, twitter, linkedin, contactPhone, contactEmail }
+                      sectionPadding,
+                      fontFamily,
+                      siteSettings: {
+                        facebook,
+                        instagram,
+                        twitter,
+                        linkedin,
+                        contactPhone,
+                        contactEmail,
+                        primaryColor,
+                        secondaryColor,
+                      }
                     })}
                     className="w-full font-black bg-accent shadow-lg shadow-accent/20 h-12 transition-all hover:scale-[1.01]"
                   >
