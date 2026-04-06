@@ -31,34 +31,31 @@ export default function FlutterWaveButtonHook({
   const [loading, setLoading] = useState(false);
   const { openDialog } = useAppContext();
 
+  const config = {
+    public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY as string,
+    tx_ref,
+    amount,
+    currency,
+    payment_options: 'card,mobilemoney,ussd',
+    customer: {
+      email,
+      phone_number: phonenumber,
+      name,
+    },
+    customizations: {
+      title: 'VendorPort payment',
+      description: 'Payment for items in cart',
+      logo: 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png',
+    },
+  };
+
+  const handleFlutterPayment = useFlutterwave(config);
+
   const handlePayment = async () => {
     if (disabled || loading) return;
 
     try {
       setLoading(true);
-
-      // 2️⃣ Build Flutterwave config with backend tx_ref
-      const config = {
-        public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY as string,
-        tx_ref,
-        // amount : 5,
-        amount,
-        currency,
-        payment_options: 'card,mobilemoney,ussd',
-        customer: {
-          email,
-          phone_number: phonenumber,
-          name,
-        },
-        customizations: {
-          title: 'Succo stores',
-          description: 'Payment for items in cart using Flutterwave',
-          logo: 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1765733238/j8jw0lwd79tuhofhpao9.png',
-        },
-      };
-
-      // 3️⃣ Initialize Flutterwave
-      const handleFlutterPayment = useFlutterwave(config);
 
       handleFlutterPayment({
         callback: (response: any) => {

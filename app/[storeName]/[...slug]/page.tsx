@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
 import { usePageCache } from '@/hooks/usePageCache'
+import { useMounted } from '@/hooks/use-mounted'
 import StoreHome from '@/components/platform/StoreHome'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
@@ -20,6 +21,7 @@ const DynamicStorePage = () => {
   
   const router = useRouter();
   const { user, setCurrentBusiness } = useAppContext();
+  const mounted = useMounted();
   const { pageData, business, isLoading, error, invalidateCache } = usePageCache(storeName, pageSlug);
   const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
 
@@ -92,7 +94,7 @@ const DynamicStorePage = () => {
   return (
     <div className="min-h-screen bg-background relative flex flex-col">
        {/* Admin Toolbar (only if owner/staff) */}
-       {(user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
+       {mounted && (user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
          <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
             <div className="flex items-center gap-2">
                <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>

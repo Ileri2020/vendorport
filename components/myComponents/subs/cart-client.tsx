@@ -58,6 +58,7 @@ export interface CartItem {
 interface CartProps {
   className?: string;
   cart?: any;
+  standalone?: boolean;
 }
 
 interface Address {
@@ -77,7 +78,7 @@ const normalizeState = (state?: string | null): string | null => {
 };
 
 /* COMPONENT */
-export function CartClient({ className }: CartProps) {
+export function CartClient({ className, standalone }: CartProps) {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isMounted, setIsMounted] = React.useState(false);
 
@@ -446,6 +447,8 @@ export function CartClient({ className }: CartProps) {
   );
 
   if (!isMounted) return null;
+
+  if (standalone) return <div className={cn("h-full overflow-hidden", className)}>{CartContent}</div>;
 
   return (
     <div className={cn("relative", className)}>

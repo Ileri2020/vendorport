@@ -16,10 +16,15 @@ export const PriceDisplay = ({ amount, className = "" }: PriceDisplayProps) => {
   const convertedAmount = amount * exchangeRate;
   
   // Format based on currency
-  const formattedPrice = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  }).format(convertedAmount);
+  let formattedPrice = "";
+  try {
+    formattedPrice = new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'NGN',
+    }).format(convertedAmount);
+  } catch (e) {
+    formattedPrice = `${currency || 'NGN'} ${convertedAmount.toLocaleString()}`;
+  }
 
   return (
     <span className={className}>

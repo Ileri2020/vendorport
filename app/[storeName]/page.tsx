@@ -2,19 +2,20 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
-import { AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3 } from 'lucide-react'
+import { AlertCircle, Settings, BarChart3, PlusCircle, Search, ShoppingCart, User, Menu, ChevronRight, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { motion } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
 import { usePageCache } from '@/hooks/usePageCache'
+import { useMounted } from '@/hooks/use-mounted'
 import StoreHome from '@/components/platform/StoreHome'
 
 const DynamicStorePage = () => {
   const { storeName } = useParams();
   const router = useRouter();
   const { user, setCurrentBusiness } = useAppContext();
+  const mounted = useMounted();
   const { pageData, business, isLoading, error, invalidateCache } = usePageCache(
     storeName as string,
     'home'
@@ -92,7 +93,7 @@ const DynamicStorePage = () => {
   return (
     <div className="min-h-screen bg-background relative">
        {/* Admin Toolbar (only if owner/staff) */}
-       {(user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
+       {mounted && (user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
          <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
             <div className="flex items-center gap-2">
                <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>
@@ -120,9 +121,5 @@ const DynamicStorePage = () => {
 }
 
 
-// Inline helper for PlusCircle since I missed importing it
-const PlusCircle = ({ className }: { className?: string }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
-)
 
 export default DynamicStorePage

@@ -15,8 +15,8 @@ export function usePageCache(storeNameOrId: string, pageSlug: string = 'home') {
   const [error, setError] = useState<string | null>(null);
 
   // Determine if input is businessId (24-char MongoDB ID) or storeName (slug format)
-  const isBusinessId = storeNameOrId.length === 24 && /^[a-f0-9]{24}$/i.test(storeNameOrId);
-  const cacheKeyId = isBusinessId ? storeNameOrId : `store_${storeNameOrId}`;
+  const isBusinessId = storeNameOrId && storeNameOrId.length === 24 && /^[a-f0-9]{24}$/i.test(storeNameOrId);
+  const cacheKeyId = isBusinessId ? storeNameOrId : `store_${storeNameOrId || 'temp'}`;
   const CACHE_KEY = `page_cache_${cacheKeyId}_${pageSlug}`;
   const CACHE_DURATION = 1000 * 60 * 10; // 10 minutes
   const CACHE_VERSION = '2.0'; // Increment when schema changes
