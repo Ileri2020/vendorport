@@ -33,7 +33,7 @@ const DynamicStorePage = () => {
     setTimeout(() => setAdminTab(tab), 10);
   };
 
-  if (isLoading) {
+  if (isLoading && !business) {
     return (
       <div className="min-h-screen w-full bg-background p-6 flex flex-col items-center justify-center gap-6">
         <div className="w-full max-w-4xl space-y-6">

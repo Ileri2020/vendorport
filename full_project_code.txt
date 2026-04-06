@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-03-25 11:37:44
+Generated: 2026-04-06 15:05:31
 ================================================================================
 
 
@@ -598,6 +598,7 @@ import { motion } from "framer-motion"
 import Stats from "@/data/stats"
 import Countup from "react-countup"
 import contact from "@/data/cont"
+import { Skeleton } from "@/components/ui/skeleton"
 // import Footer from "@/components/myComponents/subs/footer"
 import { useAppContext } from "@/hooks/useAppContext"
 import { getSiteSettings } from "@/server/action/siteSettings"
@@ -607,12 +608,59 @@ import { useEffect, useState } from "react"
 const About = () => {
   const { selectedVideo, setSelectedVideo, useMock, currentBusiness } = useAppContext();
   const [settings, setSettings] = useState<any>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   useEffect(() => {
-    getSiteSettings(currentBusiness?.id).then(setSettings);
+    if (!currentBusiness?.id) {
+      setSettings(null);
+      setSettingsLoading(false);
+      return;
+    }
+
+    setSettingsLoading(true);
+    getSiteSettings(currentBusiness.id)
+      .then(setSettings)
+      .catch((error) => {
+        console.error("Failed to load site settings:", error);
+        setSettings(null);
+      })
+      .finally(() => setSettingsLoading(false));
   }, [currentBusiness]);
 
   const aboutText = settings?.aboutText || "Write about your business here";
+
+  if (settingsLoading) {
+    return (
+      <motion.section 
+        initial = {{ opacity: 0 }}
+        animate = {{
+          opacity : 1,
+          transition : { delay: 0.5, duration: 0.6, ease: "easeIn"}
+        }}
+        className= "justify-center w-[100vw] overflow-clip /px-2"
+      >
+        <section className="md:max-w-[1200px] md:mx-auto md:h-[80vh] p-5">
+          <div className="grid gap-6">
+            <Skeleton className="h-12 w-1/3" />
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-full max-w-2xl" />
+              <Skeleton className="h-6 w-full max-w-2xl" />
+              <Skeleton className="h-6 w-full max-w-2xl" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="space-y-3 rounded-3xl bg-secondary p-6 shadow-md shadow-accent/10">
+                  <Skeleton className="h-8 w-2/3" />
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-5/6" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </motion.section>
+    )
+  }
 
   return (
     <motion.section 
@@ -716,8 +764,9 @@ import dynamic from 'next/dynamic'
 const Login = dynamic(() => import('@/components/myComponents/subs').then((e) => e.Login),{ssr: false,})
 import { Button } from "@/components/ui/button"
 import { BiPencil } from "react-icons/bi"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAppContext } from "@/hooks/useAppContext"
 import { CiCamera } from "react-icons/ci"
 import {ProfileImg} from "@/components/myComponents/subs/fileupload"
@@ -726,6 +775,30 @@ import UserShippingAddressForm from "@/prisma/forms/userShippingAddressForm"
 
 const Account = () => {
   const {user, setUser } = useAppContext();
+  const [pageLoading, setPageLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPageLoading(false), 250);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen py-10 px-4">
+        <div className="mx-auto max-w-xl space-y-6 animate-pulse">
+          <div className="h-44 w-44 rounded-full bg-muted mx-auto" />
+          <div className="h-8 w-3/4 rounded-full bg-muted mx-auto" />
+          <div className="grid gap-4">
+            <div className="h-14 rounded-3xl bg-muted" />
+            <div className="h-14 rounded-3xl bg-muted" />
+            <div className="h-14 rounded-3xl bg-muted" />
+          </div>
+          <div className="h-12 rounded-2xl bg-muted" />
+        </div>
+      </div>
+    )
+  }
+
   if (user.name === "visitor" && user.email === "nil"){
     return(
       <div className="w-full h-[50vh] flex flex-col justify-center items-center">
@@ -988,6 +1061,33 @@ export default function AnalyticsDashboard({ businessId }: { businessId?: string
 
 
 ================================================================================
+LOCATION: app\admin\loading.tsx
+================================================================================
+
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function AdminLoading() {
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <Skeleton className="h-16 w-2/3 rounded-full" />
+        <div className="grid gap-4 md:grid-cols-3">
+          <Skeleton className="h-40 w-full rounded-3xl" />
+          <Skeleton className="h-40 w-full rounded-3xl" />
+          <Skeleton className="h-40 w-full rounded-3xl" />
+        </div>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <Skeleton className="h-72 w-full rounded-3xl" />
+          <Skeleton className="h-72 w-full rounded-3xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+================================================================================
 LOCATION: app\admin\page.tsx
 ================================================================================
 
@@ -1070,6 +1170,7 @@ const Admin = () => {
   const [selectedCart, setSelectedCart] = useState<any | null>(null);
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
   const [loadingCart, setLoadingCart] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
 
   /* ================= PERMISSIONS ================= */
@@ -1177,6 +1278,7 @@ const Admin = () => {
     if (!isAdmin && !isStaff) return;
 
     const fetchData = async () => {
+      setIsFetching(true);
       try {
         /* ===== CARTS (PAID + UNCONFIRMED) ===== */
         const cartsRes = await fetch(
@@ -1249,6 +1351,8 @@ const Admin = () => {
         );
       } catch (error) {
         console.error("Error fetching admin data:", error);
+      } finally {
+        setIsFetching(false);
       }
     };
 
@@ -1333,6 +1437,7 @@ const Admin = () => {
         open={cartDialogOpen}
         onOpenChange={setCartDialogOpen}
         cart={selectedCart}
+        isLoading={loadingCart}
         onConfirmPayment={handleConfirmPayment}
       />
 
@@ -1374,6 +1479,8 @@ const Admin = () => {
           columns={cartColumns}
           data={cartData}
           onRowClick={handleCartRowClick}
+          loading={isFetching}
+          skeletonRows={6}
         />
       </div>
 
@@ -1383,6 +1490,8 @@ const Admin = () => {
         <DataTableDemo
           columns={notificationColumns}
           data={notificationData}
+          loading={isFetching}
+          skeletonRows={5}
         />
       </div>
     </motion.section>
@@ -1623,6 +1732,154 @@ async function getKPIs(from: Date, to: Date) {
         newUsers: userCount,
         totalUsers
     };
+}
+
+
+
+================================================================================
+LOCATION: app\api\ai\describe\route.ts
+================================================================================
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { mode, productIds, productData, businessId } = await req.json();
+
+    if (!mode || !['single', 'batch'].includes(mode)) {
+      return NextResponse.json({ error: "Invalid mode. Use 'single' or 'batch'" }, { status: 400 });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "AI service not configured" }, { status: 500 });
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+    if (mode === 'single') {
+      // Single product description generation
+      if (!productData || !productData.name) {
+        return NextResponse.json({ error: "Missing product data for single mode" }, { status: 400 });
+      }
+
+      const { name, categoryId } = productData;
+
+      // Get category name if available
+      let categoryName = "Product";
+      if (categoryId) {
+        const category = await prisma.category.findUnique({
+          where: { id: categoryId },
+          select: { name: true }
+        });
+        if (category) categoryName = category.name;
+      }
+
+      const prompt = `Generate a professional, engaging product description for an e-commerce store.
+Product Name: "${name}"
+Category: "${categoryName}"
+
+The description should be:
+- Concise yet compelling (2-3 sentences)
+- Focus on benefits and key features
+- Include why customers should buy this product
+- Be suitable for an online marketplace
+- Written in a friendly, professional tone
+
+Return ONLY the description text, no additional formatting.`;
+
+      const result = await model.generateContent(prompt);
+      const description = result.response.text().trim();
+
+      return NextResponse.json({
+        success: true,
+        mode: 'single',
+        description,
+        productName: name,
+      });
+    }
+
+    if (mode === 'batch') {
+      // Batch product description generation (up to 20 products)
+      if (!productIds || !Array.isArray(productIds) || productIds.length === 0) {
+        return NextResponse.json({ error: "Missing productIds for batch mode" }, { status: 400 });
+      }
+
+      if (productIds.length > 20) {
+        return NextResponse.json({ error: "Maximum 20 products per batch" }, { status: 400 });
+      }
+
+      // Fetch products
+      const products = await prisma.product.findMany({
+        where: {
+          id: { in: productIds },
+          ...(businessId && { businessId }),
+        },
+        include: { category: true },
+      });
+
+      if (products.length === 0) {
+        return NextResponse.json({ error: "No products found" }, { status: 404 });
+      }
+
+      // Generate descriptions for all products
+      const results: any[] = [];
+
+      for (const product of products) {
+        try {
+          const prompt = `Generate a professional, engaging product description for an e-commerce store.
+Product Name: "${product.name}"
+Category: "${product.category?.name || 'Product'}"
+
+The description should be:
+- Concise yet compelling (2-3 sentences)
+- Focus on benefits and key features
+- Include why customers should buy this product
+- Be suitable for an online marketplace
+- Written in a friendly, professional tone
+
+Return ONLY the description text, no additional formatting.`;
+
+          const result = await model.generateContent(prompt);
+          const description = result.response.text().trim();
+
+          results.push({
+            productId: product.id,
+            productName: product.name,
+            description,
+            categoryName: product.category?.name || "Product",
+          });
+
+          // Optional: pause between requests to avoid rate limiting
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error(`Failed to generate description for ${product.name}:`, error);
+          results.push({
+            productId: product.id,
+            productName: product.name,
+            description: "",
+            error: "Failed to generate description",
+          });
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        mode: 'batch',
+        totalProcessed: results.length,
+        results,
+      });
+    }
+  } catch (err: any) {
+    console.error("AI Describe Error:", err);
+    return NextResponse.json(
+      { error: "Internal Server Error", details: err.message },
+      { status: 500 }
+    );
+  }
 }
 
 
@@ -2237,6 +2494,104 @@ import { handlers } from "@/auth";
 export const { GET, POST } = handlers;
 
 export const runtime = "nodejs";
+
+
+
+================================================================================
+LOCATION: app\api\business\archive\route.ts
+================================================================================
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/getSession";
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getSession();
+
+    // Only app owner with supreme role can archive businesses
+    if (!session?.user || session.user.role !== "supreme") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const { businessId } = await req.json();
+
+    if (!businessId) {
+      return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+    }
+
+    // Update business to archived
+    const updatedBusiness = await prisma.business.update({
+      where: { id: businessId },
+      data: { isArchived: true },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Business archived successfully",
+      business: updatedBusiness,
+    });
+  } catch (error: any) {
+    console.error("Archive business error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Failed to archive business" },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+================================================================================
+LOCATION: app\api\business\delete\route.ts
+================================================================================
+
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/getSession";
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getSession();
+
+    // Only app owner with supreme role can delete businesses
+    if (!session?.user || session.user.role !== "supreme") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
+    const { businessId } = await req.json();
+
+    if (!businessId) {
+      return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+    }
+
+    // Check if business exists
+    const business = await prisma.business.findUnique({
+      where: { id: businessId },
+    });
+
+    if (!business) {
+      return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    }
+
+    // Delete the business and all cascading relations
+    const deletedBusiness = await prisma.business.delete({
+      where: { id: businessId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Business deleted successfully",
+      businessName: deletedBusiness.name,
+    });
+  } catch (error: any) {
+    console.error("Delete business error:", error);
+    return NextResponse.json(
+      { error: error?.message || "Failed to delete business" },
+      { status: 500 }
+    );
+  }
+}
 
 
 
@@ -2939,6 +3294,7 @@ import bcrypt from "bcrypt";
 import cloudinary from "cloudinary";
 import path from "path";
 import { auth } from "@/auth";
+import { DEFAULT_PAGE_TEMPLATES } from "@/lib/storeTemplates";
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -3543,7 +3899,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Business name already exists" }, { status: 409 });
       }
 
-      // Create business with nested default project settings and a Home page
+      // Create business with nested default project settings and ALL template pages
+      // Build pages from DEFAULT_PAGE_TEMPLATES
+      const templatePages = Object.entries(DEFAULT_PAGE_TEMPLATES)
+        .filter(([key]) => !['pharmacy', 'fastfood', 'restaurant', 'marketplace'].includes(key)) // exclude meta templates
+        .map(([slug, template]: any) => ({
+          name: template.name || slug.charAt(0).toUpperCase() + slug.slice(1),
+          slug,
+          sections: {
+            create: (template.sections || []).map((section: any) => ({
+              type: section.type,
+              layout: section.layout,
+              order: section.order,
+              data: section.data || {},
+            })),
+          },
+        }));
+
       const created = await prisma.business.create({
         data: {
           name: normalized,
@@ -3554,15 +3926,11 @@ export async function POST(req: NextRequest) {
               currency: body.currency || "NGN",
               exchangeRate: body.exchangeRate ? parseFloat(body.exchangeRate) : 1.0,
               pages: {
-                create: [
-                  {
-                    name: "Home",
-                    slug: "home",
-                    sections: {
-                      create: [],
-                    },
-                  },
-                ],
+                create: templatePages.length > 0 ? templatePages : [{
+                  name: "Home",
+                  slug: "home",
+                  sections: { create: [] },
+                }],
               },
             },
           },
@@ -5620,6 +5988,33 @@ export const getColumns = (): ColumnDef<CartSummary>[] => [
 
 
 ================================================================================
+LOCATION: app\cart\loading.tsx
+================================================================================
+
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function CartLoading() {
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <Skeleton className="h-16 w-1/2 rounded-full" />
+        <div className="grid gap-4 xl:grid-cols-3">
+          <Skeleton className="h-72 w-full rounded-3xl" />
+          <Skeleton className="h-72 w-full rounded-3xl" />
+          <Skeleton className="h-72 w-full rounded-3xl" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-64 w-full rounded-3xl" />
+          <Skeleton className="h-64 w-full rounded-3xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+================================================================================
 LOCATION: app\cart\page.tsx
 ================================================================================
 
@@ -5710,7 +6105,12 @@ export default function CartPage() {
                 </CardHeader>
                 <CardContent>
                   {loading ? (
-                    <div className="text-center py-4">Loading history...</div>
+                    <DataTableDemo
+                      data={[]}
+                      columns={columns}
+                      loading
+                      skeletonRows={6}
+                    />
                   ) : carts.length > 0 ? (
                     <DataTableDemo
                       data={carts}
@@ -6500,6 +6900,37 @@ export default async function RootLayout({
 
 
 ================================================================================
+LOCATION: app\loading.tsx
+================================================================================
+
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function Loading() {
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <Skeleton className="h-24 w-full rounded-3xl" />
+          <Skeleton className="h-24 w-full rounded-3xl" />
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Skeleton className="h-40 w-full rounded-3xl" />
+          <Skeleton className="h-40 w-full rounded-3xl" />
+          <Skeleton className="h-40 w-full rounded-3xl" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Skeleton className="h-10 w-1/2 rounded-full" />
+          <Skeleton className="h-10 w-1/2 rounded-full" />
+          <Skeleton className="h-10 w-1/2 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+================================================================================
 LOCATION: app\login\page.tsx
 ================================================================================
 
@@ -7030,8 +7461,12 @@ LOCATION: app\page.tsx
 
 import PlatformHome from "@/components/platform/PlatformHome";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/getSession";
 
 export default async function Home() {
+  const session = await getSession();
+  const isSupreme = session?.user?.role === "supreme";
+
   const businesses = await prisma.business.findMany({
     include: { 
       owner: {
@@ -7041,12 +7476,13 @@ export default async function Home() {
         }
       }
     },
+    where: isSupreme ? {} : { isArchived: false }, // Show all to supreme only, regular users see only active businesses
     orderBy: { ratings: "desc" }
   });
 
   return (
     <div className="w-full">
-      <PlatformHome businesses={businesses as any} />
+      <PlatformHome businesses={businesses as any} isAdmin={isSupreme} />
     </div>
   );
 }
@@ -7156,6 +7592,32 @@ export default function StorePage() {
       <PlatformStore />
     </motion.div>
   )
+}
+
+
+
+================================================================================
+LOCATION: app\store\[id]\loading.tsx
+================================================================================
+
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function ProductLoading() {
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="mx-auto max-w-6xl grid gap-6 lg:grid-cols-2">
+        <Skeleton className="h-[520px] w-full rounded-3xl" />
+        <div className="space-y-4">
+          <Skeleton className="h-10 w-3/4 rounded-full" />
+          <Skeleton className="h-8 w-1/2 rounded-full" />
+          <Skeleton className="h-8 w-1/3 rounded-full" />
+          <Skeleton className="h-14 w-full rounded-3xl" />
+          <Skeleton className="h-14 w-full rounded-3xl" />
+          <Skeleton className="h-14 w-full rounded-3xl" />
+        </div>
+      </div>
+    </div>
+  );
 }
 
 
@@ -7771,6 +8233,38 @@ export default function StoreAnalyticsPage() {
 
 
 ================================================================================
+LOCATION: app\[storeName]\loading.tsx
+================================================================================
+
+import { Skeleton } from "@/components/ui/skeleton";
+
+export default function BusinessLoading() {
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="mx-auto max-w-6xl space-y-8">
+        <div className="rounded-3xl bg-muted/70 p-6 shadow-xl shadow-muted/10">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <Skeleton className="h-12 w-2/5 rounded-full" />
+            <Skeleton className="h-10 w-1/3 rounded-full" />
+          </div>
+          <div className="mt-8 grid gap-4 xl:grid-cols-3">
+            <Skeleton className="h-44 w-full rounded-3xl" />
+            <Skeleton className="h-44 w-full rounded-3xl" />
+            <Skeleton className="h-44 w-full rounded-3xl" />
+          </div>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Skeleton className="h-72 w-full rounded-3xl" />
+          <Skeleton className="h-72 w-full rounded-3xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+================================================================================
 LOCATION: app\[storeName]\page.tsx
 ================================================================================
 
@@ -7778,9 +8272,10 @@ LOCATION: app\[storeName]\page.tsx
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3 } from 'lucide-react'
+import { AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { motion } from 'framer-motion'
 import { useAppContext } from '@/hooks/useAppContext'
 import { usePageCache } from '@/hooks/usePageCache'
@@ -7808,11 +8303,26 @@ const DynamicStorePage = () => {
     setTimeout(() => setAdminTab(tab), 10);
   };
 
-  if (isLoading) {
+  if (isLoading && !business) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="h-12 w-12 animate-spin text-accent" />
-        <p className="text-xl font-bold animate-pulse text-muted-foreground uppercase tracking-widest">Entering {storeName}...</p>
+      <div className="min-h-screen w-full bg-background p-6 flex flex-col items-center justify-center gap-6">
+        <div className="w-full max-w-4xl space-y-6">
+          <div className="rounded-3xl bg-muted/80 p-6 shadow-lg shadow-muted/20">
+            <div className="flex items-center justify-between gap-4">
+              <Skeleton className="h-12 w-32 rounded-full" />
+              <Skeleton className="h-10 w-24 rounded-full" />
+            </div>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-64 w-full rounded-3xl" />
+              <Skeleton className="h-64 w-full rounded-3xl" />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-32 w-full rounded-3xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -7824,6 +8334,22 @@ const DynamicStorePage = () => {
         <div className="space-y-2">
            <h1 className="text-4xl font-extrabold tracking-tight">Oops! That store doesn't exist.</h1>
            <p className="text-xl text-muted-foreground">It seems you've followed a broken link or the store has been renamed.</p>
+        </div>
+        <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
+           Back to Platform Home
+        </Button>
+      </div>
+    );
+  }
+
+  // Check if business is archived
+  if (business.isArchived) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6 text-center px-4">
+        <AlertCircle className="h-20 w-20 text-yellow-500" />
+        <div className="space-y-2">
+           <h1 className="text-4xl font-extrabold tracking-tight">This Store is Currently Suspended</h1>
+           <p className="text-xl text-muted-foreground">The business "{business.name}" has been archived by the platform administrators. Pages are temporarily unavailable.</p>
         </div>
         <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
            Back to Platform Home
@@ -7881,7 +8407,7 @@ LOCATION: app\[storeName]\[...slug]\page.tsx
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3, PlusCircle } from 'lucide-react'
+import { AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3, PlusCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -7913,14 +8439,26 @@ const DynamicStorePage = () => {
     setTimeout(() => setAdminTab(tab), 10);
   };
 
-  if (isLoading) {
+  if (isLoading && !business) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
-        <Skeleton className="h-12 w-12 rounded-full bg-accent/20" />
-        <Skeleton className="h-8 w-[300px] bg-muted/40" />
-        <p className="text-xl font-bold animate-pulse text-muted-foreground uppercase tracking-widest text-center">
-            {slugArray ? `Navigating to ${pageSlug}...` : `Entering ${storeName}...`}
-        </p>
+      <div className="min-h-screen w-full bg-background p-6 flex flex-col items-center justify-center">
+        <div className="w-full max-w-4xl space-y-6">
+          <div className="rounded-3xl bg-muted/80 p-6 shadow-lg shadow-muted/20">
+            <div className="flex items-center justify-between gap-4">
+              <Skeleton className="h-12 w-32 rounded-full" />
+              <Skeleton className="h-10 w-24 rounded-full" />
+            </div>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-64 w-full rounded-3xl" />
+              <Skeleton className="h-64 w-full rounded-3xl" />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-32 w-full rounded-3xl" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -7932,6 +8470,22 @@ const DynamicStorePage = () => {
         <div className="space-y-2">
            <h1 className="text-4xl font-extrabold tracking-tight">Oops! That store doesn't exist.</h1>
            <p className="text-xl text-muted-foreground">It seems you've followed a broken link or the store has been renamed.</p>
+        </div>
+        <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
+           Back to Platform Home
+        </Button>
+      </div>
+    );
+  }
+
+  // Check if business is archived
+  if (business.isArchived) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6 text-center px-4">
+        <AlertCircle className="h-20 w-20 text-yellow-500" />
+        <div className="space-y-2">
+           <h1 className="text-4xl font-extrabold tracking-tight">This Store is Currently Suspended</h1>
+           <p className="text-xl text-muted-foreground">The business "{business.name}" has been archived by the platform administrators. Pages are temporarily unavailable.</p>
         </div>
         <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
            Back to Platform Home
@@ -11661,14 +12215,16 @@ export function CartDetailsDialog({
     open,
     onOpenChange,
     cart,
+    isLoading,
     onConfirmPayment,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     cart: any;
+    isLoading?: boolean;
     onConfirmPayment: () => void;
 }) {
-    if (!cart) return null;
+    if (!cart && !isLoading) return null;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -11678,7 +12234,29 @@ export function CartDetailsDialog({
                 </DialogHeader>
 
                 {/* USER */}
-                <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
+                {isLoading ? (
+                  <div className="space-y-3 p-3 border rounded-md bg-muted/50">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="mb-2 text-xs uppercase font-semibold text-muted-foreground">Customer</div>
+                        <div className="h-4 w-24 rounded-md bg-muted animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-xs uppercase font-semibold text-muted-foreground">Email</div>
+                        <div className="h-4 w-32 rounded-md bg-muted animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-xs uppercase font-semibold text-muted-foreground">Contact</div>
+                        <div className="h-4 w-20 rounded-md bg-muted animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-xs uppercase font-semibold text-muted-foreground">Status</div>
+                        <div className="h-6 w-20 rounded-full bg-muted animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
                     <div className="grid grid-cols-2 gap-2">
                         <div>
                             <span className="font-semibold block text-xs uppercase">Customer</span>
@@ -11699,7 +12277,8 @@ export function CartDetailsDialog({
                             </span>
                         </div>
                     </div>
-                </div>
+                  </div>
+                )}
 
                 {/* PRODUCTS */}
                 <div className="mt-4">
@@ -12278,6 +12857,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -12426,7 +13006,7 @@ import {
 
 
 
-export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (row: any) => void }) {
+export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (row: any) => void, loading?: boolean, skeletonRows?: number }) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -12434,6 +13014,8 @@ export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (ro
   const [columnVisibility, setColumnVisibility] =
     React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
+
+  const skeletonRows = props.skeletonRows ?? 5
 
   const table = useReactTable({
     data: props.data,
@@ -12453,6 +13035,80 @@ export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (ro
       rowSelection,
     },
   })
+
+  if (props.loading) {
+    return (
+      <div className="w-full max-w-3xl mx-auto space-y-3">
+        <div className="flex items-center py-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="ml-auto">
+                Columns <ChevronDown className="ml-2 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(!!value)
+                      }
+                    >
+                      {column.id}
+                    </DropdownMenuCheckboxItem>
+                  )
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <div className="rounded-md border bg-background">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {props.columns.map((column: any) => (
+                  <TableHead key={column.accessorKey || column.id}>
+                    {typeof column.header === "function"
+                      ? column.header({ table })
+                      : column.header}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: skeletonRows }).map((_, index) => (
+                <TableRow key={index} className="animate-pulse">
+                  {props.columns.map((column: any, cellIndex: number) => (
+                    <TableCell key={cellIndex}>
+                      <Skeleton className="h-4 w-full rounded-md" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-end space-x-2 py-4">
+          <div className="flex-1 text-sm text-muted-foreground">
+            Loading rows...
+          </div>
+          <div className="space-x-2">
+            <Button variant="outline" size="sm" disabled>
+              Previous
+            </Button>
+            <Button variant="outline" size="sm" disabled>
+              Next
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="w-full  max-w-3xl mx-auto">
@@ -22149,16 +22805,18 @@ LOCATION: components\platform\PlatformHome.tsx
 ================================================================================
 
 "use client"
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowRight, PlusCircle, Star, ExternalLink, Shield, Zap, Globe, User, Sparkles } from 'lucide-react'
+import { ArrowRight, PlusCircle, Star, ExternalLink, Shield, Zap, Globe, User, Sparkles, Trash2, Archive, AlertTriangle, Loader2 } from 'lucide-react'
 import { AiOutlineRobot } from 'react-icons/ai'
 import { useAppContext } from '@/hooks/useAppContext'
 import Login from '@/components/myComponents/subs/login'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import Image from 'next/image'
+import axios from 'axios'
+import { toast } from 'sonner'
 
 interface Business {
   id: string
@@ -22166,17 +22824,66 @@ interface Business {
   template: string
   ratings: number
   numReviews: number
+  isArchived?: boolean
   owner: {
     name: string | null
     image: string | null
   }
 }
 
-const PlatformHome = ({ businesses }: { businesses: Business[] }) => {
+const PlatformHome = ({ businesses, isAdmin = false }: { businesses: Business[], isAdmin?: boolean }) => {
   const { user } = useAppContext();
+  const [businessList, setBusinessList] = useState<Business[]>(businesses);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   // Order by ratings double-check (already done in page.tsx but safety)
-  const sortedBusinesses = [...businesses].sort((a, b) => b.ratings - a.ratings);
+  const sortedBusinesses = [...businessList].sort((a, b) => b.ratings - a.ratings);
+
+  const handleArchiveBusiness = async (businessId: string, businessName: string) => {
+    if (!window.confirm(`Are you sure you want to archive "${businessName}"? This business will be suspended but data will be preserved.`)) {
+      return;
+    }
+
+    try {
+      setLoadingId(businessId);
+      const response = await axios.post("/api/business/archive", { businessId });
+      
+      if (response.data.success) {
+        toast.success(`"${businessName}" archived successfully`);
+        setBusinessList(businessList.map(b => 
+          b.id === businessId ? { ...b, isArchived: true } : b
+        ));
+      }
+    } catch (error: any) {
+      console.error("Archive error:", error);
+      toast.error(error.response?.data?.error || "Failed to archive business");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const handleDeleteBusiness = async (businessId: string, businessName: string) => {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY DELETE "${businessName}"? This action cannot be undone and all data will be removed.`)) {
+      return;
+    }
+
+    try {
+      setLoadingId(businessId);
+      const response = await axios.delete("/api/business/delete", {
+        data: { businessId }
+      });
+      
+      if (response.data.success) {
+        toast.success(`"${businessName}" deleted successfully`);
+        setBusinessList(businessList.filter(b => b.id !== businessId));
+      }
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast.error(error.response?.data?.error || "Failed to delete business");
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center">
@@ -22365,11 +23072,21 @@ const PlatformHome = ({ businesses }: { businesses: Business[] }) => {
                    </div>
                 </div>
                 <CardHeader>
-                  <CardTitle className="text-3xl font-black tracking-tight">{biz.name}</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <CardTitle className="text-3xl font-black tracking-tight">{biz.name}</CardTitle>
+                      {biz.isArchived && (
+                        <div className="inline-flex items-center gap-1 mt-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs font-bold">
+                          <AlertTriangle className="h-3 w-3" />
+                          ARCHIVED - SUSPENDED
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex items-center gap-3 pt-2">
                       <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border-2 border-primary/5">
                          {biz.owner.image ? (
-                           <img src={biz.owner.image} alt={biz.owner.name || ""} className="h-full w-full rounded-xl object-cover" />
+                           <img src={biz.owner.image} alt={biz.owner.name || ""} title={biz.owner.name || ""} className="h-full w-full rounded-xl object-cover" />
                          ) : (
                            <User className="h-5 w-5 text-primary" />
                          )}
@@ -22383,12 +23100,61 @@ const PlatformHome = ({ businesses }: { businesses: Business[] }) => {
                 <CardContent className="flex-1">
                    <p className="text-muted-foreground line-clamp-2 font-medium">The official digital presence for {biz.name}, powered by VendorPort infrastructure.</p>
                 </CardContent>
-                <CardFooter className="pt-0 pb-8 px-6">
-                  <Link href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`} className="w-full">
-                    <Button className="w-full h-14 gap-3 border-2 rounded-2xl group-hover:bg-accent group-hover:text-white transition-all font-black text-lg" variant="outline">
-                      Visit Experience <ArrowRight className="h-5 w-5" />
+                <CardFooter className="pt-0 pb-4 px-6 flex flex-col gap-3">
+                  {!biz.isArchived ? (
+                    <Link href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`} className="w-full">
+                      <Button className="w-full h-14 gap-3 border-2 rounded-2xl group-hover:bg-accent group-hover:text-white transition-all font-black text-lg" variant="outline">
+                        Visit Experience <ArrowRight className="h-5 w-5" />
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button disabled className="w-full h-14 gap-3 border-2 rounded-2xl bg-muted text-muted-foreground font-black text-lg" variant="outline">
+                      Archived - Cannot Access
                     </Button>
-                  </Link>
+                  )}
+                  
+                  {isAdmin && (
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleArchiveBusiness(biz.id, biz.name)}
+                        disabled={loadingId === biz.id || biz.isArchived}
+                        className="flex-1 gap-2 font-bold text-xs border-orange-200 hover:bg-orange-50"
+                      >
+                        {loadingId === biz.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Archive className="h-3 w-3" />
+                            {biz.isArchived ? 'Archived' : 'Archive'}
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteBusiness(biz.id, biz.name)}
+                        disabled={loadingId === biz.id}
+                        className="flex-1 gap-2 font-bold text-xs"
+                      >
+                        {loadingId === biz.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardFooter>
               </Card>
             </motion.div>
@@ -23840,6 +24606,7 @@ export default StoreFooter
 LOCATION: components\platform\StoreHome.tsx
 ================================================================================
 
+/* eslint-disable tailwindcss/no-inline-styles */
 "use client"
 import React from 'react'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
@@ -24053,6 +24820,13 @@ interface Business {
     heroCTA?: string
     heroCTALink?: string
     heroImage?: string
+    iconMode?: string
+    iconText?: string
+    iconFontSize?: number
+    iconFontColor?: string
+    iconImageUrl?: string
+    iconImageWidth?: number
+    iconImageHeight?: number
     addToHome?: string
   }
   staff?: Staff[]
@@ -24128,7 +24902,7 @@ const StoreHome = ({
 
   const sections: NormalizedSection[] = rawSections
     .map(normalizeSec)
-    .sort((a, b) => a.order - b.order);
+    .sort((a: NormalizedSection, b: NormalizedSection) => a.order - b.order);
 
   const globalHeaderSections = (business.sections || [])
     .filter((s: any) => s.page === 'header' && s.isActive !== false)
@@ -24353,6 +25127,7 @@ const SortableSectionRow = ({ section, idx, arr, isAdmin, business, handleMoveSe
   };
 
   return (
+    // eslint-disable-next-line tailwindcss/no-inline-styles
     <div ref={setNodeRef} style={style} className={`w-full group/section relative ${isDragging ? 'shadow-2xl ring-2 ring-accent scale-[1.02] rounded-3xl overflow-hidden' : ''}`}>
        {isAdmin && (
           <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-1 flex-wrap justify-end p-1.5 bg-background/90 backdrop-blur-xl rounded-xl border-2 shadow-xl items-center">
@@ -24856,17 +25631,23 @@ LOCATION: components\platform\StoreNavbar.tsx
 ================================================================================
 
 "use client"
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { ChevronRight, Menu, Layout, Home as HomeIcon, BarChart3, Search, Camera, Sparkles } from 'lucide-react'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ChevronRight, Menu, Layout, BarChart3, Search, Camera, Edit2 } from 'lucide-react'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 import TemplateSelector from './TemplateSelector'
+import { toast } from 'sonner'
+import { updateSiteSettings } from '@/server/action/siteSettings'
 
 import { AdminEditable } from '@/components/utility/AdminEditable'
 
@@ -24882,15 +25663,222 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
   const { storeName } = useParams();
   const isAdmin = useIsBusinessAdmin();
   const pages = business.settings?.pages || [];
+  const [iconMode, setIconMode] = useState<string>(business.siteSettings?.iconMode || 'text');
+  const [iconText, setIconText] = useState<string>(business.siteSettings?.iconText || business.name);
+  const [iconFontSize, setIconFontSize] = useState<number>(business.siteSettings?.iconFontSize || 20);
+  const [iconFontColor, setIconFontColor] = useState<string>(business.siteSettings?.iconFontColor || '#000000');
+  const [iconImageUrl, setIconImageUrl] = useState<string>(business.siteSettings?.iconImageUrl || '');
+  const [iconImageWidth, setIconImageWidth] = useState<number>(business.siteSettings?.iconImageWidth || 40);
+  const [iconImageHeight, setIconImageHeight] = useState<number>(business.siteSettings?.iconImageHeight || 40);
+  const [isSavingIcon, setIsSavingIcon] = useState(false);
+
+  useEffect(() => {
+    setIconMode(business.siteSettings?.iconMode || 'text');
+    setIconText(business.siteSettings?.iconText || business.name);
+    setIconFontSize(business.siteSettings?.iconFontSize || 20);
+    setIconFontColor(business.siteSettings?.iconFontColor || '#000000');
+    setIconImageUrl(business.siteSettings?.iconImageUrl || '');
+    setIconImageWidth(business.siteSettings?.iconImageWidth || 40);
+    setIconImageHeight(business.siteSettings?.iconImageHeight || 40);
+  }, [business]);
+
+  const saveIconSettings = async () => {
+    if (!businessId) {
+      toast.error('Business context is missing');
+      return;
+    }
+    setIsSavingIcon(true);
+    const response = await updateSiteSettings({
+      iconMode,
+      iconText,
+      iconFontSize,
+      iconFontColor,
+      iconImageUrl,
+      iconImageWidth,
+      iconImageHeight,
+    }, businessId);
+
+    if (response.success) {
+      toast.success('Business icon settings saved');
+    } else {
+      toast.error(response.error || 'Failed to save icon settings');
+    }
+    setIsSavingIcon(false);
+  };
+
+  const showText = iconMode !== 'image';
+  const showImage = iconMode !== 'text' && Boolean(iconImageUrl);
+  const renderedIconText = iconText?.trim() || business.name;
 
   return (
    <nav className="w-full border-b sticky top-0 z-[50] py-4 px-4 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
-     <Link href={`/${storeName}`} className="text-xl md:text-2xl font-black tracking-tighter text-accent flex items-center gap-2">
-       <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shadow-lg shrink-0">
-         {business.name.charAt(0)}
+     <div className="flex items-center gap-3">
+       <div className="relative">
+         <Link href={`/${storeName}`} className="flex items-center gap-2 text-xl md:text-2xl font-black tracking-tighter text-accent">
+           {/* eslint-disable-next-line */}
+           <div className="flex items-center justify-center overflow-hidden rounded-2xl border border-accent/20 bg-accent/10" style={{ width: iconImageWidth + 12, minWidth: 40, height: iconImageHeight + 12 }}>
+             {showImage && (
+               <img
+                 src={iconImageUrl}
+                 alt={renderedIconText}
+                 className="object-cover"
+                 style={{ width: iconImageWidth, height: iconImageHeight }}
+               />
+             )}
+             {showText && (
+               <span
+                 className="font-black text-center truncate"
+                 style={{ fontSize: iconFontSize, color: iconFontColor, lineHeight: 1 }}
+               >
+                 {renderedIconText}
+               </span>
+             )}
+           </div>
+         </Link>
+
+         {isAdmin && (
+           <Dialog>
+             <DialogTrigger asChild>
+               <button type="button" title="Edit icon settings" className="absolute -bottom-2 -right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white bg-white text-accent shadow-lg hover:bg-accent/10">
+                 <Edit2 className="h-4 w-4" />
+               </button>
+             </DialogTrigger>
+             <DialogContent className="max-w-xl">
+               <DialogHeader>
+                 <DialogTitle>Business Icon Settings</DialogTitle>
+                 <DialogDescription>Choose text, image, or both and configure the styling for your store icon.</DialogDescription>
+               </DialogHeader>
+               <div className="grid gap-4 py-4">
+                 <div className="grid gap-2">
+                   <Label htmlFor="icon-mode">Icon Type</Label>
+                   <Select value={iconMode} onValueChange={(value) => setIconMode(value)}>
+                     <SelectTrigger id="icon-mode" className="h-11">
+                       <SelectValue placeholder="Select icon type" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       <SelectItem value="text">Text Only</SelectItem>
+                       <SelectItem value="image">Image Only</SelectItem>
+                       <SelectItem value="both">Both</SelectItem>
+                     </SelectContent>
+                   </Select>
+                 </div>
+
+                 {(iconMode === 'text' || iconMode === 'both') && (
+                   <div className="grid gap-2">
+                     <Label htmlFor="icon-text">Icon Text</Label>
+                     <Input
+                       id="icon-text"
+                       value={iconText}
+                       onChange={(e) => setIconText(e.target.value)}
+                       placeholder="Business name or initials"
+                       className="h-11"
+                     />
+                     <div className="grid grid-cols-2 gap-2">
+                       <div className="grid gap-2">
+                         <Label htmlFor="icon-font-size">Font Size</Label>
+                         <Input
+                           id="icon-font-size"
+                           type="number"
+                           min={10}
+                           max={60}
+                           value={iconFontSize}
+                           onChange={(e) => setIconFontSize(Number(e.target.value))}
+                           className="h-11"
+                         />
+                       </div>
+                       <div className="grid gap-2">
+                         <Label htmlFor="icon-font-color">Font Color</Label>
+                         <Input
+                           id="icon-font-color"
+                           type="color"
+                           value={iconFontColor}
+                           onChange={(e) => setIconFontColor(e.target.value)}
+                           className="h-11 p-0"
+                         />
+                       </div>
+                     </div>
+                   </div>
+                 )}
+
+                 {(iconMode === 'image' || iconMode === 'both') && (
+                   <div className="grid gap-2">
+                     <Label htmlFor="icon-image-url">Icon Image URL</Label>
+                     <Input
+                       id="icon-image-url"
+                       value={iconImageUrl}
+                       onChange={(e) => setIconImageUrl(e.target.value)}
+                       placeholder="https://example.com/logo.png"
+                       className="h-11"
+                     />
+                     <div className="grid grid-cols-2 gap-2">
+                       <div className="grid gap-2">
+                         <Label htmlFor="icon-image-width">Image Width</Label>
+                         <Input
+                           id="icon-image-width"
+                           type="number"
+                           min={20}
+                           max={200}
+                           value={iconImageWidth}
+                           onChange={(e) => setIconImageWidth(Number(e.target.value))}
+                           className="h-11"
+                         />
+                       </div>
+                       <div className="grid gap-2">
+                         <Label htmlFor="icon-image-height">Image Height</Label>
+                         <Input
+                           id="icon-image-height"
+                           type="number"
+                           min={20}
+                           max={200}
+                           value={iconImageHeight}
+                           onChange={(e) => setIconImageHeight(Number(e.target.value))}
+                           className="h-11"
+                         />
+                       </div>
+                     </div>
+                   </div>
+                 )}
+
+                 <div className="rounded-3xl border border-muted/30 bg-muted/10 p-4">
+                   <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Preview</p>
+                   <div className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-accent/20 bg-white p-3">
+                     {showImage && iconImageUrl ? (
+                       {/* eslint-disable-next-line */}
+                       <img
+                         src={iconImageUrl}
+                         alt="Icon preview"
+                         className="rounded-xl object-cover"
+                         style={{ width: iconImageWidth, height: iconImageHeight }}
+                       />
+                     ) : null}
+                     {showText ? (
+                       {/* eslint-disable-next-line */}
+                       <span
+                         className="font-black truncate"
+                         style={{ fontSize: iconFontSize, color: iconFontColor, maxWidth: 160 }}
+                       >
+                         {renderedIconText}
+                       </span>
+                     ) : null}
+                   </div>
+                 </div>
+               </div>
+               <DialogFooter>
+                 <Button variant="outline" onClick={() => setIconMode(business.siteSettings?.iconMode || 'text')}>
+                   Cancel
+                 </Button>
+                 <Button onClick={saveIconSettings} disabled={isSavingIcon}>
+                   {isSavingIcon ? 'Saving...' : 'Save Icon'}
+                 </Button>
+               </DialogFooter>
+             </DialogContent>
+           </Dialog>
+         )}
        </div>
-       <span className="truncate max-w-[120px] md:max-w-none">{business.name}</span>
-     </Link>
+       <Link href={`/${storeName}`} className="truncate max-w-[120px] md:max-w-none text-xl md:text-2xl font-black tracking-tighter text-accent">
+         {business.name}
+       </Link>
+     </div>
      <div className="hidden md:flex items-center gap-8">
        {pages.map(page => (
          <Link
@@ -38157,6 +39145,7 @@ import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Loader2, Sparkles, Wand2, Package } from 'lucide-react';
 
 import { AdminFormContainer } from '@/components/utility/AdminFormContainer';
 import { Badge } from '@/components/ui/badge';
@@ -38178,8 +39167,11 @@ export default function ProductForm({ initialProduct, hideList = false, business
   const [preview, setPreview] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(initialProduct?.id || null);
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [batchAiLoading, setBatchAiLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
@@ -38305,6 +39297,101 @@ export default function ProductForm({ initialProduct, hideList = false, business
     });
   };
 
+  const generateAIDescription = async () => {
+    if (!formData.name) {
+      toast.error("Please enter a product name first");
+      return;
+    }
+
+    try {
+      setAiLoading(true);
+      const response = await axios.post("/api/ai/describe", {
+        mode: "single",
+        productData: {
+          name: formData.name,
+          categoryId: formData.categoryId || null,
+        },
+      });
+
+      if (response.data.success) {
+        setFormData({
+          ...formData,
+          description: response.data.description,
+        });
+        toast.success("AI description generated!");
+      }
+    } catch (error: any) {
+      console.error("Failed to generate description:", error);
+      toast.error(error.response?.data?.error || "Failed to generate description");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const generateBatchDescriptions = async () => {
+    if (selectedProducts.size === 0) {
+      toast.error("Please select at least one product");
+      return;
+    }
+
+    const productIds = Array.from(selectedProducts);
+
+    try {
+      setBatchAiLoading(true);
+      const response = await axios.post("/api/ai/describe", {
+        mode: "batch",
+        productIds,
+        businessId,
+      });
+
+      if (response.data.success) {
+        const results = response.data.results;
+        let successCount = 0;
+        let failureCount = 0;
+
+        // Update each product with AI description
+        for (const result of results) {
+          if (result.description && !result.error) {
+            try {
+              await axios.put(
+                `/api/dbhandler?model=product&id=${result.productId}`,
+                { description: result.description }
+              );
+              successCount++;
+            } catch (err) {
+              failureCount++;
+            }
+          } else {
+            failureCount++;
+          }
+        }
+
+        toast.success(
+          `Batch complete: ${successCount} descriptions generated, ${failureCount} failed`
+        );
+        setSelectedProducts(new Set());
+        fetchProducts();
+      }
+    } catch (error: any) {
+      console.error("Failed to generate batch descriptions:", error);
+      toast.error(
+        error.response?.data?.error || "Failed to generate batch descriptions"
+      );
+    } finally {
+      setBatchAiLoading(false);
+    }
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto">
       <AdminFormContainer 
@@ -38344,7 +39431,29 @@ export default function ProductForm({ initialProduct, hideList = false, business
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="product-desc">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="product-desc">Description</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={generateAIDescription}
+                    disabled={aiLoading || !formData.name}
+                    className="h-7 text-xs font-semibold gap-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-200"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3 w-3" />
+                        AI Generate
+                      </>
+                    )}
+                  </Button>
+                </div>
                 <Input
                   id="product-desc"
                   placeholder="Briefly describe the product"
@@ -38414,6 +39523,28 @@ export default function ProductForm({ initialProduct, hideList = false, business
                  <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Recent Inventory</h3>
                  <Badge variant="secondary" className="font-bold">{products.length}</Badge>
               </div>
+
+              {/* Batch AI Button */}
+              {selectedProducts.size > 0 && (
+                <Button
+                  type="button"
+                  onClick={generateBatchDescriptions}
+                  disabled={batchAiLoading}
+                  className="w-full h-10 font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white gap-2"
+                >
+                  {batchAiLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating {selectedProducts.size} Descriptions...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4" />
+                      Generate AI Descriptions ({selectedProducts.size})
+                    </>
+                  )}
+                </Button>
+              )}
               
               {/* Search Input */}
               {products.length > 0 && (
@@ -38444,21 +39575,40 @@ export default function ProductForm({ initialProduct, hideList = false, business
                 
                 return (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2 scroll-smooth">
                       {paginated.map((item: any) => (
-                          <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border-2 border-transparent hover:bg-white hover:border-accent/10 transition-all group shadow-sm">
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                  <img src={item.images?.[0] || "/placeholder.jpg"} className="h-10 w-10 rounded-lg object-cover border" />
+                          <div 
+                            key={item.id} 
+                            className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all group shadow-sm cursor-pointer ${
+                              selectedProducts.has(item.id)
+                                ? 'bg-purple-100 border-purple-300'
+                                : 'bg-muted/30 border-transparent hover:bg-white hover:border-accent/10'
+                            }`}
+                            onClick={() => toggleProductSelection(item.id)}
+                          >
+                              <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                  <Checkbox 
+                                    checked={selectedProducts.has(item.id)}
+                                    onCheckedChange={() => toggleProductSelection(item.id)}
+                                    className="h-5 w-5"
+                                  />
+                                  <img src={item.images?.[0] || "/placeholder.jpg"} alt={item.name || "Product image"} className="h-10 w-10 rounded-lg object-cover border" />
                                   <div className="truncate">
                                     <p className="font-bold text-sm truncate">{item.name}</p>
                                     <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
                                   </div>
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-accent" onClick={() => handleEdit(item)}>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-accent" onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(item);
+                                  }}>
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(item)}>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(item);
+                                  }}>
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                               </div>
@@ -38510,6 +39660,7 @@ export default function ProductForm({ initialProduct, hideList = false, business
 }
 
 import { Package, Edit, Trash2 } from "lucide-react";
+import { Checkbox } from '@/components/ui/checkbox';
 
 
 
@@ -40117,6 +41268,7 @@ model Business {
   template         String            @default("estore") // estore, pharmacy, etc.
   ratings          Float             @default(0)
   numReviews       Int               @default(0)
+  isArchived       Boolean           @default(false) // app owner can archive businesses
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   settings         ProjectSettings?
@@ -40145,7 +41297,7 @@ model Business {
   chatThreads      ChatThread[]      @relation("BusinessChatThreads")
 
   // master sections defined by the admin for various pages
-  sections          BusinessSection[]
+  sections BusinessSection[]
 }
 
 model ProjectSettings {
@@ -40182,34 +41334,34 @@ model Section {
 
 // new unified section system for admins
 model BusinessSection {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  businessId  String   @db.ObjectId
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  page        String   // home, about, shop, footer, header, contact, etc.
-  key         String   // unique key for section type (hero, stats, testimonials)
-  type        String   // static | dynamic | collection
-  position    Int
-  isActive    Boolean  @default(true)
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  page       String // home, about, shop, footer, header, contact, etc.
+  key        String // unique key for section type (hero, stats, testimonials)
+  type       String // static | dynamic | collection
+  position   Int
+  isActive   Boolean  @default(true)
 
-  heading     String?
-  subHeading  String?
-  content     Json?    // rich text, bullets, HTML
-  settings    Json?    // layout + display config
+  heading    String?
+  subHeading String?
+  content    Json? // rich text, bullets, HTML
+  settings   Json? // layout + display config
 
   // linked items such as products or posts when type == "collection"
-  items       SectionItem[]
+  items SectionItem[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SectionItem {
-  id         String          @id @default(auto()) @map("_id") @db.ObjectId
-  sectionId  String          @db.ObjectId
-  section    BusinessSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  refType    String          // product | post | review | category | custom
-  refId      String
-  position   Int
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  sectionId String          @db.ObjectId
+  section   BusinessSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  refType   String // product | post | review | category | custom
+  refId     String
+  position  Int
 }
 
 model Staff {
@@ -40235,6 +41387,13 @@ model SiteSettings {
   heroCTA         String?  @default("Shop Now")
   heroCTALink     String?  @default("/store")
   heroImage       String?
+  iconMode        String   @default("text")
+  iconText        String?
+  iconFontSize    Int      @default(20)
+  iconFontColor   String   @default("#000000")
+  iconImageUrl    String?
+  iconImageWidth  Int      @default(40)
+  iconImageHeight Int      @default(40)
   contactDesc     String   @default("Contact us today for product inquiries, order support, or business collaborations.")
   contactEmail    String?  @default("support@example.com")
   contactPhone    String?  @default("000-000-0000")
@@ -40455,14 +41614,14 @@ model Product {
 //for inputing available product, after sales, deduct the quantity
 //one to one relationship with a product, notice the unique then objectid
 model Stock {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId       String   @db.ObjectId
-  addedQuantity   Int
-  costPerProduct  Float?
-  pricePerProduct Float?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId      String   @db.ObjectId
+  addedQuantity  Int
+  costPerProduct Float?
+  // pricePerProduct Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Cart {
@@ -40660,28 +41819,28 @@ model Wishlist {
 }
 
 model ChatThread {
-  id         String       @id @default(auto()) @map("_id") @db.ObjectId
-  user       User         @relation("UserChatThreads", fields: [userId], references: [id], onDelete: Cascade)
-  userId     String       @db.ObjectId
-  business   Business     @relation("BusinessChatThreads", fields: [businessId], references: [id], onDelete: Cascade)
-  businessId String       @db.ObjectId
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
+  user       User          @relation("UserChatThreads", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String        @db.ObjectId
+  business   Business      @relation("BusinessChatThreads", fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String        @db.ObjectId
   messages   ChatMessage[]
-  status     String       @default("active") // active, closed
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  status     String        @default("active") // active, closed
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@index([userId, businessId])
 }
 
 model ChatMessage {
-  id         String       @id @default(auto()) @map("_id") @db.ObjectId
-  thread     ChatThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  threadId   String       @db.ObjectId
-  sender     String       // "user" or "admin"
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  thread     ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId   String     @db.ObjectId
+  sender     String // "user" or "admin"
   senderName String?
   message    String
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@index([threadId, createdAt])
 }
@@ -41685,6 +42844,13 @@ interface SiteSettingsInput {
   instagram?: string;
   twitter?: string;
   linkedin?: string;
+  iconMode?: string;
+  iconText?: string;
+  iconFontSize?: number;
+  iconFontColor?: string;
+  iconImageUrl?: string;
+  iconImageWidth?: number;
+  iconImageHeight?: number;
 }
 
 export async function getSiteSettings(businessId?: string) {
@@ -41758,6 +42924,13 @@ export async function updateSiteSettings(
       createData.contactEmail = createData.contactEmail || "support@example.com";
       createData.contactPhone = createData.contactPhone || "000-000-0000";
       createData.helpText = createData.helpText || "How can we assist you?";
+      createData.iconMode = createData.iconMode || "text";
+      createData.iconText = createData.iconText || undefined;
+      createData.iconFontSize = createData.iconFontSize ?? 20;
+      createData.iconFontColor = createData.iconFontColor || "#000000";
+      createData.iconImageUrl = createData.iconImageUrl || undefined;
+      createData.iconImageWidth = createData.iconImageWidth ?? 40;
+      createData.iconImageHeight = createData.iconImageHeight ?? 40;
 
       await prisma.siteSettings.create({ data: createData });
     }
@@ -47218,5 +48391,5 @@ main();
 
 
 ================================================================================
-TOTAL FILES CONSOLIDATED: 379
+TOTAL FILES CONSOLIDATED: 387
 ================================================================================
