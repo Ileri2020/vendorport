@@ -75,13 +75,14 @@ export async function POST(req: NextRequest) {
   // const body = searchParams.get('body') || null;
 
   // Parse JSON body
-  let body = null;
-  const {userId, cartItems}=body
+  let body: any = null;
   try {
     body = await req.json(); // This reads the JSON payload
   } catch (err) {
     return new Response('Invalid JSON', { status: 400 });
   }
+
+  const { userId, cartItems } = body;
 
   const { method } = req; 
   console.log("in cart db handler", method, body)
@@ -104,7 +105,7 @@ export async function POST(req: NextRequest) {
       status: 'pending',
       total: 0, // You might calculate this based on items
       products: {
-        create: cartItems.map(item => ({
+        create: cartItems.map((item: any) => ({
           quantity: item.quantity,
           product: { connect: { id: item.productId } },
         })),
@@ -149,6 +150,10 @@ export async function PUT(req: NextRequest) {
       return new Response('Invalid JSON', { status: 400 });
     }
 
+    if (!body) {
+      return new Response('Body is empty', { status: 400 });
+    }
+
   const { method } = req; 
   console.log("in db handler",model, id, method, body)
 
@@ -157,7 +162,7 @@ export async function PUT(req: NextRequest) {
 
     // ✏️ Update Object
   try {
-    const { id, ...updatedata } = body;
+    const { id, ...updatedata } = body as any;
     console.log("id removed from :", updatedata)
     const updatedItem = await prismaModel.update({
       where: {id},
@@ -209,7 +214,7 @@ export async function DELETE(req: NextRequest) {
     user: prisma.user,
   };
 
-  const prismaModel = modelMap[model];
+  const prismaModel = (modelMap as any)[model as string];
 
   if (!prismaModel) {
     console.log("in prisma model check function")

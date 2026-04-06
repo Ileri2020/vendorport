@@ -68,7 +68,6 @@ export async function POST(req: Request) {
         productId,
         addedQuantity: Number(addedQuantity),
         costPerProduct: Number(costPerProduct || 0),
-        pricePerProduct: Number(pricePerProduct || 0)
       },
     });
     return new Response(JSON.stringify(stock), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -96,7 +95,6 @@ export async function PUT(req: Request) {
     data: { 
       addedQuantity: addedQuantity ? Number(addedQuantity) : undefined,
       costPerProduct: costPerProduct ? Number(costPerProduct) : undefined,
-      pricePerProduct: pricePerProduct ? Number(pricePerProduct) : undefined
     },
   });
 

@@ -336,7 +336,7 @@ export const AIProductSearch = ({
               name: product.name,
               price: product.price,
               images: product.images,
-              category: product.category,
+              category: product.category || "General",
             },
             1
           );

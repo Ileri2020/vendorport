@@ -1,0 +1,96 @@
+﻿app/api/ai/shop/route.ts(79,20): error TS2345: Argument of type '{ identifiedItem: any; options: { requestedQuantity: any; category: { name: string; id: string; image: string | null; createdAt: Date; updatedAt: Date; businessId: string | null; description: string | null; }; ... 13 more ...; costPrice: number | null; }[]; }' is not assignable to parameter of type 'never'.
+app/api/auth/login/route.ts(43,20): error TS18047: 'body' is possibly 'null'.
+app/api/auth/login/route.ts(44,22): error TS18047: 'body' is possibly 'null'.
+app/api/auth/login/route.ts(71,42): error TS18047: 'body' is possibly 'null'.
+app/api/cart/route.tsx(161,13): error TS2339: Property 'id' does not exist on type 'null'.
+app/api/cart/route.tsx(161,20): error TS2700: Rest types may only be created from object types.
+app/api/stock/route.ts(71,9): error TS2353: Object literal may only specify known properties, and 'pricePerProduct' does not exist in type '(Without<StockCreateInput, StockUncheckedCreateInput> & StockUncheckedCreateInput) | (Without<...> & StockCreateInput)'.
+app/api/stock/route.ts(99,7): error TS2353: Object literal may only specify known properties, and 'pricePerProduct' does not exist in type '(Without<StockUpdateInput, StockUncheckedUpdateInput> & StockUncheckedUpdateInput) | (Without<...> & StockUpdateInput)'.
+components/comments.tsx(113,29): error TS2339: Property 'id' does not exist on type 'never'.
+components/comments.tsx(115,29): error TS2339: Property 'name' does not exist on type 'never'.
+components/comments.tsx(116,34): error TS2339: Property 'createdAt' does not exist on type 'never'.
+components/comments.tsx(117,32): error TS2339: Property 'comment' does not exist on type 'never'.
+components/comments.tsx(118,27): error TS2339: Property 'id' does not exist on type 'never'.
+components/myComponents/subs/AIProductSearch.tsx(339,15): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/myComponents/subs/fileupload.tsx(67,30): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'string | Blob'.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'Blob'.
+components/myComponents/subs/fileupload.tsx(115,16): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<null>'.
+components/myComponents/subs/fileupload.tsx(219,30): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'string | Blob'.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'Blob'.
+components/myComponents/subs/fileupload.tsx(270,16): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<null>'.
+components/myComponents/subs/fileupload.tsx(325,42): error TS18047: 'file' is possibly 'null'.
+components/myComponents/subs/posts.tsx(82,27): error TS2339: Property 'length' does not exist on type 'never'.
+components/myComponents/subs/posts.tsx(83,17): error TS2339: Property 'map' does not exist on type 'never'.
+components/utility/BusinessProductSearch.tsx(158,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+prisma/forms/CouponForm.tsx(70,31): error TS2339: Property 'code' does not exist on type 'never'.
+prisma/forms/CouponForm.tsx(72,37): error TS2339: Property 'discount' does not exist on type 'never'.
+prisma/forms/CouponForm.tsx(73,39): error TS2339: Property 'expiresAt' does not exist on type 'never'.
+prisma/forms/CouponForm.tsx(76,60): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(67,47): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(68,23): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(82,35): error TS2339: Property 'message' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(83,53): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(83,65): error TS2339: Property 'userId' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(83,74): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(86,74): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(90,45): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(91,21): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(107,31): error TS2339: Property 'cartId' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(109,34): error TS2339: Property 'method' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(110,34): error TS2339: Property 'amount' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(113,74): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(100,39): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(100,55): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(101,25): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(148,30): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(150,68): error TS2339: Property 'title' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(151,105): error TS2339: Property 'type' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(155,71): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(77,31): error TS2339: Property 'cartId' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(79,35): error TS2339: Property 'amount' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(80,35): error TS2339: Property 'reason' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(81,35): error TS2339: Property 'status' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(84,74): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(77,31): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(77,47): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(78,21): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(78,34): error TS2339: Property 'email' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(96,31): error TS2339: Property 'address' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(98,33): error TS2339: Property 'city' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(99,34): error TS2339: Property 'state' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(100,32): error TS2339: Property 'zip' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(101,36): error TS2339: Property 'country' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(102,34): error TS2339: Property 'phone' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(105,74): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/UserForm.tsx(105,29): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/UserForm.tsx(107,32): error TS2339: Property 'email' does not exist on type 'never'.
+prisma/forms/UserForm.tsx(110,72): error TS2339: Property 'id' does not exist on type 'never'.
+server/auth.ts(126,15): error TS2322: Type '({ user, account }: { user: User | AdapterUser; account?: Account | null | undefined; profile?: Profile | undefined; email?: { verificationRequest?: boolean | undefined; } | undefined; credentials?: Record<...> | undefined; }) => Promise<...>' is not assignable to type '(params: { user: User | AdapterUser; account?: Account | null | undefined; profile?: Profile | undefined; email?: { verificationRequest?: boolean | undefined; } | undefined; credentials?: Record<...> | undefined; }) => Awaitable<...>'.
+  Type 'Promise<true | undefined>' is not assignable to type 'Awaitable<string | boolean>'.
+    Type 'Promise<true | undefined>' is not assignable to type 'PromiseLike<string | boolean>'.
+      Types of property 'then' are incompatible.
+        Type '<TResult1 = true | undefined, TResult2 = never>(onfulfilled?: ((value: true | undefined) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<...>) | null | undefined) => Promise<...>' is not assignable to type '<TResult1 = string | boolean, TResult2 = never>(onfulfilled?: ((value: string | boolean) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<...>) | null | undefined) => PromiseLike<...>'.
+          Types of parameters 'onfulfilled' and 'onfulfilled' are incompatible.
+            Types of parameters 'value' and 'value' are incompatible.
+              Type 'true | undefined' is not assignable to type 'string | boolean'.
+                Type 'undefined' is not assignable to type 'string | boolean'.
+server/auth.ts(128,17): error TS18049: 'account' is possibly 'null' or 'undefined'.
+server/config/cloudinary.ts(29,25): error TS18048: 'result' is possibly 'undefined'.
+server/config/cloudinary.ts(30,20): error TS18048: 'result' is possibly 'undefined'.
+server/config/mongodb.ts(21,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+server/config/multersetup.ts(14,41): error TS2554: Expected 0 arguments, but got 1.
+server/config/sql.ts(5,5): error TS2322: Type 'string | undefined' is not assignable to type 'number | undefined'.
+  Type 'string' is not assignable to type 'number'.

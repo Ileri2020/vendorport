@@ -21,14 +21,16 @@ const modelMap = {
   user: prisma.user,
 };
 
+type ModelName = keyof typeof modelMap;
+
 async function dbHandler({
-  model = null,
-  id = null,
+  model,
+  id,
   body = null,
   method,
   profileImage = false,
 }: {
-  model: any;
+  model: ModelName;
   id?: string;
   body?: any;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -36,7 +38,7 @@ async function dbHandler({
 }) {
   console.log("In product dbhandler function");
 
-  const prismaModel = modelMap[model];
+  const prismaModel = modelMap[model] as any;
 
   if (!prismaModel) {
     return { status: 400, data: { message: 'Invalid model' } };
@@ -73,7 +75,7 @@ async function dbHandler({
             },
           } 
         );
-        if (profileImage && model === 'posts') {
+        if (profileImage && model === 'post') {
           try {
             console.log("about to change user profile image")
             await prisma.user.update({

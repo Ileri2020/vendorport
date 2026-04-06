@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
           });
           // Send order notification
           // Sending to a test email as requested
-          await sendOrderNotification(process.env.ORDER_RECEIVER_EMAIL, {
+          await sendOrderNotification(process.env.ORDER_RECEIVER_EMAIL || "", {
             tx_ref,
             amount: data.amount,
           });

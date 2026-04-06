@@ -47,10 +47,10 @@ export const ProfileImg = () => {
     for: 'post',
   });
 
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState("");
 
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
 
 
   const form = useRef<HTMLFormElement>(null);
@@ -64,7 +64,9 @@ export const ProfileImg = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const pformData = new FormData();
-    pformData.append("file", file);
+    if (file) {
+      pformData.append("file", file);
+    }
     pformData.append("description", formData.description)
     pformData.append("type", formData.type)
     pformData.append("userId", user.id)
@@ -112,7 +114,9 @@ export const ProfileImg = () => {
       openDialog("file size greater than 300kb file may not upload", "File too large")
     }
     setFile(selectedFile);
-    setPreview(URL.createObjectURL(selectedFile));
+    if (selectedFile) {
+      setPreview(URL.createObjectURL(selectedFile));
+    }
   }
 
 
@@ -196,9 +200,9 @@ export const PostButton = () => {
     for: 'post',
   });
 
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState("");
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
 
 
   const form = useRef<HTMLFormElement>(null);
@@ -216,7 +220,9 @@ export const PostButton = () => {
     }
     e.preventDefault();
     const pformData = new FormData();
-    pformData.append("file", file);
+    if (file) {
+      pformData.append("file", file);
+    }
     pformData.append("description", formData.description)
     pformData.append("type", formData.type)
     pformData.append("userId", user.id)
@@ -267,7 +273,9 @@ export const PostButton = () => {
   const handleImageChange = (e) => {
     const selectedFile = e.target.files[0];
     setFile(selectedFile);
-    setPreview(URL.createObjectURL(selectedFile));
+    if (selectedFile) {
+      setPreview(URL.createObjectURL(selectedFile));
+    }
 
     const fileType = selectedFile.type.split('/')[0];
     switch (fileType) {
@@ -321,7 +329,7 @@ export const PostButton = () => {
                 {formData.type === 'audio' && (
                   <audio src={preview} controls />
                 )}
-                {formData.type === 'document' && (
+                {formData.type === 'document' && file && (
                   <p>Selected document: {file.name}</p>
                 )}
               </div>

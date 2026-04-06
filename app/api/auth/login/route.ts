@@ -20,11 +20,15 @@ export async function POST(req: NextRequest) {
   // const body = searchParams.get('body') || null;
 
   // Parse JSON body
-  let body = null;
+  let body: any = null;
   try {
     body = await req.json(); // This reads the JSON payload
   } catch (err) {
     return new Response('Invalid JSON', { status: 400 });
+  }
+
+  if (!body) {
+    return new Response('Body is empty', { status: 400 });
   }
 
   // const email = body.email

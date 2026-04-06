@@ -116,7 +116,7 @@ const Account = () => {
               </div>
             </div>
           </div>
-          {user.addresses && user.addresses.length > 0 && user.addresses.map((addr, index) => (
+          {user.addresses && user.addresses.length > 0 && user.addresses.map((addr: any, index: number) => (
             <div key={addr.id || index} className="w-full px-3">
               <div className="flex flex-row gap-3">
                 <div className="w-14 h-14">icon</div>

@@ -1,0 +1,227 @@
+﻿app/account/page.tsx(119,79): error TS7006: Parameter 'addr' implicitly has an 'any' type.
+app/account/page.tsx(119,85): error TS7006: Parameter 'index' implicitly has an 'any' type.
+app/api/cart/function.ts(26,3): error TS2322: Type 'null' is not assignable to type 'string'.
+app/api/cart/function.ts(39,23): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ cart: CartDelegate<DefaultArgs, PrismaClientOptions>; cartItem: CartItemDelegate<DefaultArgs, PrismaClientOptions>; ... 11 more ...; user: UserDelegate<...>; }'.
+app/api/cart/route.tsx(79,10): error TS2339: Property 'userId' does not exist on type 'null'.
+app/api/cart/route.tsx(79,18): error TS2339: Property 'cartItems' does not exist on type 'null'.
+app/api/cart/route.tsx(107,31): error TS7006: Parameter 'item' implicitly has an 'any' type.
+app/api/cart/route.tsx(212,32): error TS2538: Type 'null' cannot be used as an index type.
+app/api/dbhandler/function.ts(26,3): error TS2322: Type 'null' is not assignable to type 'string'.
+app/api/dbhandler/function.ts(39,23): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ cart: CartDelegate<DefaultArgs, PrismaClientOptions>; cartItem: CartItemDelegate<DefaultArgs, PrismaClientOptions>; ... 11 more ...; user: UserDelegate<...>; }'.
+app/api/file/cloudinary.ts(10,36): error TS7006: Parameter 'file' implicitly has an 'any' type.
+app/api/file/image/route.ts(3,20): error TS7016: Could not find a declaration file for module 'multer'. 'C:/Users/Ololade/Desktop/portfolio/commerce/VendorPort/node_modules/multer/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/multer` if it exists or add a new declaration (.d.ts) file containing `declare module 'multer';`
+app/api/file/image/route.ts(10,28): error TS7006: Parameter 'req' implicitly has an 'any' type.
+app/api/file/image/route.ts(10,34): error TS7006: Parameter 'res' implicitly has an 'any' type.
+app/api/payment/route.ts(53,39): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+app/api/product/function.ts(26,3): error TS2322: Type 'null' is not assignable to type 'string'.
+app/api/product/function.ts(39,23): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ cart: CartDelegate<DefaultArgs, PrismaClientOptions>; cartItem: CartItemDelegate<DefaultArgs, PrismaClientOptions>; ... 11 more ...; user: UserDelegate<...>; }'.
+app/api/product/route.ts(10,28): error TS7006: Parameter 'req' implicitly has an 'any' type.
+app/api/product/route.ts(10,34): error TS7006: Parameter 'res' implicitly has an 'any' type.
+app/api/send-notification/route.ts(16,37): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+app/api/stock/route.ts(71,9): error TS2353: Object literal may only specify known properties, and 'pricePerProduct' does not exist in type '(Without<StockCreateInput, StockUncheckedCreateInput> & StockUncheckedCreateInput) | (Without<...> & StockCreateInput)'.
+app/api/stock/route.ts(99,7): error TS2353: Object literal may only specify known properties, and 'pricePerProduct' does not exist in type '(Without<StockUpdateInput, StockUncheckedUpdateInput> & StockUncheckedUpdateInput) | (Without<...> & StockUpdateInput)'.
+components/comments.tsx(60,38): error TS7006: Parameter 'comment' implicitly has an 'any' type.
+components/comments.tsx(61,78): error TS7006: Parameter 'comment' implicitly has an 'any' type.
+components/comments.tsx(113,29): error TS2339: Property 'id' does not exist on type 'never'.
+components/comments.tsx(115,29): error TS2339: Property 'name' does not exist on type 'never'.
+components/comments.tsx(116,34): error TS2339: Property 'createdAt' does not exist on type 'never'.
+components/comments.tsx(117,32): error TS2339: Property 'comment' does not exist on type 'never'.
+components/comments.tsx(118,27): error TS2339: Property 'id' does not exist on type 'never'.
+components/myComponents/bookdrawer.tsx(31,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+components/myComponents/bookdrawer.tsx(32,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+components/myComponents/bookdrawer.tsx(34,40): error TS7006: Parameter 'item' implicitly has an 'any' type.
+components/myComponents/paydrawer.tsx(25,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+components/myComponents/subs/AIProductSearch.tsx(339,15): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/myComponents/subs/CartDetails.tsx(121,51): error TS7006: Parameter 'a' implicitly has an 'any' type.
+components/myComponents/subs/fileupload.tsx(64,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+components/myComponents/subs/fileupload.tsx(67,30): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'string | Blob'.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'Blob'.
+components/myComponents/subs/fileupload.tsx(109,30): error TS7006: Parameter 'e' implicitly has an 'any' type.
+components/myComponents/subs/fileupload.tsx(115,16): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<null>'.
+components/myComponents/subs/fileupload.tsx(212,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+components/myComponents/subs/fileupload.tsx(219,30): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(name: string, value: string | Blob): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'string | Blob'.
+  Overload 2 of 3, '(name: string, value: string): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'string'.
+  Overload 3 of 3, '(name: string, blobValue: Blob, filename?: string | undefined): void', gave the following error.
+    Argument of type 'null' is not assignable to parameter of type 'Blob'.
+components/myComponents/subs/fileupload.tsx(267,30): error TS7006: Parameter 'e' implicitly has an 'any' type.
+components/myComponents/subs/fileupload.tsx(270,16): error TS2345: Argument of type 'string' is not assignable to parameter of type 'SetStateAction<null>'.
+components/myComponents/subs/fileupload.tsx(325,42): error TS18047: 'file' is possibly 'null'.
+components/myComponents/subs/post.tsx(45,45): error TS7006: Parameter 'like' implicitly has an 'any' type.
+components/myComponents/subs/post.tsx(121,23): error TS7006: Parameter 'dateString' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(7,18): error TS7031: Binding element 'page' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(24,42): error TS7006: Parameter 'post' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(28,49): error TS7006: Parameter 'post' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(30,22): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ video: boolean; audio: boolean; image: boolean; }'.
+components/myComponents/subs/posts.tsx(34,45): error TS7006: Parameter 'a' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(34,48): error TS7006: Parameter 'b' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(50,29): error TS7006: Parameter 'e' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(54,33): error TS7006: Parameter 'e' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(82,27): error TS2339: Property 'length' does not exist on type 'never'.
+components/myComponents/subs/posts.tsx(83,17): error TS2339: Property 'map' does not exist on type 'never'.
+components/myComponents/subs/posts.tsx(83,22): error TS7006: Parameter 'post' implicitly has an 'any' type.
+components/myComponents/subs/posts.tsx(83,28): error TS7006: Parameter 'index' implicitly has an 'any' type.
+components/myComponents/subs/signup.tsx(76,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+components/myComponents/subs/signup.tsx(86,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+components/myComponents/subs/signup.tsx(91,31): error TS7006: Parameter 'id' implicitly has an 'any' type.
+components/payment/paystack/button.tsx(15,40): error TS7006: Parameter 'reference' implicitly has an 'any' type.
+components/payment/paystack/button.tsx(29,19): error TS7006: Parameter 'reference' implicitly has an 'any' type.
+components/payment/paystack/consumer.tsx(14,26): error TS7006: Parameter 'reference' implicitly has an 'any' type.
+components/payment/paystack/consumer.tsx(29,23): error TS7006: Parameter 'reference' implicitly has an 'any' type.
+components/payment/paystack/hook.tsx(15,20): error TS7006: Parameter 'reference' implicitly has an 'any' type.
+components/platform/StoreNavbar.tsx(249,19): error TS7006: Parameter 'page' implicitly has an 'any' type.
+components/platform/StoreNavbar.tsx(315,25): error TS7006: Parameter 'page' implicitly has an 'any' type.
+components/utility/BusinessProductSearch.tsx(119,32): error TS7006: Parameter 'a' implicitly has an 'any' type.
+components/utility/BusinessProductSearch.tsx(119,35): error TS7006: Parameter 'b' implicitly has an 'any' type.
+components/utility/BusinessProductSearch.tsx(121,32): error TS7006: Parameter 'a' implicitly has an 'any' type.
+components/utility/BusinessProductSearch.tsx(121,35): error TS7006: Parameter 'b' implicitly has an 'any' type.
+components/utility/BusinessProductSearch.tsx(124,12): error TS7006: Parameter 'a' implicitly has an 'any' type.
+components/utility/BusinessProductSearch.tsx(124,15): error TS7006: Parameter 'b' implicitly has an 'any' type.
+components/utility/BusinessProductSearch.tsx(158,9): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/utility/GlobalCart.tsx(177,65): error TS7006: Parameter 't' implicitly has an 'any' type.
+components/utility/GlobalCart.tsx(177,68): error TS7006: Parameter 'i' implicitly has an 'any' type.
+components/utility/GlobalCart.tsx(274,66): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+components/utility/GlobalCart.tsx(274,71): error TS7006: Parameter 'i' implicitly has an 'any' type.
+components/utility/GlobalCart.tsx(278,39): error TS7006: Parameter 'item' implicitly has an 'any' type.
+lib/nodemailer.ts(2,24): error TS7016: Could not find a declaration file for module 'nodemailer'. 'C:/Users/Ololade/Desktop/portfolio/commerce/VendorPort/node_modules/nodemailer/lib/nodemailer.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/nodemailer` if it exists or add a new declaration (.d.ts) file containing `declare module 'nodemailer';`
+prisma/forms/CouponForm.tsx(25,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+prisma/forms/CouponForm.tsx(36,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+prisma/forms/CouponForm.tsx(41,31): error TS7006: Parameter 'id' implicitly has an 'any' type.
+prisma/forms/CouponForm.tsx(70,31): error TS2339: Property 'code' does not exist on type 'never'.
+prisma/forms/CouponForm.tsx(72,37): error TS2339: Property 'discount' does not exist on type 'never'.
+prisma/forms/CouponForm.tsx(73,39): error TS2339: Property 'expiresAt' does not exist on type 'never'.
+prisma/forms/CouponForm.tsx(76,60): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(31,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+prisma/forms/NotificationForm.tsx(42,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+prisma/forms/NotificationForm.tsx(47,31): error TS7006: Parameter 'id' implicitly has an 'any' type.
+prisma/forms/NotificationForm.tsx(67,47): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(68,23): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(82,35): error TS2339: Property 'message' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(83,53): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(83,65): error TS2339: Property 'userId' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(83,74): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/NotificationForm.tsx(86,74): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(49,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+prisma/forms/PaymentForm.tsx(64,31): error TS7006: Parameter 'id' implicitly has an 'any' type.
+prisma/forms/PaymentForm.tsx(74,23): error TS7006: Parameter 'payment' implicitly has an 'any' type.
+prisma/forms/PaymentForm.tsx(90,45): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(91,21): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(107,31): error TS2339: Property 'cartId' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(109,34): error TS2339: Property 'method' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(110,34): error TS2339: Property 'amount' does not exist on type 'never'.
+prisma/forms/PaymentForm.tsx(113,74): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(44,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+prisma/forms/PostForm.tsx(56,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+prisma/forms/PostForm.tsx(69,31): error TS7006: Parameter 'id' implicitly has an 'any' type.
+prisma/forms/PostForm.tsx(100,39): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(100,55): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(101,25): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(148,30): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(150,68): error TS2339: Property 'title' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(151,105): error TS2339: Property 'type' does not exist on type 'never'.
+prisma/forms/PostForm.tsx(155,71): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/ProductForm.tsx(73,21): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+prisma/forms/RefundForm.tsx(26,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+prisma/forms/RefundForm.tsx(37,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+prisma/forms/RefundForm.tsx(42,31): error TS7006: Parameter 'id' implicitly has an 'any' type.
+prisma/forms/RefundForm.tsx(77,31): error TS2339: Property 'cartId' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(79,35): error TS2339: Property 'amount' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(80,35): error TS2339: Property 'reason' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(81,35): error TS2339: Property 'status' does not exist on type 'never'.
+prisma/forms/RefundForm.tsx(84,74): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(36,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+prisma/forms/ShippingAddressForm.tsx(47,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+prisma/forms/ShippingAddressForm.tsx(52,31): error TS7006: Parameter 'id' implicitly has an 'any' type.
+prisma/forms/ShippingAddressForm.tsx(77,31): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(77,47): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(78,21): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(78,34): error TS2339: Property 'email' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(96,31): error TS2339: Property 'address' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(98,33): error TS2339: Property 'city' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(99,34): error TS2339: Property 'state' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(100,32): error TS2339: Property 'zip' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(101,36): error TS2339: Property 'country' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(102,34): error TS2339: Property 'phone' does not exist on type 'never'.
+prisma/forms/ShippingAddressForm.tsx(105,74): error TS2339: Property 'id' does not exist on type 'never'.
+prisma/forms/UserForm.tsx(27,31): error TS7006: Parameter 'e' implicitly has an 'any' type.
+prisma/forms/UserForm.tsx(38,23): error TS7006: Parameter 'item' implicitly has an 'any' type.
+prisma/forms/UserForm.tsx(43,31): error TS7006: Parameter 'id' implicitly has an 'any' type.
+prisma/forms/UserForm.tsx(105,29): error TS2339: Property 'name' does not exist on type 'never'.
+prisma/forms/UserForm.tsx(107,32): error TS2339: Property 'email' does not exist on type 'never'.
+prisma/forms/UserForm.tsx(110,72): error TS2339: Property 'id' does not exist on type 'never'.
+server/action/signup.ts(3,8): error TS7034: Variable 'User' implicitly has type 'any' in some locations where its type cannot be determined.
+server/action/signup.ts(25,36): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/action/signup.ts(36,28): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/auth.ts(126,15): error TS2322: Type '({ user, account }: { user: User | AdapterUser; account?: Account | null | undefined; profile?: Profile | undefined; email?: { verificationRequest?: boolean | undefined; } | undefined; credentials?: Record<...> | undefined; }) => Promise<...>' is not assignable to type '(params: { user: User | AdapterUser; account?: Account | null | undefined; profile?: Profile | undefined; email?: { verificationRequest?: boolean | undefined; } | undefined; credentials?: Record<...> | undefined; }) => Awaitable<...>'.
+  Type 'Promise<true | undefined>' is not assignable to type 'Awaitable<string | boolean>'.
+    Type 'Promise<true | undefined>' is not assignable to type 'PromiseLike<string | boolean>'.
+      Types of property 'then' are incompatible.
+        Type '<TResult1 = true | undefined, TResult2 = never>(onfulfilled?: ((value: true | undefined) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<...>) | null | undefined) => Promise<...>' is not assignable to type '<TResult1 = string | boolean, TResult2 = never>(onfulfilled?: ((value: string | boolean) => TResult1 | PromiseLike<TResult1>) | null | undefined, onrejected?: ((reason: any) => TResult2 | PromiseLike<...>) | null | undefined) => PromiseLike<...>'.
+          Types of parameters 'onfulfilled' and 'onfulfilled' are incompatible.
+            Types of parameters 'value' and 'value' are incompatible.
+              Type 'true | undefined' is not assignable to type 'string | boolean'.
+                Type 'undefined' is not assignable to type 'string | boolean'.
+server/auth.ts(128,17): error TS18049: 'account' is possibly 'null' or 'undefined'.
+server/config/cloudinary.ts(2,25): error TS7016: Could not find a declaration file for module 'streamifier'. 'C:/Users/Ololade/Desktop/portfolio/commerce/VendorPort/node_modules/streamifier/lib/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/streamifier` if it exists or add a new declaration (.d.ts) file containing `declare module 'streamifier';`
+server/config/cloudinary.ts(17,33): error TS7006: Parameter 'buffer' implicitly has an 'any' type.
+server/config/cloudinary.ts(17,41): error TS7006: Parameter 'folder' implicitly has an 'any' type.
+server/config/cloudinary.ts(29,25): error TS18048: 'result' is possibly 'undefined'.
+server/config/cloudinary.ts(30,20): error TS18048: 'result' is possibly 'undefined'.
+server/config/mongodb.ts(21,28): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+server/config/multersetup.ts(1,20): error TS7016: Could not find a declaration file for module 'multer'. 'C:/Users/Ololade/Desktop/portfolio/commerce/VendorPort/node_modules/multer/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/multer` if it exists or add a new declaration (.d.ts) file containing `declare module 'multer';`
+server/config/multersetup.ts(4,17): error TS7006: Parameter 'req' implicitly has an 'any' type.
+server/config/multersetup.ts(4,22): error TS7006: Parameter 'file' implicitly has an 'any' type.
+server/config/multersetup.ts(4,28): error TS7006: Parameter 'cb' implicitly has an 'any' type.
+server/config/multersetup.ts(15,16): error TS7006: Parameter 'req' implicitly has an 'any' type.
+server/config/multersetup.ts(15,21): error TS7006: Parameter 'file' implicitly has an 'any' type.
+server/config/multersetup.ts(15,27): error TS7006: Parameter 'cb' implicitly has an 'any' type.
+server/config/sql.ts(1,19): error TS7016: Could not find a declaration file for module 'mysql'. 'C:/Users/Ololade/Desktop/portfolio/commerce/VendorPort/node_modules/mysql/index.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/mysql` if it exists or add a new declaration (.d.ts) file containing `declare module 'mysql';`
+server/db/mongodb/models/index.ts(5,8): error TS7034: Variable 'Notification' implicitly has type 'any' in some locations where its type cannot be determined.
+server/db/mongodb/models/index.ts(10,8): error TS7034: Variable 'Stock' implicitly has type 'any' in some locations where its type cannot be determined.
+server/db/mongodb/models/index.ts(11,8): error TS7034: Variable 'User' implicitly has type 'any' in some locations where its type cannot be determined.
+server/db/mongodb/models/index.ts(12,8): error TS7034: Variable 'Sale' implicitly has type 'any' in some locations where its type cannot be determined.
+server/db/mongodb/models/index.ts(17,42): error TS7005: Variable 'Notification' implicitly has an 'any' type.
+server/db/mongodb/models/index.ts(17,81): error TS7005: Variable 'Stock' implicitly has an 'any' type.
+server/db/mongodb/models/index.ts(17,88): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/db/mongodb/models/index.ts(17,94): error TS7005: Variable 'Sale' implicitly has an 'any' type.
+server/db/mongodb/models/stocks.ts(14,5): error TS7034: Variable 'Stock' implicitly has type 'any' in some locations where its type cannot be determined.
+server/db/mongodb/models/stocks.ts(32,30): error TS7005: Variable 'Stock' implicitly has an 'any' type.
+server/db/mongodb/models/stocks.ts(52,29): error TS7005: Variable 'Stock' implicitly has an 'any' type.
+server/db/mongodb/models/stocks.ts(61,30): error TS7005: Variable 'Stock' implicitly has an 'any' type.
+server/db/mongodb/models/stocks.ts(71,30): error TS7005: Variable 'Stock' implicitly has an 'any' type.
+server/db/mongodb/models/stocks.ts(81,30): error TS7005: Variable 'Stock' implicitly has an 'any' type.
+server/db/mongodb/models/stocks.ts(91,30): error TS7005: Variable 'Stock' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(14,7): error TS7034: Variable 'User' implicitly has type 'any' in some locations where its type cannot be determined.
+server/db/mongodb/models/users.ts(31,51): error TS7006: Parameter 'firstName' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(31,62): error TS7006: Parameter 'lastName' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(31,72): error TS7006: Parameter 'userName' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(31,82): error TS7006: Parameter 'email' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(31,89): error TS7006: Parameter 'password' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(31,99): error TS7006: Parameter 'address' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(31,108): error TS7006: Parameter 'image' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(36,30): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(56,29): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(65,29): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(75,30): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(85,30): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/db/mongodb/models/users.ts(95,30): error TS7005: Variable 'User' implicitly has an 'any' type.
+server/db/sql/index.ts(6,15): error TS7006: Parameter 'err' implicitly has an 'any' type.
+server/db/sql/queryBlog.ts(5,45): error TS7006: Parameter 'err' implicitly has an 'any' type.
+server/db/sql/queryBlog.ts(5,50): error TS7006: Parameter 'results' implicitly has an 'any' type.

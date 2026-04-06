@@ -15,7 +15,7 @@ const baseUrl = BASE_URL + "/comments";
 
 const Comments = ( props : {videoId : string}) => {
   const { user, isModal, setIsModal, comments, setComments} = useAppContext();
-  const [compComments, setCompComments] = useState([]); //<CommentType[]>
+  const [compComments, setCompComments] = useState<any[]>([]); //<CommentType[]>
   const [comment, setComment] = useState<string>("");
   const [loading, setLoading] = useState(true);
 

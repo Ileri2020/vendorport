@@ -6,7 +6,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 
 const Posts = ({ page }) => {
   const { currentBusiness } = useAppContext();
-  const [allpost, setallpost] = useState(null);
+  const [allpost, setallpost] = useState<any[] | null>(null);
   const [sortOrder, setSortOrder] = useState('desc');
   const [postTypes, setPostTypes] = useState({ video: true, audio: true, image: true, });
 

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        await sendOrderNotification(process.env.ORDER_RECEIVER_EMAIL, orderDetails);
+        await sendOrderNotification(process.env.ORDER_RECEIVER_EMAIL || "", orderDetails);
         await sendOrderNotification('adepojuololade2020@gmail.com', orderDetails);
 
         return NextResponse.json({ success: true, message: "Notification sent" });
