@@ -1,5 +1,6 @@
 "use client"
 import React, { useEffect, useState } from 'react'
+import { useMounted } from '@/hooks/use-mounted'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
@@ -31,6 +32,7 @@ interface Business {
 const StoreNavbar = ({ business, businessId }: { business: Business, businessId?: string }) => {
   const { storeName } = useParams();
   const isAdmin = useIsBusinessAdmin();
+  const mounted = useMounted();
   const pages = business.settings?.pages || [];
   const [iconMode, setIconMode] = useState<string>(business.siteSettings?.iconMode || 'text');
   const [iconText, setIconText] = useState<string>(business.siteSettings?.iconText || business.name);
@@ -81,6 +83,7 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
 
   // Function to get icon for page based on slug
   const getPageIcon = (slug: string) => {
+    if (!slug) return FileText;
     switch (slug.toLowerCase()) {
       case 'home':
         return Home;
@@ -131,7 +134,7 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
            </div>
          </Link>
 
-         {isAdmin && (
+         {mounted && isAdmin && (
            <Dialog>
              <DialogTrigger asChild>
                <button type="button" title="Edit icon settings" className="absolute -bottom-2 -right-2 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-white bg-white text-accent shadow-lg hover:bg-accent/10">
@@ -328,7 +331,7 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
        )}
      </div>
      <div className="flex items-center gap-2 md:gap-4">
-       {isAdmin && (
+       {mounted && isAdmin && (
          <>
            <TemplateSelector business={business} />
            <Link href={`/${storeName}/analytics`}>
@@ -366,13 +369,13 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
            <SheetHeader className="text-left mb-8">
              <SheetTitle className="text-2xl font-black flex items-center gap-2">
                <div className="h-10 w-10 bg-accent rounded-xl flex items-center justify-center text-white shrink-0">
-                 {business.name.charAt(0)}
+                 {business.name?.[0] || 'B'}
                </div>
-               <span>{business.name}</span>
+               <span>{business.name || 'Store'}</span>
              </SheetTitle>
            </SheetHeader>
            <div className="flex flex-col gap-6">
-             {isAdmin && (
+             {mounted && isAdmin && (
                <TemplateSelector business={business} mobile={true} />
              )}
              {businessId && (
@@ -394,7 +397,7 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
                </Link>
              ))}
              <div className="h-px bg-border my-4" />
-             {isAdmin && (
+             {mounted && isAdmin && (
                <Link href={`/${storeName}/analytics`} className="flex items-center gap-3 text-accent font-black">
                  <BarChart3 className="h-5 w-5" /> OWNER ANALYTICS
                </Link>

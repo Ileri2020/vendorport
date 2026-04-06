@@ -2,6 +2,7 @@
 "use client"
 import React from 'react'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
+import { useMounted } from '@/hooks/use-mounted'
 import { AdminEditable } from '@/components/utility/AdminEditable'
 import { PriceDisplay } from '@/components/utility/PriceDisplay'
 import axios from 'axios'
@@ -247,6 +248,7 @@ const StoreHome = ({
   const [isAdminToolbarOpen, setIsAdminToolbarOpen] = React.useState(!!initialAdminTab);
   const [buildMode, setBuildMode] = React.useState(isAdmin);
   const [device, setDevice] = React.useState<'mobile' | 'tablet' | 'desktop'>('desktop');
+  const mounted = useMounted();
   const { storeName } = useParams();
 
   React.useEffect(() => {
@@ -437,8 +439,8 @@ const StoreHome = ({
 
         <main className={cn(
            "flex-1 transition-all duration-500 ease-in-out origin-top border-x-[12px] border-transparent bg-slate-100/30",
-           device === 'mobile' ? "max-w-[430px] shadow-2xl ring-12 ring-black/90 rounded-[3.5rem] my-12 min-h-[850px] border-black overflow-hidden" : 
-           device === 'tablet' ? "max-w-[800px] shadow-2xl ring-12 ring-black/80 rounded-[2.5rem] my-12 min-h-[1024px] border-black overflow-hidden" : 
+           (mounted && device === 'mobile') ? "max-w-[430px] shadow-2xl ring-12 ring-black/90 rounded-[3.5rem] my-12 min-h-[850px] border-black overflow-hidden" : 
+           (mounted && device === 'tablet') ? "max-w-[800px] shadow-2xl ring-12 ring-black/80 rounded-[2.5rem] my-12 min-h-[1024px] border-black overflow-hidden" : 
            "w-full px-0"
         )}>
            <div className="w-full bg-white shadow-sm ring-1 ring-black/5">

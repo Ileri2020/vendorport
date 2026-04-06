@@ -1,6 +1,7 @@
 "use client"
 import React, { useState } from 'react'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
+import { useMounted } from '@/hooks/use-mounted'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -53,6 +54,7 @@ export const AdminEditable = ({
   linkField
 }: AdminEditableProps) => {
   const isAdmin = useIsBusinessAdmin();
+  const mounted = useMounted();
   const [isEditing, setIsEditing] = useState(false);
   const [currentValue, setCurrentValue] = useState(value);
   const [currentLink, setCurrentLink] = useState(data ? data[linkField || ''] : '');
@@ -112,7 +114,7 @@ export const AdminEditable = ({
     }
   };
 
-  if (!isAdmin) {
+  if (!mounted || !isAdmin) {
     if (type === 'image' && Component === 'img') {
         return <img src={value} className={className} alt="" />;
     }

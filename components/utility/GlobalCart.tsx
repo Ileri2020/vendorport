@@ -24,12 +24,16 @@ import { PriceDisplay } from "@/components/utility/PriceDisplay";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useMounted } from "@/hooks/use-mounted";
 import { toast } from "sonner";
 import axios from "axios";
 
 export const GlobalCart = () => {
   const isMobile = useMediaQuery("(max-width: 768px)");
+  const mounted = useMounted();
   const [isOpen, setIsOpen] = React.useState(false);
+
+  if (!mounted) return null;
 
   const trigger = (
     <Button variant="ghost" size="icon" className="relative h-12 w-12 rounded-full hover:bg-accent/10">
@@ -61,7 +65,9 @@ export const GlobalCart = () => {
 
 const CartBadge = () => {
   const { itemCount } = useCart();
-  if (itemCount === 0) return null;
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  if (!mounted || itemCount === 0) return null;
   return (
     <span className="absolute -top-1 -right-1 h-5 w-5 bg-accent text-white rounded-full text-[10px] flex items-center justify-center font-bold shadow-lg animate-in zoom-in">
       {itemCount}
