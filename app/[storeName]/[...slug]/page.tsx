@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import axios from 'axios'
-import { Loader2, AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3, PlusCircle } from 'lucide-react'
+import { AlertCircle, ShoppingCart, Menu, User, Settings, BarChart3, PlusCircle } from 'lucide-react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -36,12 +36,24 @@ const DynamicStorePage = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center space-y-4">
-        <Skeleton className="h-12 w-12 rounded-full bg-accent/20" />
-        <Skeleton className="h-8 w-[300px] bg-muted/40" />
-        <p className="text-xl font-bold animate-pulse text-muted-foreground uppercase tracking-widest text-center">
-            {slugArray ? `Navigating to ${pageSlug}...` : `Entering ${storeName}...`}
-        </p>
+      <div className="min-h-screen w-full bg-background p-6 flex flex-col items-center justify-center">
+        <div className="w-full max-w-4xl space-y-6">
+          <div className="rounded-3xl bg-muted/80 p-6 shadow-lg shadow-muted/20">
+            <div className="flex items-center justify-between gap-4">
+              <Skeleton className="h-12 w-32 rounded-full" />
+              <Skeleton className="h-10 w-24 rounded-full" />
+            </div>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <Skeleton className="h-64 w-full rounded-3xl" />
+              <Skeleton className="h-64 w-full rounded-3xl" />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-32 w-full rounded-3xl" />
+            <Skeleton className="h-32 w-full rounded-3xl" />
+          </div>
+        </div>
       </div>
     );
   }
