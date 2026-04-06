@@ -252,9 +252,11 @@ const StoreHome = ({
   const { storeName } = useParams();
 
   React.useEffect(() => {
-    setCurrentBusiness(initialBusiness);
+    if (initialBusiness?.id !== currentBusiness?.id) {
+      setCurrentBusiness(initialBusiness);
+    }
     setBusiness(initialBusiness);
-  }, [initialBusiness, setCurrentBusiness]);
+  }, [initialBusiness, setCurrentBusiness, currentBusiness?.id]);
 
   React.useEffect(() => {
     if (initialAdminTab) {
@@ -294,9 +296,11 @@ const StoreHome = ({
     : activePage?.sections || []
   );
 
-  const sections: NormalizedSection[] = rawSections
-    .map(normalizeSec)
-    .sort((a: NormalizedSection, b: NormalizedSection) => a.order - b.order);
+  const sections: NormalizedSection[] = React.useMemo(() => {
+    return rawSections
+      .map(normalizeSec)
+      .sort((a: NormalizedSection, b: NormalizedSection) => a.order - b.order);
+  }, [rawSections]);
 
   const globalHeaderSections = (business.sections || [])
     .filter((s: any) => s.page === 'header' && s.isActive !== false)

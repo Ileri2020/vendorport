@@ -8,6 +8,7 @@ import {
   SheetTitle,
   SheetTrigger,
   SheetFooter,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import {
   Drawer,
@@ -16,6 +17,7 @@ import {
   DrawerTitle,
   DrawerTrigger,
   DrawerFooter,
+  DrawerDescription,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Trash2, Plus, Minus, Package, Sparkles, Upload, Send } from "lucide-react";
@@ -46,7 +48,11 @@ export const GlobalCart = () => {
     return (
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-        <DrawerContent className="h-[90vh]">
+        <DrawerContent className="h-[90vh] flex flex-col">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Your Shopping Cart</DrawerTitle>
+            <DrawerDescription>View and manage items in your bag before checkout.</DrawerDescription>
+          </DrawerHeader>
           <InnerCartContent close={() => setIsOpen(false)} />
         </DrawerContent>
       </Drawer>
@@ -57,6 +63,10 @@ export const GlobalCart = () => {
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>{trigger}</SheetTrigger>
       <SheetContent className="w-full sm:max-w-md flex flex-col p-0">
+        <SheetHeader className="sr-only">
+          <SheetTitle>Your Shopping Cart</SheetTitle>
+          <SheetDescription>View and manage items in your bag before checkout.</SheetDescription>
+        </SheetHeader>
         <InnerCartContent close={() => setIsOpen(false)} />
       </SheetContent>
     </Sheet>
