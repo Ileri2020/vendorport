@@ -85,7 +85,12 @@ export default function CartPage() {
                 </CardHeader>
                 <CardContent>
                   {loading ? (
-                    <div className="text-center py-4">Loading history...</div>
+                    <DataTableDemo
+                      data={[]}
+                      columns={columns}
+                      loading
+                      skeletonRows={6}
+                    />
                   ) : carts.length > 0 ? (
                     <DataTableDemo
                       data={carts}

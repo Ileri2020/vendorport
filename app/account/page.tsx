@@ -6,8 +6,9 @@ import dynamic from 'next/dynamic'
 const Login = dynamic(() => import('@/components/myComponents/subs').then((e) => e.Login),{ssr: false,})
 import { Button } from "@/components/ui/button"
 import { BiPencil } from "react-icons/bi"
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useAppContext } from "@/hooks/useAppContext"
 import { CiCamera } from "react-icons/ci"
 import {ProfileImg} from "@/components/myComponents/subs/fileupload"
@@ -16,6 +17,30 @@ import UserShippingAddressForm from "@/prisma/forms/userShippingAddressForm"
 
 const Account = () => {
   const {user, setUser } = useAppContext();
+  const [pageLoading, setPageLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPageLoading(false), 250);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  if (pageLoading) {
+    return (
+      <div className="min-h-screen py-10 px-4">
+        <div className="mx-auto max-w-xl space-y-6 animate-pulse">
+          <div className="h-44 w-44 rounded-full bg-muted mx-auto" />
+          <div className="h-8 w-3/4 rounded-full bg-muted mx-auto" />
+          <div className="grid gap-4">
+            <div className="h-14 rounded-3xl bg-muted" />
+            <div className="h-14 rounded-3xl bg-muted" />
+            <div className="h-14 rounded-3xl bg-muted" />
+          </div>
+          <div className="h-12 rounded-2xl bg-muted" />
+        </div>
+      </div>
+    )
+  }
+
   if (user.name === "visitor" && user.email === "nil"){
     return(
       <div className="w-full h-[50vh] flex flex-col justify-center items-center">

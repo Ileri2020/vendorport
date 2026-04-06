@@ -13,14 +13,16 @@ export function CartDetailsDialog({
     open,
     onOpenChange,
     cart,
+    isLoading,
     onConfirmPayment,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     cart: any;
+    isLoading?: boolean;
     onConfirmPayment: () => void;
 }) {
-    if (!cart) return null;
+    if (!cart && !isLoading) return null;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -30,7 +32,29 @@ export function CartDetailsDialog({
                 </DialogHeader>
 
                 {/* USER */}
-                <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
+                {isLoading ? (
+                  <div className="space-y-3 p-3 border rounded-md bg-muted/50">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="mb-2 text-xs uppercase font-semibold text-muted-foreground">Customer</div>
+                        <div className="h-4 w-24 rounded-md bg-muted animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-xs uppercase font-semibold text-muted-foreground">Email</div>
+                        <div className="h-4 w-32 rounded-md bg-muted animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-xs uppercase font-semibold text-muted-foreground">Contact</div>
+                        <div className="h-4 w-20 rounded-md bg-muted animate-pulse" />
+                      </div>
+                      <div>
+                        <div className="mb-2 text-xs uppercase font-semibold text-muted-foreground">Status</div>
+                        <div className="h-6 w-20 rounded-full bg-muted animate-pulse" />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground p-3 border rounded-md bg-muted/50">
                     <div className="grid grid-cols-2 gap-2">
                         <div>
                             <span className="font-semibold block text-xs uppercase">Customer</span>
@@ -51,7 +75,8 @@ export function CartDetailsDialog({
                             </span>
                         </div>
                     </div>
-                </div>
+                  </div>
+                )}
 
                 {/* PRODUCTS */}
                 <div className="mt-4">

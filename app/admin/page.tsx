@@ -77,6 +77,7 @@ const Admin = () => {
   const [selectedCart, setSelectedCart] = useState<any | null>(null);
   const [cartDialogOpen, setCartDialogOpen] = useState(false);
   const [loadingCart, setLoadingCart] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
 
 
   /* ================= PERMISSIONS ================= */
@@ -184,6 +185,7 @@ const Admin = () => {
     if (!isAdmin && !isStaff) return;
 
     const fetchData = async () => {
+      setIsFetching(true);
       try {
         /* ===== CARTS (PAID + UNCONFIRMED) ===== */
         const cartsRes = await fetch(
@@ -256,6 +258,8 @@ const Admin = () => {
         );
       } catch (error) {
         console.error("Error fetching admin data:", error);
+      } finally {
+        setIsFetching(false);
       }
     };
 
@@ -340,6 +344,7 @@ const Admin = () => {
         open={cartDialogOpen}
         onOpenChange={setCartDialogOpen}
         cart={selectedCart}
+        isLoading={loadingCart}
         onConfirmPayment={handleConfirmPayment}
       />
 
@@ -381,6 +386,8 @@ const Admin = () => {
           columns={cartColumns}
           data={cartData}
           onRowClick={handleCartRowClick}
+          loading={isFetching}
+          skeletonRows={6}
         />
       </div>
 
@@ -390,6 +397,8 @@ const Admin = () => {
         <DataTableDemo
           columns={notificationColumns}
           data={notificationData}
+          loading={isFetching}
+          skeletonRows={5}
         />
       </div>
     </motion.section>

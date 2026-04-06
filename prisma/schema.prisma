@@ -75,7 +75,7 @@ model Business {
   chatThreads      ChatThread[]      @relation("BusinessChatThreads")
 
   // master sections defined by the admin for various pages
-  sections          BusinessSection[]
+  sections BusinessSection[]
 }
 
 model ProjectSettings {
@@ -112,34 +112,34 @@ model Section {
 
 // new unified section system for admins
 model BusinessSection {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  businessId  String   @db.ObjectId
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  page        String   // home, about, shop, footer, header, contact, etc.
-  key         String   // unique key for section type (hero, stats, testimonials)
-  type        String   // static | dynamic | collection
-  position    Int
-  isActive    Boolean  @default(true)
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId String   @db.ObjectId
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  page       String // home, about, shop, footer, header, contact, etc.
+  key        String // unique key for section type (hero, stats, testimonials)
+  type       String // static | dynamic | collection
+  position   Int
+  isActive   Boolean  @default(true)
 
-  heading     String?
-  subHeading  String?
-  content     Json?    // rich text, bullets, HTML
-  settings    Json?    // layout + display config
+  heading    String?
+  subHeading String?
+  content    Json? // rich text, bullets, HTML
+  settings   Json? // layout + display config
 
   // linked items such as products or posts when type == "collection"
-  items       SectionItem[]
+  items SectionItem[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SectionItem {
-  id         String          @id @default(auto()) @map("_id") @db.ObjectId
-  sectionId  String          @db.ObjectId
-  section    BusinessSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  refType    String          // product | post | review | category | custom
-  refId      String
-  position   Int
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  sectionId String          @db.ObjectId
+  section   BusinessSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  refType   String // product | post | review | category | custom
+  refId     String
+  position  Int
 }
 
 model Staff {
@@ -385,14 +385,14 @@ model Product {
 //for inputing available product, after sales, deduct the quantity
 //one to one relationship with a product, notice the unique then objectid
 model Stock {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId       String   @db.ObjectId
-  addedQuantity   Int
-  costPerProduct  Float?
-  pricePerProduct Float?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId      String   @db.ObjectId
+  addedQuantity  Int
+  costPerProduct Float?
+  // pricePerProduct Float?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 model Cart {
@@ -590,28 +590,28 @@ model Wishlist {
 }
 
 model ChatThread {
-  id         String       @id @default(auto()) @map("_id") @db.ObjectId
-  user       User         @relation("UserChatThreads", fields: [userId], references: [id], onDelete: Cascade)
-  userId     String       @db.ObjectId
-  business   Business     @relation("BusinessChatThreads", fields: [businessId], references: [id], onDelete: Cascade)
-  businessId String       @db.ObjectId
+  id         String        @id @default(auto()) @map("_id") @db.ObjectId
+  user       User          @relation("UserChatThreads", fields: [userId], references: [id], onDelete: Cascade)
+  userId     String        @db.ObjectId
+  business   Business      @relation("BusinessChatThreads", fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String        @db.ObjectId
   messages   ChatMessage[]
-  status     String       @default("active") // active, closed
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  status     String        @default("active") // active, closed
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
 
   @@index([userId, businessId])
 }
 
 model ChatMessage {
-  id         String       @id @default(auto()) @map("_id") @db.ObjectId
-  thread     ChatThread   @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  threadId   String       @db.ObjectId
-  sender     String       // "user" or "admin"
+  id         String     @id @default(auto()) @map("_id") @db.ObjectId
+  thread     ChatThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId   String     @db.ObjectId
+  sender     String // "user" or "admin"
   senderName String?
   message    String
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
 
   @@index([threadId, createdAt])
 }

@@ -10,6 +10,7 @@ import { motion } from "framer-motion"
 import Stats from "@/data/stats"
 import Countup from "react-countup"
 import contact from "@/data/cont"
+import { Skeleton } from "@/components/ui/skeleton"
 // import Footer from "@/components/myComponents/subs/footer"
 import { useAppContext } from "@/hooks/useAppContext"
 import { getSiteSettings } from "@/server/action/siteSettings"
@@ -19,12 +20,59 @@ import { useEffect, useState } from "react"
 const About = () => {
   const { selectedVideo, setSelectedVideo, useMock, currentBusiness } = useAppContext();
   const [settings, setSettings] = useState<any>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   useEffect(() => {
-    getSiteSettings(currentBusiness?.id).then(setSettings);
+    if (!currentBusiness?.id) {
+      setSettings(null);
+      setSettingsLoading(false);
+      return;
+    }
+
+    setSettingsLoading(true);
+    getSiteSettings(currentBusiness.id)
+      .then(setSettings)
+      .catch((error) => {
+        console.error("Failed to load site settings:", error);
+        setSettings(null);
+      })
+      .finally(() => setSettingsLoading(false));
   }, [currentBusiness]);
 
   const aboutText = settings?.aboutText || "Write about your business here";
+
+  if (settingsLoading) {
+    return (
+      <motion.section 
+        initial = {{ opacity: 0 }}
+        animate = {{
+          opacity : 1,
+          transition : { delay: 0.5, duration: 0.6, ease: "easeIn"}
+        }}
+        className= "justify-center w-[100vw] overflow-clip /px-2"
+      >
+        <section className="md:max-w-[1200px] md:mx-auto md:h-[80vh] p-5">
+          <div className="grid gap-6">
+            <Skeleton className="h-12 w-1/3" />
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-full max-w-2xl" />
+              <Skeleton className="h-6 w-full max-w-2xl" />
+              <Skeleton className="h-6 w-full max-w-2xl" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="space-y-3 rounded-3xl bg-secondary p-6 shadow-md shadow-accent/10">
+                  <Skeleton className="h-8 w-2/3" />
+                  <Skeleton className="h-5 w-full" />
+                  <Skeleton className="h-5 w-5/6" />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </motion.section>
+    )
+  }
 
   return (
     <motion.section 
