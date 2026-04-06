@@ -21,6 +21,7 @@ import {
   Star,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProductCard } from "@/components/myComponents/subs/productCard";
 import axios from "axios";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/use-cart";
@@ -329,76 +330,11 @@ export const BusinessProductSearch = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {products.map((product) => (
-                    <Card
+                    <ProductCard
                       key={product.id}
-                      className="rounded-2xl border-2 overflow-hidden hover:border-accent/50 transition-all group cursor-pointer"
-                    >
-                      {/* Image */}
-                      <div className="relative w-full aspect-square bg-muted overflow-hidden">
-                        {product.images?.[0] ? (
-                          <img
-                            src={product.images[0]}
-                            alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-muted/50">
-                            <ShoppingCart className="h-8 w-8 text-muted-foreground/20" />
-                          </div>
-                        )}
-
-                        {/* Overlay on hover */}
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <Button
-                            size="sm"
-                            className="gap-2 font-bold"
-                            onClick={() => handleAddToCart(product)}
-                          >
-                            <ShoppingCart className="h-4 w-4" />
-                            Add to Cart
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Info */}
-                      <CardContent className="p-4 space-y-3">
-                        <div>
-                          <p className="font-bold text-sm line-clamp-2">
-                            {product.name}
-                          </p>
-                          {product.category && (
-                            <Badge variant="secondary" className="text-[10px] mt-2">
-                              {product.category.name}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <p className="text-lg font-black text-accent">
-                            ₦{product.price.toLocaleString()}
-                          </p>
-                          {product.reviews && product.reviews.length > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-xs font-bold">
-                                {(
-                                  product.reviews.reduce((acc, r) => acc + (r.rating || 0), 0) /
-                                  product.reviews.length
-                                ).toFixed(1)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        <Button
-                          className="w-full h-10 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl gap-2"
-                          onClick={() => handleAddToCart(product)}
-                        >
-                          <ShoppingCart className="h-4 w-4" />
-                          Add to Cart
-                        </Button>
-                      </CardContent>
-                    </Card>
+                      product={product}
+                      onAddToCart={(prod) => handleAddToCart(prod)}
+                    />
                   ))}
                 </div>
               </>
