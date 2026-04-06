@@ -155,7 +155,7 @@ export const BusinessProductSearch = ({
         name: product.name,
         price: product.price,
         images: product.images,
-        category: product.category?.name,
+        category: product.category?.name || "Unknown",
       },
       1
     );

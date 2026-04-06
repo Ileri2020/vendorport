@@ -1,7 +1,6 @@
 import multer from "multer";
 
-
-const filter = (req, file, cb) => {
+const filter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     if(file.mimetype === "image/jpeg" || file.mimetype === "image/jpg" || file.mimetype === "image/webp"){
         cb(null, true)
     }
@@ -11,11 +10,6 @@ const filter = (req, file, cb) => {
     // )
 }
 
-const memstorage = multer.memoryStorage({
-    filenane: (req, file, cb)=>{
-        cb(null, file.originalname.toLocaleLowerCase() + new Date().toString())
-    },
-})
-
+const memstorage = multer.memoryStorage()
 
 export const uploadimg = multer({ storage: memstorage, limits: {fieldSize: 1024 * 5012}, fileFilter: filter })
