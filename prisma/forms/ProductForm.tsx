@@ -6,11 +6,12 @@ import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Sparkles, Wand2, Package } from 'lucide-react';
+import { Loader2, Sparkles, Wand2, Package, Edit, Trash2 } from 'lucide-react';
 
 import { AdminFormContainer } from '@/components/utility/AdminFormContainer';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ProductForm({ initialProduct, hideList = false, businessId }: { initialProduct?: any, hideList?: boolean, businessId?: string }) {
   const [products, setProducts] = useState<any>([]);
@@ -519,6 +520,3 @@ export default function ProductForm({ initialProduct, hideList = false, business
     </div>
   );
 }
-
-import { Package, Edit, Trash2 } from "lucide-react";
-import { Checkbox } from '@/components/ui/checkbox';

@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-04-06 15:05:31
+Generated: 2026-04-06 15:16:14
 ================================================================================
 
 
@@ -25843,7 +25843,6 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
                    <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Preview</p>
                    <div className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-accent/20 bg-white p-3">
                      {showImage && iconImageUrl ? (
-                       {/* eslint-disable-next-line */}
                        <img
                          src={iconImageUrl}
                          alt="Icon preview"
@@ -25852,7 +25851,6 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
                        />
                      ) : null}
                      {showText ? (
-                       {/* eslint-disable-next-line */}
                        <span
                          className="font-black truncate"
                          style={{ fontSize: iconFontSize, color: iconFontColor, maxWidth: 160 }}
@@ -39145,11 +39143,12 @@ import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Sparkles, Wand2, Package } from 'lucide-react';
+import { Loader2, Sparkles, Wand2, Package, Edit, Trash2 } from 'lucide-react';
 
 import { AdminFormContainer } from '@/components/utility/AdminFormContainer';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
 
 export default function ProductForm({ initialProduct, hideList = false, businessId }: { initialProduct?: any, hideList?: boolean, businessId?: string }) {
   const [products, setProducts] = useState<any>([]);
@@ -39658,9 +39657,6 @@ export default function ProductForm({ initialProduct, hideList = false, business
     </div>
   );
 }
-
-import { Package, Edit, Trash2 } from "lucide-react";
-import { Checkbox } from '@/components/ui/checkbox';
 
 
 

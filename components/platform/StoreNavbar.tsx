@@ -211,7 +211,6 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
                    <p className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Preview</p>
                    <div className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-accent/20 bg-white p-3">
                      {showImage && iconImageUrl ? (
-                       {/* eslint-disable-next-line */}
                        <img
                          src={iconImageUrl}
                          alt="Icon preview"
@@ -220,7 +219,6 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
                        />
                      ) : null}
                      {showText ? (
-                       {/* eslint-disable-next-line */}
                        <span
                          className="font-black truncate"
                          style={{ fontSize: iconFontSize, color: iconFontColor, maxWidth: 160 }}
