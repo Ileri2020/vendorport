@@ -5,13 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function CouponForm() {
-  const [coupons, setCoupons] = useState([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     code: '',
     discount: '',
     expiresAt: '',
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
 
   useEffect(() => {
     fetchCoupons();

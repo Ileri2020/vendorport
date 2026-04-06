@@ -6,14 +6,14 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 
 export default function PaymentForm() {
-  const [payments, setPayments] = useState([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     cartId: '',
     method: '',
     amount: 0,
   });
-  const [editId, setEditId] = useState(null);
-  const [carts, setCarts] = useState([]); // carts to be mapped to the select input
+  const [editId, setEditId] = useState<any>(null);
+  const [carts, setCarts] = useState<any[]>([]); // carts to be mapped to the select input
 
   useEffect(() => {
     fetchPayments();

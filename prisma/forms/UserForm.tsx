@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function UserForm() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -13,7 +13,7 @@ export default function UserForm() {
     image: '',
     role: 'user',
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
 
   useEffect(() => {
     fetchUsers();

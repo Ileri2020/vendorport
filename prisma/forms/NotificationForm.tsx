@@ -5,13 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function NotificationForm() {
-  const [notifications, setNotifications] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     userId: '',
     message: '',
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
 
   useEffect(() => {
     fetchNotifications();

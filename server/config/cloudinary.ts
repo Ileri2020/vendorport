@@ -22,8 +22,8 @@ const uploadCloudinary = async (buffer, folder) => {
           resource_type: 'image',
         },
         (error, result) => {
-          if (error) {
-            reject(error);
+          if (error || !result) {
+            reject(error || new Error("Cloudinary upload failed with no result"));
           } else {
             resolve({
               publicId: result.public_id,

@@ -125,7 +125,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         async signIn({user, account}) {
 
-            if (account.provider === "google"){
+            if (account && account.provider === "google"){
 
                 try {
                     const { email, name, image, id } = user
@@ -150,35 +150,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     });
             
                     if (response.ok) {
-                    user = await response.json();
-                    // return userData;
+                        alreadyUser = await response.json();
                     } else {
                         throw new Error('Failed to fetch user data')
                     }
 
                     if(!alreadyUser) {
-                        // try {
-                        //     User.create({
-                        //         // firstName: firstName,
-                        //         // lastName: lastName,
-                        //         email: email,
-                        //         // password: hashedPassword,
-                        //         // role: role,
-                        //         image : image,
-                        //         authProviderId : id
-                        //     })
-                        // } catch (error) {
-                        //     // users = mongoose.model('users', userSchema)
-                        //     console.log("unable to get user from database")
-                        // }  
                         console.log("i need to create user account for you using api route")
+                        return true;
                     } else {
                         return true
                     }
                 }catch (error) {
                     console.log("error while creating user from google credentials")
+                    return false;
                 }
             }
+            return true;
         }
 
 

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Search products in the database
     // We search for top matches AND similar products in the same category
-    const results = [];
+    const results: any[] = [];
 
     for (const item of itemsToSearch) {
       // Find top direct matches

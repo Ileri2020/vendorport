@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function ShippingAddressForm() {
-  const [shippingAddresses, setShippingAddresses] = useState([]);
+  const [shippingAddresses, setShippingAddresses] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     userId: '',
     address: '',
@@ -15,8 +15,8 @@ export default function ShippingAddressForm() {
     country: '',
     phone: '',
   });
-  const [editId, setEditId] = useState(null);
-  const [users, setUsers] = useState([]); // Added to store users for the select input
+  const [editId, setEditId] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]); // Added to store users for the select input
 
   useEffect(() => {
     fetchShippingAddresses();

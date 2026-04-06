@@ -5,14 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function RefundForm() {
-  const [refunds, setRefunds] = useState([]);
+  const [refunds, setRefunds] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     cartId: '',
     amount: '',
     reason: '',
     status: 'pending',
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
 
   useEffect(() => {
     fetchRefunds();

@@ -11,7 +11,7 @@ import { useAppContext } from "@/hooks/useAppContext";
 
 export default function PostForm() {
   const { currentBusiness } = useAppContext();
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -21,8 +21,8 @@ export default function PostForm() {
     for: 'General',
     event: '',
   });
-  const [editId, setEditId] = useState(null);
-  const [users, setUsers] = useState([]);
+  const [editId, setEditId] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
     fetchPosts();
