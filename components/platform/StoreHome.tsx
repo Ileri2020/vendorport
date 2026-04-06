@@ -1,3 +1,4 @@
+/* eslint-disable tailwindcss/no-inline-styles */
 "use client"
 import React from 'react'
 import { useIsBusinessAdmin } from '@/hooks/useIsBusinessAdmin'
@@ -211,6 +212,13 @@ interface Business {
     heroCTA?: string
     heroCTALink?: string
     heroImage?: string
+    iconMode?: string
+    iconText?: string
+    iconFontSize?: number
+    iconFontColor?: string
+    iconImageUrl?: string
+    iconImageWidth?: number
+    iconImageHeight?: number
     addToHome?: string
   }
   staff?: Staff[]
@@ -286,7 +294,7 @@ const StoreHome = ({
 
   const sections: NormalizedSection[] = rawSections
     .map(normalizeSec)
-    .sort((a, b) => a.order - b.order);
+    .sort((a: NormalizedSection, b: NormalizedSection) => a.order - b.order);
 
   const globalHeaderSections = (business.sections || [])
     .filter((s: any) => s.page === 'header' && s.isActive !== false)
@@ -511,6 +519,7 @@ const SortableSectionRow = ({ section, idx, arr, isAdmin, business, handleMoveSe
   };
 
   return (
+    // eslint-disable-next-line tailwindcss/no-inline-styles
     <div ref={setNodeRef} style={style} className={`w-full group/section relative ${isDragging ? 'shadow-2xl ring-2 ring-accent scale-[1.02] rounded-3xl overflow-hidden' : ''}`}>
        {isAdmin && (
           <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-1 flex-wrap justify-end p-1.5 bg-background/90 backdrop-blur-xl rounded-xl border-2 shadow-xl items-center">

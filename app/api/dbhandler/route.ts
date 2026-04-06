@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import cloudinary from "cloudinary";
 import path from "path";
 import { auth } from "@/auth";
+import { DEFAULT_PAGE_TEMPLATES } from "@/lib/storeTemplates";
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -608,7 +609,23 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Business name already exists" }, { status: 409 });
       }
 
-      // Create business with nested default project settings and a Home page
+      // Create business with nested default project settings and ALL template pages
+      // Build pages from DEFAULT_PAGE_TEMPLATES
+      const templatePages = Object.entries(DEFAULT_PAGE_TEMPLATES)
+        .filter(([key]) => !['pharmacy', 'fastfood', 'restaurant', 'marketplace'].includes(key)) // exclude meta templates
+        .map(([slug, template]: any) => ({
+          name: template.name || slug.charAt(0).toUpperCase() + slug.slice(1),
+          slug,
+          sections: {
+            create: (template.sections || []).map((section: any) => ({
+              type: section.type,
+              layout: section.layout,
+              order: section.order,
+              data: section.data || {},
+            })),
+          },
+        }));
+
       const created = await prisma.business.create({
         data: {
           name: normalized,
@@ -619,15 +636,11 @@ export async function POST(req: NextRequest) {
               currency: body.currency || "NGN",
               exchangeRate: body.exchangeRate ? parseFloat(body.exchangeRate) : 1.0,
               pages: {
-                create: [
-                  {
-                    name: "Home",
-                    slug: "home",
-                    sections: {
-                      create: [],
-                    },
-                  },
-                ],
+                create: templatePages.length > 0 ? templatePages : [{
+                  name: "Home",
+                  slug: "home",
+                  sections: { create: [] },
+                }],
               },
             },
           },

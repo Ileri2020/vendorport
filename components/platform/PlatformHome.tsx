@@ -1,14 +1,16 @@
 "use client"
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
-import { ArrowRight, PlusCircle, Star, ExternalLink, Shield, Zap, Globe, User, Sparkles } from 'lucide-react'
+import { ArrowRight, PlusCircle, Star, ExternalLink, Shield, Zap, Globe, User, Sparkles, Trash2, Archive, AlertTriangle, Loader2 } from 'lucide-react'
 import { AiOutlineRobot } from 'react-icons/ai'
 import { useAppContext } from '@/hooks/useAppContext'
 import Login from '@/components/myComponents/subs/login'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import Image from 'next/image'
+import axios from 'axios'
+import { toast } from 'sonner'
 
 interface Business {
   id: string
@@ -16,17 +18,66 @@ interface Business {
   template: string
   ratings: number
   numReviews: number
+  isArchived?: boolean
   owner: {
     name: string | null
     image: string | null
   }
 }
 
-const PlatformHome = ({ businesses }: { businesses: Business[] }) => {
+const PlatformHome = ({ businesses, isAdmin = false }: { businesses: Business[], isAdmin?: boolean }) => {
   const { user } = useAppContext();
+  const [businessList, setBusinessList] = useState<Business[]>(businesses);
+  const [loadingId, setLoadingId] = useState<string | null>(null);
 
   // Order by ratings double-check (already done in page.tsx but safety)
-  const sortedBusinesses = [...businesses].sort((a, b) => b.ratings - a.ratings);
+  const sortedBusinesses = [...businessList].sort((a, b) => b.ratings - a.ratings);
+
+  const handleArchiveBusiness = async (businessId: string, businessName: string) => {
+    if (!window.confirm(`Are you sure you want to archive "${businessName}"? This business will be suspended but data will be preserved.`)) {
+      return;
+    }
+
+    try {
+      setLoadingId(businessId);
+      const response = await axios.post("/api/business/archive", { businessId });
+      
+      if (response.data.success) {
+        toast.success(`"${businessName}" archived successfully`);
+        setBusinessList(businessList.map(b => 
+          b.id === businessId ? { ...b, isArchived: true } : b
+        ));
+      }
+    } catch (error: any) {
+      console.error("Archive error:", error);
+      toast.error(error.response?.data?.error || "Failed to archive business");
+    } finally {
+      setLoadingId(null);
+    }
+  };
+
+  const handleDeleteBusiness = async (businessId: string, businessName: string) => {
+    if (!window.confirm(`Are you sure you want to PERMANENTLY DELETE "${businessName}"? This action cannot be undone and all data will be removed.`)) {
+      return;
+    }
+
+    try {
+      setLoadingId(businessId);
+      const response = await axios.delete("/api/business/delete", {
+        data: { businessId }
+      });
+      
+      if (response.data.success) {
+        toast.success(`"${businessName}" deleted successfully`);
+        setBusinessList(businessList.filter(b => b.id !== businessId));
+      }
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast.error(error.response?.data?.error || "Failed to delete business");
+    } finally {
+      setLoadingId(null);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center">
@@ -215,11 +266,21 @@ const PlatformHome = ({ businesses }: { businesses: Business[] }) => {
                    </div>
                 </div>
                 <CardHeader>
-                  <CardTitle className="text-3xl font-black tracking-tight">{biz.name}</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <CardTitle className="text-3xl font-black tracking-tight">{biz.name}</CardTitle>
+                      {biz.isArchived && (
+                        <div className="inline-flex items-center gap-1 mt-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs font-bold">
+                          <AlertTriangle className="h-3 w-3" />
+                          ARCHIVED - SUSPENDED
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <div className="flex items-center gap-3 pt-2">
                       <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border-2 border-primary/5">
                          {biz.owner.image ? (
-                           <img src={biz.owner.image} alt={biz.owner.name || ""} className="h-full w-full rounded-xl object-cover" />
+                           <img src={biz.owner.image} alt={biz.owner.name || ""} title={biz.owner.name || ""} className="h-full w-full rounded-xl object-cover" />
                          ) : (
                            <User className="h-5 w-5 text-primary" />
                          )}
@@ -233,12 +294,61 @@ const PlatformHome = ({ businesses }: { businesses: Business[] }) => {
                 <CardContent className="flex-1">
                    <p className="text-muted-foreground line-clamp-2 font-medium">The official digital presence for {biz.name}, powered by VendorPort infrastructure.</p>
                 </CardContent>
-                <CardFooter className="pt-0 pb-8 px-6">
-                  <Link href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`} className="w-full">
-                    <Button className="w-full h-14 gap-3 border-2 rounded-2xl group-hover:bg-accent group-hover:text-white transition-all font-black text-lg" variant="outline">
-                      Visit Experience <ArrowRight className="h-5 w-5" />
+                <CardFooter className="pt-0 pb-4 px-6 flex flex-col gap-3">
+                  {!biz.isArchived ? (
+                    <Link href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`} className="w-full">
+                      <Button className="w-full h-14 gap-3 border-2 rounded-2xl group-hover:bg-accent group-hover:text-white transition-all font-black text-lg" variant="outline">
+                        Visit Experience <ArrowRight className="h-5 w-5" />
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button disabled className="w-full h-14 gap-3 border-2 rounded-2xl bg-muted text-muted-foreground font-black text-lg" variant="outline">
+                      Archived - Cannot Access
                     </Button>
-                  </Link>
+                  )}
+                  
+                  {isAdmin && (
+                    <div className="flex gap-2 w-full">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleArchiveBusiness(biz.id, biz.name)}
+                        disabled={loadingId === biz.id || biz.isArchived}
+                        className="flex-1 gap-2 font-bold text-xs border-orange-200 hover:bg-orange-50"
+                      >
+                        {loadingId === biz.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <Archive className="h-3 w-3" />
+                            {biz.isArchived ? 'Archived' : 'Archive'}
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDeleteBusiness(biz.id, biz.name)}
+                        disabled={loadingId === biz.id}
+                        className="flex-1 gap-2 font-bold text-xs"
+                      >
+                        {loadingId === biz.id ? (
+                          <>
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Deleting...
+                          </>
+                        ) : (
+                          <>
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </CardFooter>
               </Card>
             </motion.div>

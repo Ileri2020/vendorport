@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Loader2, Sparkles, Wand2, Package } from 'lucide-react';
 
 import { AdminFormContainer } from '@/components/utility/AdminFormContainer';
 import { Badge } from '@/components/ui/badge';
@@ -27,8 +28,11 @@ export default function ProductForm({ initialProduct, hideList = false, business
   const [preview, setPreview] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(initialProduct?.id || null);
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [batchAiLoading, setBatchAiLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(0);
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
@@ -154,6 +158,101 @@ export default function ProductForm({ initialProduct, hideList = false, business
     });
   };
 
+  const generateAIDescription = async () => {
+    if (!formData.name) {
+      toast.error("Please enter a product name first");
+      return;
+    }
+
+    try {
+      setAiLoading(true);
+      const response = await axios.post("/api/ai/describe", {
+        mode: "single",
+        productData: {
+          name: formData.name,
+          categoryId: formData.categoryId || null,
+        },
+      });
+
+      if (response.data.success) {
+        setFormData({
+          ...formData,
+          description: response.data.description,
+        });
+        toast.success("AI description generated!");
+      }
+    } catch (error: any) {
+      console.error("Failed to generate description:", error);
+      toast.error(error.response?.data?.error || "Failed to generate description");
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const generateBatchDescriptions = async () => {
+    if (selectedProducts.size === 0) {
+      toast.error("Please select at least one product");
+      return;
+    }
+
+    const productIds = Array.from(selectedProducts);
+
+    try {
+      setBatchAiLoading(true);
+      const response = await axios.post("/api/ai/describe", {
+        mode: "batch",
+        productIds,
+        businessId,
+      });
+
+      if (response.data.success) {
+        const results = response.data.results;
+        let successCount = 0;
+        let failureCount = 0;
+
+        // Update each product with AI description
+        for (const result of results) {
+          if (result.description && !result.error) {
+            try {
+              await axios.put(
+                `/api/dbhandler?model=product&id=${result.productId}`,
+                { description: result.description }
+              );
+              successCount++;
+            } catch (err) {
+              failureCount++;
+            }
+          } else {
+            failureCount++;
+          }
+        }
+
+        toast.success(
+          `Batch complete: ${successCount} descriptions generated, ${failureCount} failed`
+        );
+        setSelectedProducts(new Set());
+        fetchProducts();
+      }
+    } catch (error: any) {
+      console.error("Failed to generate batch descriptions:", error);
+      toast.error(
+        error.response?.data?.error || "Failed to generate batch descriptions"
+      );
+    } finally {
+      setBatchAiLoading(false);
+    }
+  };
+
+  const toggleProductSelection = (productId: string) => {
+    const newSelected = new Set(selectedProducts);
+    if (newSelected.has(productId)) {
+      newSelected.delete(productId);
+    } else {
+      newSelected.add(productId);
+    }
+    setSelectedProducts(newSelected);
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto">
       <AdminFormContainer 
@@ -193,7 +292,29 @@ export default function ProductForm({ initialProduct, hideList = false, business
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="product-desc">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="product-desc">Description</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={generateAIDescription}
+                    disabled={aiLoading || !formData.name}
+                    className="h-7 text-xs font-semibold gap-1.5 bg-gradient-to-r from-blue-50 to-cyan-50 hover:from-blue-100 hover:to-cyan-100 border-blue-200"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3 w-3" />
+                        AI Generate
+                      </>
+                    )}
+                  </Button>
+                </div>
                 <Input
                   id="product-desc"
                   placeholder="Briefly describe the product"
@@ -263,6 +384,28 @@ export default function ProductForm({ initialProduct, hideList = false, business
                  <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Recent Inventory</h3>
                  <Badge variant="secondary" className="font-bold">{products.length}</Badge>
               </div>
+
+              {/* Batch AI Button */}
+              {selectedProducts.size > 0 && (
+                <Button
+                  type="button"
+                  onClick={generateBatchDescriptions}
+                  disabled={batchAiLoading}
+                  className="w-full h-10 font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white gap-2"
+                >
+                  {batchAiLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating {selectedProducts.size} Descriptions...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4" />
+                      Generate AI Descriptions ({selectedProducts.size})
+                    </>
+                  )}
+                </Button>
+              )}
               
               {/* Search Input */}
               {products.length > 0 && (
@@ -293,21 +436,40 @@ export default function ProductForm({ initialProduct, hideList = false, business
                 
                 return (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[600px] overflow-y-auto pr-2 scroll-smooth">
                       {paginated.map((item: any) => (
-                          <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-2xl border-2 border-transparent hover:bg-white hover:border-accent/10 transition-all group shadow-sm">
-                              <div className="flex items-center gap-3 overflow-hidden">
-                                  <img src={item.images?.[0] || "/placeholder.jpg"} className="h-10 w-10 rounded-lg object-cover border" />
+                          <div 
+                            key={item.id} 
+                            className={`flex items-center justify-between p-3 rounded-2xl border-2 transition-all group shadow-sm cursor-pointer ${
+                              selectedProducts.has(item.id)
+                                ? 'bg-purple-100 border-purple-300'
+                                : 'bg-muted/30 border-transparent hover:bg-white hover:border-accent/10'
+                            }`}
+                            onClick={() => toggleProductSelection(item.id)}
+                          >
+                              <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                  <Checkbox 
+                                    checked={selectedProducts.has(item.id)}
+                                    onCheckedChange={() => toggleProductSelection(item.id)}
+                                    className="h-5 w-5"
+                                  />
+                                  <img src={item.images?.[0] || "/placeholder.jpg"} alt={item.name || "Product image"} className="h-10 w-10 rounded-lg object-cover border" />
                                   <div className="truncate">
                                     <p className="font-bold text-sm truncate">{item.name}</p>
                                     <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
                                   </div>
                               </div>
                               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-accent" onClick={() => handleEdit(item)}>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-accent/10 text-accent" onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(item);
+                                  }}>
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={() => handleDelete(item)}>
+                                  <Button size="icon" variant="ghost" className="h-8 w-8 hover:bg-destructive/10 text-destructive" onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(item);
+                                  }}>
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                               </div>
@@ -359,3 +521,4 @@ export default function ProductForm({ initialProduct, hideList = false, business
 }
 
 import { Package, Edit, Trash2 } from "lucide-react";
+import { Checkbox } from '@/components/ui/checkbox';

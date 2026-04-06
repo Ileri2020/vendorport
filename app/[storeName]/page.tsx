@@ -72,6 +72,22 @@ const DynamicStorePage = () => {
     );
   }
 
+  // Check if business is archived
+  if (business.isArchived) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6 text-center px-4">
+        <AlertCircle className="h-20 w-20 text-yellow-500" />
+        <div className="space-y-2">
+           <h1 className="text-4xl font-extrabold tracking-tight">This Store is Currently Suspended</h1>
+           <p className="text-xl text-muted-foreground">The business "{business.name}" has been archived by the platform administrators. Pages are temporarily unavailable.</p>
+        </div>
+        <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
+           Back to Platform Home
+        </Button>
+      </div>
+    );
+  }
+
   // Redirect to StoreHome component or render it here
   return (
     <div className="min-h-screen bg-background relative">
