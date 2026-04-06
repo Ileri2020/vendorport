@@ -7,10 +7,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ChevronRight, Menu, Layout, BarChart3, Search, Camera, Edit2 } from 'lucide-react'
+import { ChevronRight, Menu, Layout, BarChart3, Search, Camera, Edit2, Home, Info, Phone, ShoppingBag, FileText, MoreHorizontal } from 'lucide-react'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 import TemplateSelector from './TemplateSelector'
@@ -77,6 +78,32 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
   const showText = iconMode !== 'image';
   const showImage = iconMode !== 'text' && Boolean(iconImageUrl);
   const renderedIconText = iconText?.trim() || business.name;
+
+  // Function to get icon for page based on slug
+  const getPageIcon = (slug: string) => {
+    switch (slug.toLowerCase()) {
+      case 'home':
+        return Home;
+      case 'about':
+        return Info;
+      case 'contact':
+        return Phone;
+      case 'products':
+      case 'shop':
+        return ShoppingBag;
+      case 'services':
+        return FileText;
+      default:
+        return FileText;
+    }
+  };
+
+  // Separate home page from other pages
+  const homePage = pages.find(p => p.slug === 'home');
+  const otherPages = pages.filter(p => p.slug !== 'home');
+  const maxVisiblePages = 4; // Show max 4 pages before dropdown
+  const visiblePages = otherPages.slice(0, maxVisiblePages);
+  const dropdownPages = otherPages.slice(maxVisiblePages);
 
   return (
    <nav className="w-full border-b sticky top-0 z-[50] py-4 px-4 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
@@ -245,16 +272,60 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
          {business.name}
        </Link>
      </div>
-     <div className="hidden md:flex items-center gap-8">
-       {pages.map(page => (
+     {/* Navigation - positioned at extreme right with max width of 4/10 */}
+     <div className="hidden md:flex items-center gap-2 w-2/5 justify-end">
+       {homePage && (
          <Link
-          key={page.id}
-          href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
-          className="font-bold text-sm uppercase tracking-widest hover:text-accent transition-colors"
+           href={`/${storeName}`}
+           className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-accent/10 hover:text-accent transition-colors"
+           title={homePage.name}
          >
-          {page.name}
+           <Home className="h-5 w-5" />
          </Link>
-       ))}
+       )}
+       {visiblePages.map(page => {
+         const IconComponent = getPageIcon(page.slug);
+         return (
+           <Link
+             key={page.id}
+             href={`/${storeName}/${page.slug}`}
+             className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-accent/10 hover:text-accent transition-colors"
+             title={page.name}
+           >
+             <IconComponent className="h-5 w-5" />
+           </Link>
+         );
+       })}
+       {dropdownPages.length > 0 && (
+         <DropdownMenu>
+           <DropdownMenuTrigger asChild>
+             <Button
+               variant="ghost"
+               size="icon"
+               className="w-10 h-10 rounded-lg hover:bg-accent/10 hover:text-accent"
+               title="More pages"
+             >
+               <MoreHorizontal className="h-5 w-5" />
+             </Button>
+           </DropdownMenuTrigger>
+           <DropdownMenuContent align="end" className="w-48">
+             {dropdownPages.map(page => {
+               const IconComponent = getPageIcon(page.slug);
+               return (
+                 <DropdownMenuItem key={page.id} asChild>
+                   <Link
+                     href={`/${storeName}/${page.slug}`}
+                     className="flex items-center gap-2 w-full"
+                   >
+                     <IconComponent className="h-4 w-4" />
+                     {page.name}
+                   </Link>
+                 </DropdownMenuItem>
+               );
+             })}
+           </DropdownMenuContent>
+         </DropdownMenu>
+       )}
      </div>
      <div className="flex items-center gap-2 md:gap-4">
        {isAdmin && (

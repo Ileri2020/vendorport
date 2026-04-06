@@ -366,7 +366,7 @@ const StoreHome = ({
 
        {/* Global header components as reusable blocks */}
        {globalHeaderSections.map((section) => (
-         <RenderSection key={`header-${section.id}`} section={section} business={business} isAdmin={isAdmin} />
+         <RenderSection key={`header-${section.id}`} section={section} business={business} isAdmin={isAdmin} activePageSlug={activePageSlug} />
        ))}
 
        {isAdmin && (
@@ -444,7 +444,7 @@ const StoreHome = ({
            <div className="w-full bg-white shadow-sm ring-1 ring-black/5">
              {/* Global Header Builder Sections */}
              {globalHeaderSections.map((s: any) => (
-               <RenderSection key={s.id} section={normalizeSec(s)} business={business} isAdmin={false} />
+               <RenderSection key={s.id} section={normalizeSec(s)} business={business} isAdmin={false} activePageSlug={activePageSlug} />
              ))}
 
              {activeSections.length === 0 && (
@@ -479,6 +479,7 @@ const StoreHome = ({
                         arr={arr} 
                         isAdmin={isAdmin && buildMode} 
                         business={business}
+                        activePageSlug={activePageSlug}
                         handleMoveSection={handleMoveSection}
                         handleRemoveSection={handleRemoveSection}
                         handleAddSection={handleAddSection}
@@ -490,7 +491,7 @@ const StoreHome = ({
              
              {/* Global Footer Builder Sections */}
              {globalFooterSections.map((s: any) => (
-               <RenderSection key={s.id} section={normalizeSec(s)} business={business} isAdmin={false} />
+               <RenderSection key={s.id} section={normalizeSec(s)} business={business} isAdmin={false} activePageSlug={activePageSlug} />
              ))}
            </div>
         </main>
@@ -501,7 +502,7 @@ const StoreHome = ({
 }
 
 // Draggable wrapper for sections in the layout
-const SortableSectionRow = ({ section, idx, arr, isAdmin, business, handleMoveSection, handleRemoveSection, handleAddSection, handleDuplicateSection }: any) => {
+const SortableSectionRow = ({ section, idx, arr, isAdmin, business, activePageSlug, handleMoveSection, handleRemoveSection, handleAddSection, handleDuplicateSection }: any) => {
   const {
     attributes,
     listeners,
@@ -519,7 +520,6 @@ const SortableSectionRow = ({ section, idx, arr, isAdmin, business, handleMoveSe
   };
 
   return (
-    // eslint-disable-next-line tailwindcss/no-inline-styles
     <div ref={setNodeRef} style={style} className={`w-full group/section relative ${isDragging ? 'shadow-2xl ring-2 ring-accent scale-[1.02] rounded-3xl overflow-hidden' : ''}`}>
        {isAdmin && (
           <div className="absolute right-4 top-4 z-40 opacity-0 group-hover/section:opacity-100 transition-opacity flex gap-1 flex-wrap justify-end p-1.5 bg-background/90 backdrop-blur-xl rounded-xl border-2 shadow-xl items-center">
@@ -542,7 +542,7 @@ const SortableSectionRow = ({ section, idx, arr, isAdmin, business, handleMoveSe
        
        {/* Block events from interfering with drag handle logic */}
        <div className={`${isDragging ? 'pointer-events-none' : ''}`}>
-         <RenderSection section={section} business={business} isAdmin={isAdmin} />
+         <RenderSection section={section} business={business} isAdmin={isAdmin} activePageSlug={activePageSlug} />
        </div>
 
        {isAdmin && (
@@ -622,7 +622,7 @@ const SectionWrapper = ({ section, children, className = "" }: { section: any, c
 };
 
 // Component to render custom UI based on ProjectSettings section definition
-const RenderSection = ({ section, business, isAdmin }: { section: any, business: Business, isAdmin: boolean }) => {
+const RenderSection = ({ section, business, isAdmin, activePageSlug }: { section: any, business: Business, isAdmin: boolean, activePageSlug: string }) => {
    // old schema: { id, type, layout, data }
    // new schema: { id, key, type, settings, content }
    const { id } = section;
@@ -637,6 +637,10 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
    
    switch (type) {
      case 'hero':
+        // Only render hero section on the home page
+        if (activePageSlug !== 'home') {
+          return null;
+        }
         return (
           <div className="w-full">
             <Hero 

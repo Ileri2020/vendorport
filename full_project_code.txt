@@ -1,6 +1,6 @@
 ================================================================================
 LOIS SPICE PROJECT - SOURCE CODE CONSOLIDATION
-Generated: 2026-04-06 15:16:14
+Generated: 2026-04-06 17:28:42
 ================================================================================
 
 
@@ -874,7 +874,7 @@ const Account = () => {
               </div>
             </div>
           </div>
-          {user.addresses && user.addresses.length > 0 && user.addresses.map((addr, index) => (
+          {user.addresses && user.addresses.length > 0 && user.addresses.map((addr: any, index: number) => (
             <div key={addr.id || index} className="w-full px-3">
               <div className="flex flex-row gap-3">
                 <div className="w-14 h-14">icon</div>
@@ -1935,7 +1935,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Search products in the database
     // We search for top matches AND similar products in the same category
-    const results = [];
+    const results: any[] = [];
 
     for (const item of itemsToSearch) {
       // Find top direct matches
@@ -2209,11 +2209,15 @@ export async function POST(req: NextRequest) {
   // const body = searchParams.get('body') || null;
 
   // Parse JSON body
-  let body = null;
+  let body: any = null;
   try {
     body = await req.json(); // This reads the JSON payload
   } catch (err) {
     return new Response('Invalid JSON', { status: 400 });
+  }
+
+  if (!body) {
+    return new Response('Body is empty', { status: 400 });
   }
 
   // const email = body.email
@@ -2622,14 +2626,16 @@ const modelMap = {
   user: prisma.user,
 };
 
+type ModelName = keyof typeof modelMap;
+
 async function dbHandler({
-  model = null,
-  id = null,
+  model,
+  id,
   body = null,
   method,
   profileImage = false,
 }: {
-  model: any;
+  model: ModelName;
   id?: string;
   body?: any;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -2637,7 +2643,7 @@ async function dbHandler({
 }) {
   console.log("In dbhandler function");
 
-  const prismaModel = modelMap[model];
+  const prismaModel = modelMap[model] as any;
 
   if (!prismaModel) {
     return { status: 400, data: { message: 'Invalid model' } };
@@ -2659,7 +2665,7 @@ async function dbHandler({
       case 'POST': {
         const data = body;
         const newItem = await prismaModel.create({ data });
-        if (profileImage && model === 'posts') {
+        if (profileImage && model === 'post') {
           try {
             console.log("about to change user profile image")
             await prisma.user.update({
@@ -2883,13 +2889,14 @@ export async function POST(req: NextRequest) {
   // const body = searchParams.get('body') || null;
 
   // Parse JSON body
-  let body = null;
-  const {userId, cartItems}=body
+  let body: any = null;
   try {
     body = await req.json(); // This reads the JSON payload
   } catch (err) {
     return new Response('Invalid JSON', { status: 400 });
   }
+
+  const { userId, cartItems } = body;
 
   const { method } = req; 
   console.log("in cart db handler", method, body)
@@ -2912,7 +2919,7 @@ export async function POST(req: NextRequest) {
       status: 'pending',
       total: 0, // You might calculate this based on items
       products: {
-        create: cartItems.map(item => ({
+        create: cartItems.map((item: any) => ({
           quantity: item.quantity,
           product: { connect: { id: item.productId } },
         })),
@@ -2957,6 +2964,10 @@ export async function PUT(req: NextRequest) {
       return new Response('Invalid JSON', { status: 400 });
     }
 
+    if (!body) {
+      return new Response('Body is empty', { status: 400 });
+    }
+
   const { method } = req; 
   console.log("in db handler",model, id, method, body)
 
@@ -2965,7 +2976,7 @@ export async function PUT(req: NextRequest) {
 
     // ✏️ Update Object
   try {
-    const { id, ...updatedata } = body;
+    const { id, ...updatedata } = body as any;
     console.log("id removed from :", updatedata)
     const updatedItem = await prismaModel.update({
       where: {id},
@@ -3017,7 +3028,7 @@ export async function DELETE(req: NextRequest) {
     user: prisma.user,
   };
 
-  const prismaModel = modelMap[model];
+  const prismaModel = (modelMap as any)[model as string];
 
   if (!prismaModel) {
     console.log("in prisma model check function")
@@ -3105,14 +3116,16 @@ const modelMap = {
   user: prisma.user,
 };
 
+type ModelName = keyof typeof modelMap;
+
 async function dbHandler({
-  model = null,
-  id = null,
+  model,
+  id,
   body = null,
   method,
   profileImage = false,
 }: {
-  model: any;
+  model: ModelName;
   id?: string;
   body?: any;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -3120,7 +3133,7 @@ async function dbHandler({
 }) {
   console.log("In dbhandler function");
 
-  const prismaModel = modelMap[model];
+  const prismaModel = modelMap[model] as any;
 
   if (!prismaModel) {
     return { status: 400, data: { message: 'Invalid model' } };
@@ -3142,7 +3155,7 @@ async function dbHandler({
       case 'POST': {
         const data = body;
         const newItem = await prismaModel.create({ data });
-        if (profileImage && model === 'posts') {
+        if (profileImage && model === 'post') {
           try {
             console.log("about to change user profile image")
             await prisma.user.update({
@@ -4289,7 +4302,7 @@ cloudinary.config({
 });
 
 
-export async function handleUpload(file) {
+export async function handleUpload(file: any) {
   const res = await cloudinary.uploader.upload(file, {
     resource_type: "auto",
   });
@@ -4310,12 +4323,15 @@ import dbHandler from '../../dbhandler/function';
 
 
 
-export async function POST(req , res) {
+export async function POST(req: NextRequest) {
   const Formdata = await req.formData();
 
   console.log("about to upload image", Formdata)
   
-  const file = Formdata.get("file")
+  const file = Formdata.get("file") as File | null;
+  if (!file) {
+    return NextResponse.json({"error" : "No file uploaded"}, {status : 400})
+  }
   if (file.size > (300 * 1024) && Formdata.get("title") === 'profile image'){
     return NextResponse.json({"error" : "file greater 300kb"}, {status : 413})
   }
@@ -4336,7 +4352,7 @@ export async function POST(req , res) {
   // );
 
   const postRes = await dbHandler({
-    model: 'posts',
+    model: 'post',
     method: 'POST',
     profileImage : Formdata.get("profileImage")==="true",
     body: {
@@ -4836,7 +4852,7 @@ export async function POST(req: NextRequest) {
           });
           // Send order notification
           // Sending to a test email as requested
-          await sendOrderNotification(process.env.ORDER_RECEIVER_EMAIL, {
+          await sendOrderNotification(process.env.ORDER_RECEIVER_EMAIL || "", {
             tx_ref,
             amount: data.amount,
           });
@@ -4954,14 +4970,16 @@ const modelMap = {
   user: prisma.user,
 };
 
+type ModelName = keyof typeof modelMap;
+
 async function dbHandler({
-  model = null,
-  id = null,
+  model,
+  id,
   body = null,
   method,
   profileImage = false,
 }: {
-  model: any;
+  model: ModelName;
   id?: string;
   body?: any;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
@@ -4969,7 +4987,7 @@ async function dbHandler({
 }) {
   console.log("In product dbhandler function");
 
-  const prismaModel = modelMap[model];
+  const prismaModel = modelMap[model] as any;
 
   if (!prismaModel) {
     return { status: 400, data: { message: 'Invalid model' } };
@@ -5006,7 +5024,7 @@ async function dbHandler({
             },
           } 
         );
-        if (profileImage && model === 'posts') {
+        if (profileImage && model === 'post') {
           try {
             console.log("about to change user profile image")
             await prisma.user.update({
@@ -5587,7 +5605,7 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        await sendOrderNotification(process.env.ORDER_RECEIVER_EMAIL, orderDetails);
+        await sendOrderNotification(process.env.ORDER_RECEIVER_EMAIL || "", orderDetails);
         await sendOrderNotification('adepojuololade2020@gmail.com', orderDetails);
 
         return NextResponse.json({ success: true, message: "Notification sent" });
@@ -5676,7 +5694,6 @@ export async function POST(req: Request) {
         productId,
         addedQuantity: Number(addedQuantity),
         costPerProduct: Number(costPerProduct || 0),
-        pricePerProduct: Number(pricePerProduct || 0)
       },
     });
     return new Response(JSON.stringify(stock), { status: 200, headers: { 'Content-Type': 'application/json' } });
@@ -5704,7 +5721,6 @@ export async function PUT(req: Request) {
     data: { 
       addedQuantity: addedQuantity ? Number(addedQuantity) : undefined,
       costPerProduct: costPerProduct ? Number(costPerProduct) : undefined,
-      pricePerProduct: pricePerProduct ? Number(pricePerProduct) : undefined
     },
   });
 
@@ -9271,7 +9287,7 @@ const baseUrl = BASE_URL + "/comments";
 
 const Comments = ( props : {videoId : string}) => {
   const { user, isModal, setIsModal, comments, setComments} = useAppContext();
-  const [compComments, setCompComments] = useState([]); //<CommentType[]>
+  const [compComments, setCompComments] = useState<any[]>([]); //<CommentType[]>
   const [comment, setComment] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
@@ -10386,7 +10402,7 @@ export const AIProductSearch = ({
               name: product.name,
               price: product.price,
               images: product.images,
-              category: product.category,
+              category: product.category || "General",
             },
             1
           );
@@ -13875,10 +13891,10 @@ export const ProfileImg = () => {
     for: 'post',
   });
 
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState("");
 
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
 
 
   const form = useRef<HTMLFormElement>(null);
@@ -13892,7 +13908,9 @@ export const ProfileImg = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const pformData = new FormData();
-    pformData.append("file", file);
+    if (file) {
+      pformData.append("file", file);
+    }
     pformData.append("description", formData.description)
     pformData.append("type", formData.type)
     pformData.append("userId", user.id)
@@ -13940,7 +13958,9 @@ export const ProfileImg = () => {
       openDialog("file size greater than 300kb file may not upload", "File too large")
     }
     setFile(selectedFile);
-    setPreview(URL.createObjectURL(selectedFile));
+    if (selectedFile) {
+      setPreview(URL.createObjectURL(selectedFile));
+    }
   }
 
 
@@ -14024,9 +14044,9 @@ export const PostButton = () => {
     for: 'post',
   });
 
-  const [preview, setPreview] = useState(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [uploadStatus, setUploadStatus] = useState("");
-  const [file, setFile] = useState(null);
+  const [file, setFile] = useState<File | null>(null);
 
 
   const form = useRef<HTMLFormElement>(null);
@@ -14044,7 +14064,9 @@ export const PostButton = () => {
     }
     e.preventDefault();
     const pformData = new FormData();
-    pformData.append("file", file);
+    if (file) {
+      pformData.append("file", file);
+    }
     pformData.append("description", formData.description)
     pformData.append("type", formData.type)
     pformData.append("userId", user.id)
@@ -14095,7 +14117,9 @@ export const PostButton = () => {
   const handleImageChange = (e) => {
     const selectedFile = e.target.files[0];
     setFile(selectedFile);
-    setPreview(URL.createObjectURL(selectedFile));
+    if (selectedFile) {
+      setPreview(URL.createObjectURL(selectedFile));
+    }
 
     const fileType = selectedFile.type.split('/')[0];
     switch (fileType) {
@@ -14149,7 +14173,7 @@ export const PostButton = () => {
                 {formData.type === 'audio' && (
                   <audio src={preview} controls />
                 )}
-                {formData.type === 'document' && (
+                {formData.type === 'document' && file && (
                   <p>Selected document: {file.name}</p>
                 )}
               </div>
@@ -16448,7 +16472,7 @@ import { useAppContext } from '@/hooks/useAppContext';
 
 const Posts = ({ page }) => {
   const { currentBusiness } = useAppContext();
-  const [allpost, setallpost] = useState(null);
+  const [allpost, setallpost] = useState<any[] | null>(null);
   const [sortOrder, setSortOrder] = useState('desc');
   const [postTypes, setPostTypes] = useState({ video: true, audio: true, image: true, });
 
@@ -16937,13 +16961,9 @@ LOCATION: components\myComponents\subs\ProductCarousel.tsx
 "use client"
 
 import React, { useEffect, useState } from "react"
-import { motion, useAnimationControls } from "framer-motion"
-import { Utensils, Heart, ShoppingCart } from "lucide-react"
-import { toggleWishlist, checkWishlisStatus } from "@/action/wishlist"
-import { AddLunchDialog } from "./AddLunchDialog"
-import Link from "next/link"
+import { motion } from "framer-motion"
+import { ProductCard } from "./productCard"
 import { toast } from "sonner"
-import { Button } from "@/components/ui/button"
 
 export function ProductCarousel() {
     const [products, setProducts] = useState<any[]>([])
@@ -16979,85 +16999,20 @@ export function ProductCarousel() {
                 whileHover={{ animationPlayState: "paused" }}
             >
                 {displayProducts.map((product, idx) => (
-                    <CarouselCard key={`${product.id}-${idx}`} product={product} />
+                    <div key={`${product.id}-${idx}`} className="flex-shrink-0 w-64">
+                        <ProductCard
+                            product={product}
+                            variant="compact"
+                            onAddToCart={(prod) => toast.success("Added to cart")}
+                        />
+                    </div>
                 ))}
             </motion.div>
         </div>
     )
 }
 
-function CarouselCard({ product }: { product: any }) {
-    const [isLunchDialogOpen, setIsLunchDialogOpen] = useState(false)
-    const [isInWishlist, setIsInWishlist] = useState(false)
-    const image = product.images?.[0] || "/placeholder.png"
 
-    useEffect(() => {
-        checkWishlisStatus(product.id).then(setIsInWishlist).catch(() => {})
-    }, [product.id])
-
-    const handleWishlist = async (e: React.MouseEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
-        setIsInWishlist(!isInWishlist)
-        await toggleWishlist(product.id)
-    }
-
-    return (
-        <>
-            <div className="relative w-48 h-48 md:w-64 md:h-64 flex-shrink-0 group rounded-lg overflow-hidden shadow-lg bg-muted">
-                <Link href={`/store/${product.id}`} className="block w-full h-full">
-                    <img src={image} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                </Link>
-
-                {/* Top Right Semi-Quarter Circle for Lunch */}
-                <div className="absolute top-0 right-0 w-12 h-12 overflow-hidden pointer-events-none">
-                     <div 
-                        className="absolute top-[-50%] right-[-50%] w-[200%] h-[200%] bg-background/60 backdrop-blur-md rounded-full cursor-pointer pointer-events-auto flex items-center justify-center pt-[25%] pr-[25%]"
-                        onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setIsLunchDialogOpen(true)
-                        }}
-                    >
-                        <Utensils className="h-5 w-5 text-orange-500 translate-x-[-12px] translate-y-[12px]" />
-                    </div>
-                </div>
-
-                {/* Wishlist Icon */}
-                <Button 
-                    onClick={handleWishlist}
-                    className="absolute top-2 right-12 bg-background/60 backdrop-blur-sm p-1.5 rounded-full z-10 hover:bg-background transition-colors"
-                >
-                    <Heart className={cn("h-4 w-4", isInWishlist ? "fill-destructive text-destructive" : "text-muted-foreground")} />
-                </Button>
-
-                {/* Add to Cart Overlay */}
-                <div className="absolute bottom-0 left-0 right-0 h-1/5 bg-background/60 backdrop-blur-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Button 
-                        className="w-full h-full flex items-center justify-center gap-2 font-bold text-sm text-primary hover:bg-primary hover:text-white transition-colors"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toast.success("Added to cart")
-                        }}
-                    >
-                        <ShoppingCart className="h-4 w-4" /> Add to Cart
-                    </Button>
-                </div>
-            </div>
-
-            <AddLunchDialog 
-                isOpen={isLunchDialogOpen} 
-                onClose={() => setIsLunchDialogOpen(false)} 
-                productId={product.id} 
-            />
-        </>
-    )
-}
-
-function cn(...classes: any[]) {
-    return classes.filter(Boolean).join(" ")
-}
 
 
 
@@ -25245,6 +25200,10 @@ const RenderSection = ({ section, business, isAdmin }: { section: any, business:
    
    switch (type) {
      case 'hero':
+        // Only render hero section on the home page
+        if (activePageSlug !== 'home') {
+          return null;
+        }
         return (
           <div className="w-full">
             <Hero 
@@ -25639,10 +25598,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ChevronRight, Menu, Layout, BarChart3, Search, Camera, Edit2 } from 'lucide-react'
+import { ChevronRight, Menu, Layout, BarChart3, Search, Camera, Edit2, Home, Info, Phone, ShoppingBag, FileText, MoreHorizontal } from 'lucide-react'
 import { GlobalCart } from '@/components/utility/GlobalCart'
 import { AIProductSearch } from '@/components/myComponents/subs/AIProductSearch'
 import TemplateSelector from './TemplateSelector'
@@ -25709,6 +25669,32 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
   const showText = iconMode !== 'image';
   const showImage = iconMode !== 'text' && Boolean(iconImageUrl);
   const renderedIconText = iconText?.trim() || business.name;
+
+  // Function to get icon for page based on slug
+  const getPageIcon = (slug: string) => {
+    switch (slug.toLowerCase()) {
+      case 'home':
+        return Home;
+      case 'about':
+        return Info;
+      case 'contact':
+        return Phone;
+      case 'products':
+      case 'shop':
+        return ShoppingBag;
+      case 'services':
+        return FileText;
+      default:
+        return FileText;
+    }
+  };
+
+  // Separate home page from other pages
+  const homePage = pages.find(p => p.slug === 'home');
+  const otherPages = pages.filter(p => p.slug !== 'home');
+  const maxVisiblePages = 4; // Show max 4 pages before dropdown
+  const visiblePages = otherPages.slice(0, maxVisiblePages);
+  const dropdownPages = otherPages.slice(maxVisiblePages);
 
   return (
    <nav className="w-full border-b sticky top-0 z-[50] py-4 px-4 md:px-12 flex justify-between items-center bg-white/80 backdrop-blur-lg">
@@ -25877,16 +25863,60 @@ const StoreNavbar = ({ business, businessId }: { business: Business, businessId?
          {business.name}
        </Link>
      </div>
-     <div className="hidden md:flex items-center gap-8">
-       {pages.map(page => (
+     {/* Navigation - positioned at extreme right with max width of 4/10 */}
+     <div className="hidden md:flex items-center gap-2 w-2/5 justify-end">
+       {homePage && (
          <Link
-          key={page.id}
-          href={page.slug === 'home' ? `/${storeName}` : `/${storeName}/${page.slug}`}
-          className="font-bold text-sm uppercase tracking-widest hover:text-accent transition-colors"
+           href={`/${storeName}`}
+           className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-accent/10 hover:text-accent transition-colors"
+           title={homePage.name}
          >
-          {page.name}
+           <Home className="h-5 w-5" />
          </Link>
-       ))}
+       )}
+       {visiblePages.map(page => {
+         const IconComponent = getPageIcon(page.slug);
+         return (
+           <Link
+             key={page.id}
+             href={`/${storeName}/${page.slug}`}
+             className="flex items-center justify-center w-10 h-10 rounded-lg hover:bg-accent/10 hover:text-accent transition-colors"
+             title={page.name}
+           >
+             <IconComponent className="h-5 w-5" />
+           </Link>
+         );
+       })}
+       {dropdownPages.length > 0 && (
+         <DropdownMenu>
+           <DropdownMenuTrigger asChild>
+             <Button
+               variant="ghost"
+               size="icon"
+               className="w-10 h-10 rounded-lg hover:bg-accent/10 hover:text-accent"
+               title="More pages"
+             >
+               <MoreHorizontal className="h-5 w-5" />
+             </Button>
+           </DropdownMenuTrigger>
+           <DropdownMenuContent align="end" className="w-48">
+             {dropdownPages.map(page => {
+               const IconComponent = getPageIcon(page.slug);
+               return (
+                 <DropdownMenuItem key={page.id} asChild>
+                   <Link
+                     href={`/${storeName}/${page.slug}`}
+                     className="flex items-center gap-2 w-full"
+                   >
+                     <IconComponent className="h-4 w-4" />
+                     {page.name}
+                   </Link>
+                 </DropdownMenuItem>
+               );
+             })}
+           </DropdownMenuContent>
+         </DropdownMenu>
+       )}
      </div>
      <div className="flex items-center gap-2 md:gap-4">
        {isAdmin && (
@@ -31974,6 +32004,7 @@ import {
   Star,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProductCard } from "@/components/myComponents/subs/productCard";
 import axios from "axios";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/use-cart";
@@ -32108,7 +32139,7 @@ export const BusinessProductSearch = ({
         name: product.name,
         price: product.price,
         images: product.images,
-        category: product.category?.name,
+        category: product.category?.name || "Unknown",
       },
       1
     );
@@ -32282,76 +32313,11 @@ export const BusinessProductSearch = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {products.map((product) => (
-                    <Card
+                    <ProductCard
                       key={product.id}
-                      className="rounded-2xl border-2 overflow-hidden hover:border-accent/50 transition-all group cursor-pointer"
-                    >
-                      {/* Image */}
-                      <div className="relative w-full aspect-square bg-muted overflow-hidden">
-                        {product.images?.[0] ? (
-                          <img
-                            src={product.images[0]}
-                            alt={product.name}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-muted/50">
-                            <ShoppingCart className="h-8 w-8 text-muted-foreground/20" />
-                          </div>
-                        )}
-
-                        {/* Overlay on hover */}
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <Button
-                            size="sm"
-                            className="gap-2 font-bold"
-                            onClick={() => handleAddToCart(product)}
-                          >
-                            <ShoppingCart className="h-4 w-4" />
-                            Add to Cart
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Info */}
-                      <CardContent className="p-4 space-y-3">
-                        <div>
-                          <p className="font-bold text-sm line-clamp-2">
-                            {product.name}
-                          </p>
-                          {product.category && (
-                            <Badge variant="secondary" className="text-[10px] mt-2">
-                              {product.category.name}
-                            </Badge>
-                          )}
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <p className="text-lg font-black text-accent">
-                            ₦{product.price.toLocaleString()}
-                          </p>
-                          {product.reviews && product.reviews.length > 0 && (
-                            <div className="flex items-center gap-1">
-                              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                              <span className="text-xs font-bold">
-                                {(
-                                  product.reviews.reduce((acc, r) => acc + (r.rating || 0), 0) /
-                                  product.reviews.length
-                                ).toFixed(1)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        <Button
-                          className="w-full h-10 bg-accent hover:bg-accent/90 text-white font-bold rounded-xl gap-2"
-                          onClick={() => handleAddToCart(product)}
-                        >
-                          <ShoppingCart className="h-4 w-4" />
-                          Add to Cart
-                        </Button>
-                      </CardContent>
-                    </Card>
+                      product={product}
+                      onAddToCart={(prod) => handleAddToCart(prod)}
+                    />
                   ))}
                 </div>
               </>
@@ -38088,13 +38054,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function CouponForm() {
-  const [coupons, setCoupons] = useState([]);
+  const [coupons, setCoupons] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     code: '',
     discount: '',
     expiresAt: '',
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
 
   useEffect(() => {
     fetchCoupons();
@@ -38735,13 +38701,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function NotificationForm() {
-  const [notifications, setNotifications] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     userId: '',
     message: '',
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
 
   useEffect(() => {
     fetchNotifications();
@@ -38839,14 +38805,14 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 
 export default function PaymentForm() {
-  const [payments, setPayments] = useState([]);
+  const [payments, setPayments] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     cartId: '',
     method: '',
     amount: 0,
   });
-  const [editId, setEditId] = useState(null);
-  const [carts, setCarts] = useState([]); // carts to be mapped to the select input
+  const [editId, setEditId] = useState<any>(null);
+  const [carts, setCarts] = useState<any[]>([]); // carts to be mapped to the select input
 
   useEffect(() => {
     fetchPayments();
@@ -38976,7 +38942,7 @@ import { useAppContext } from "@/hooks/useAppContext";
 
 export default function PostForm() {
   const { currentBusiness } = useAppContext();
-  const [posts, setPosts] = useState([]);
+  const [posts, setPosts] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -38986,8 +38952,8 @@ export default function PostForm() {
     for: 'General',
     event: '',
   });
-  const [editId, setEditId] = useState(null);
-  const [users, setUsers] = useState([]);
+  const [editId, setEditId] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]);
 
   useEffect(() => {
     fetchPosts();
@@ -39671,14 +39637,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function RefundForm() {
-  const [refunds, setRefunds] = useState([]);
+  const [refunds, setRefunds] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     cartId: '',
     amount: '',
     reason: '',
     status: 'pending',
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
 
   useEffect(() => {
     fetchRefunds();
@@ -39868,7 +39834,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function ShippingAddressForm() {
-  const [shippingAddresses, setShippingAddresses] = useState([]);
+  const [shippingAddresses, setShippingAddresses] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     userId: '',
     address: '',
@@ -39878,8 +39844,8 @@ export default function ShippingAddressForm() {
     country: '',
     phone: '',
   });
-  const [editId, setEditId] = useState(null);
-  const [users, setUsers] = useState([]); // Added to store users for the select input
+  const [editId, setEditId] = useState<any>(null);
+  const [users, setUsers] = useState<any[]>([]); // Added to store users for the select input
 
   useEffect(() => {
     fetchShippingAddresses();
@@ -40853,7 +40819,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 export default function UserForm() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -40861,7 +40827,7 @@ export default function UserForm() {
     image: '',
     role: 'user',
   });
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<any>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -43083,7 +43049,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         async signIn({user, account}) {
 
-            if (account.provider === "google"){
+            if (account && account.provider === "google"){
 
                 try {
                     const { email, name, image, id } = user
@@ -43108,35 +43074,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     });
             
                     if (response.ok) {
-                    user = await response.json();
-                    // return userData;
+                        alreadyUser = await response.json();
                     } else {
                         throw new Error('Failed to fetch user data')
                     }
 
                     if(!alreadyUser) {
-                        // try {
-                        //     User.create({
-                        //         // firstName: firstName,
-                        //         // lastName: lastName,
-                        //         email: email,
-                        //         // password: hashedPassword,
-                        //         // role: role,
-                        //         image : image,
-                        //         authProviderId : id
-                        //     })
-                        // } catch (error) {
-                        //     // users = mongoose.model('users', userSchema)
-                        //     console.log("unable to get user from database")
-                        // }  
                         console.log("i need to create user account for you using api route")
+                        return true;
                     } else {
                         return true
                     }
                 }catch (error) {
                     console.log("error while creating user from google credentials")
+                    return false;
                 }
             }
+            return true;
         }
 
 
@@ -43259,8 +43213,8 @@ const uploadCloudinary = async (buffer, folder) => {
           resource_type: 'image',
         },
         (error, result) => {
-          if (error) {
-            reject(error);
+          if (error || !result) {
+            reject(error || new Error("Cloudinary upload failed with no result"));
           } else {
             resolve({
               publicId: result.public_id,
@@ -43341,7 +43295,7 @@ const connect =async () => {
         return;
       }
 
-    await mongoose.connect(process.env.MONGODB_URL,
+    await mongoose.connect(process.env.MONGODB_URL || "",
       // {
       //   dbName:"succo",
       //   bufferCommands: true,
@@ -43363,8 +43317,7 @@ LOCATION: server\config\multersetup.ts
 
 import multer from "multer";
 
-
-const filter = (req, file, cb) => {
+const filter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
     if(file.mimetype === "image/jpeg" || file.mimetype === "image/jpg" || file.mimetype === "image/webp"){
         cb(null, true)
     }
@@ -43374,12 +43327,7 @@ const filter = (req, file, cb) => {
     // )
 }
 
-const memstorage = multer.memoryStorage({
-    filenane: (req, file, cb)=>{
-        cb(null, file.originalname.toLocaleLowerCase() + new Date().toString())
-    },
-})
-
+const memstorage = multer.memoryStorage()
 
 export const uploadimg = multer({ storage: memstorage, limits: {fieldSize: 1024 * 5012}, fileFilter: filter })
 
@@ -43393,7 +43341,7 @@ import mysql from "mysql"
 
 const dbsql = mysql.createConnection({
     host: process.env.SQL_HOST,
-    port: process.env.SQL_PORT,
+    port: process.env.SQL_PORT ? parseInt(process.env.SQL_PORT) : undefined,
     user: process.env.SQL_USER,
     password: process.env.SQL_PASSWORD,
     database: process.env.SQL_DATABASE
