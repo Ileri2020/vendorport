@@ -16,14 +16,14 @@ export default function LikeForm() {
   });
   const [editId, setEditId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchLikes();
-  }, []);
-
   const fetchLikes = async () => {
     const res = await axios.get(`${API_URL}?model=likes`);
     setLikes(res.data);
   };
+
+  useEffect(() => {
+    fetchLikes();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,8 +78,8 @@ export default function LikeForm() {
             <strong>ID:</strong> {item.id} |
             <strong>Ministry:</strong> {item.ministryId} |
             <strong>User:</strong> {item.userId}
-            <Button onClick={() => handleEdit(item)}>Edit</Button>
-            <Button onClick={() => handleDelete(item.id)}>Delete</Button>
+            <button onClick={() => handleEdit(item)}>Edit</button>
+            <button onClick={() => handleDelete(item.id)}>Delete</button>
           </li>
         ))}
       </ul>

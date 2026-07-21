@@ -27,7 +27,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -176,7 +175,7 @@ import {
 
 
 
-export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (row: any) => void, loading?: boolean, skeletonRows?: number }) {
+export function DataTableDemo(props : {data : any, columns: any, onRowClick?: (row: any) => void}) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
     []
@@ -185,11 +184,9 @@ export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (ro
     React.useState<VisibilityState>({})
   const [rowSelection, setRowSelection] = React.useState({})
 
-  const skeletonRows = props.skeletonRows ?? 5
-
   const table = useReactTable({
-    data: props.data,
-    columns: props.columns,
+    data : props.data,
+    columns : props.columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -205,80 +202,6 @@ export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (ro
       rowSelection,
     },
   })
-
-  if (props.loading) {
-    return (
-      <div className="w-full max-w-3xl mx-auto space-y-3">
-        <div className="flex items-center py-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="ml-auto">
-                Columns <ChevronDown className="ml-2 h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(!!value)
-                      }
-                    >
-                      {column.id}
-                    </DropdownMenuCheckboxItem>
-                  )
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <div className="rounded-md border bg-background">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {props.columns.map((column: any) => (
-                  <TableHead key={column.accessorKey || column.id}>
-                    {typeof column.header === "function"
-                      ? column.header({ table })
-                      : column.header}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {Array.from({ length: skeletonRows }).map((_, index) => (
-                <TableRow key={index} className="animate-pulse">
-                  {props.columns.map((column: any, cellIndex: number) => (
-                    <TableCell key={cellIndex}>
-                      <Skeleton className="h-4 w-full rounded-md" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-        <div className="flex items-center justify-end space-x-2 py-4">
-          <div className="flex-1 text-sm text-muted-foreground">
-            Loading rows...
-          </div>
-          <div className="space-x-2">
-            <Button variant="outline" size="sm" disabled>
-              Previous
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              Next
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className="w-full  max-w-3xl mx-auto">
@@ -329,9 +252,9 @@ export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (ro
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                     </TableHead>
                   )
                 })}
@@ -340,33 +263,23 @@ export function DataTableDemo(props: { data: any, columns: any, onRowClick?: (ro
           </TableHeader>
           <TableBody>
             {table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => {
-                const status = (row.original as any).status;
-                let rowClass = "cursor-pointer transition-colors hover:bg-muted/50 ";
-
-                if (status === "separator") rowClass = "bg-primary/20 font-bold h-12 pointer-events-none sticky top-0 z-10";
-                else if (status === "pending") rowClass += "bg-yellow-100/50 dark:bg-yellow-900/20 hover:bg-yellow-200/50 dark:hover:bg-yellow-900/30";
-                else if (status === "paid" || status === "completed") rowClass += "bg-green-100/50 dark:bg-green-900/20 hover:bg-green-200/50 dark:hover:bg-green-900/30";
-                else if (status === "unconfirmed") rowClass += "bg-orange-100/50 dark:bg-orange-900/20 hover:bg-orange-200/50 dark:hover:bg-orange-900/30";
-
-                return (
-                  <TableRow
-                    key={row.id}
-                    data-state={row.getIsSelected() && "selected"}
-                    className={rowClass}
-                    onClick={() => props.onRowClick && props.onRowClick(row.original)}
-                  >
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                )
-              })
+              table.getRowModel().rows.map((row) => (
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  onClick={() => props.onRowClick && props.onRowClick(row.original)}
+                  className={props.onRowClick ? "cursor-pointer" : ""}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell key={cell.id}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : (
               <TableRow>
                 <TableCell

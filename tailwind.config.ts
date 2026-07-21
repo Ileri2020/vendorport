@@ -8,19 +8,19 @@ const config: Config = {
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-  	container: {
-  		center: true,
-  		padding: '2rem',
-  		screens: {
-  			'2xl': '1400px'
-  		}
-  	},
-  	screens: {
-  		sm: '640px',
-  		md: '768px',
-  		lg: '960px',
-  		xl: '1240px'
-  	},
+	container: {
+		center: true,
+		padding: "2rem",
+		screens: {
+		  "2xl": "1400px",
+		},
+	  },
+	  screens: {
+		sm: "640px",
+		md: "768px",
+		lg: "960px",
+		xl: "1240px",
+	  },
   	extend: {
   		colors: {
   			background: 'hsl(var(--background))',
@@ -48,7 +48,7 @@ const config: Config = {
   			accent: {
   				DEFAULT: 'hsl(var(--accent))',
   				foreground: 'hsl(var(--accent-foreground))',
-  				secondary: 'hsl(var(--accent-secondary))'
+				secondary: "hsl(var(--accent-secondary))",
   			},
   			destructive: {
   				DEFAULT: 'hsl(var(--destructive))',
@@ -75,17 +75,11 @@ const config: Config = {
   				ring: 'hsl(var(--sidebar-ring))'
   			}
   		},
-  		fontFamily: {
-  			'dance': [
-  				'dance'
-  			],
-  			'roboto_mono': [
-  				'roboto_mono'
-  			],
-  			'roboto': [
-  				'roboto'
-  			]
-  		},
+		fontFamily: {
+		"dance" : ["dance"],
+		"roboto_mono" : ["roboto_mono"],
+		"roboto" : ["roboto"],
+		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',

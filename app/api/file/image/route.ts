@@ -7,15 +7,12 @@ import dbHandler from '../../dbhandler/function';
 
 
 
-export async function POST(req: NextRequest) {
+export async function POST(req , res) {
   const Formdata = await req.formData();
 
   console.log("about to upload image", Formdata)
   
-  const file = Formdata.get("file") as File | null;
-  if (!file) {
-    return NextResponse.json({"error" : "No file uploaded"}, {status : 400})
-  }
+  const file = Formdata.get("file")
   if (file.size > (300 * 1024) && Formdata.get("title") === 'profile image'){
     return NextResponse.json({"error" : "file greater 300kb"}, {status : 413})
   }
@@ -36,7 +33,7 @@ export async function POST(req: NextRequest) {
   // );
 
   const postRes = await dbHandler({
-    model: 'post',
+    model: 'posts',
     method: 'POST',
     profileImage : Formdata.get("profileImage")==="true",
     body: {
@@ -93,7 +90,7 @@ export async function POST(req: NextRequest) {
   //   return NextResponse.json({ message: error.message });
   // }
   
-}
+};
 
 
 

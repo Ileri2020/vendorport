@@ -1,116 +1,214 @@
-// @ts-nocheck
-import NextAuth from "next-auth";
+
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import FacebookProvider from "next-auth/providers/facebook";
-import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/prisma";
-import { PrismaAdapter } from '@auth/prisma-adapter';
+import bcrypt, { compare } from "bcryptjs";
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
-  adapter: PrismaAdapter(prisma),
   providers: [
+    Google({
+      clientId: process.env.GOOGLE_ID,
+      clientSecret: process.env.GOOGLE_SECRET,
+    }),
+
     Credentials({
       name: "Credentials",
       credentials: {
-        email: { label: "Email/Contact", type: "text" },
+        email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
+
       authorize: async (credentials) => {
-        const identifier = credentials?.email; // This will hold either email or contact
-        const password = credentials?.password;
-        if (!identifier || !password) throw new Error("Please provide email/contact & password");
+        const email = credentials.email as string;
+        const password = credentials.password as string;
 
-        // Try finding by email first, then by contact
-        const user = await prisma.user.findFirst({
-          where: {
-            OR: [
-              { email: identifier },
-              { contact: identifier }
-            ]
-          }
-        });
-
-        if (!user) throw new Error("Invalid email/contact or password");
-        
-        // Differentiate OAuth users who haven't set a password
-        if (!user.password) {
-          throw new Error("SocialLoginOnly");
+        if (!email || !password) {
+          throw new CredentialsSignin("Please provide both email & password");
         }
 
-        const isMatched = await bcrypt.compare(password, user.password);
-        if (!isMatched) throw new Error("Invalid email/contact or password");
+        const user = await prisma.user.findUnique({
+          where: { email },
+          include: { addresses: true },
+        });
 
-        return {
+        if (!user) {
+          throw new Error("Invalid email or password");
+        }
+
+        if (!user.password) {
+          throw new Error("This account was created with Google. Please sign in with Google.");
+        }
+
+        const isMatched = await compare(password, user.password);
+
+        if (!isMatched) {
+          throw new Error("Password did not match");
+        }
+
+        const userData = {
           id: user.id,
           name: user.name,
           email: user.email,
           contact: user.contact,
           role: user.role,
-          image: user.image,
-          providerid: user.providerid,
+          avatarUrl: (user as any).image || undefined,
+          addresses: user.addresses,
         };
+
+        return userData;
       },
-    }),
-    Google({
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    }),
-    FacebookProvider({
-      clientId: process.env.FACEBOOK_CLIENT_ID,
-      clientSecret: process.env.FACEBOOK_CLIENT_SECRET
     }),
   ],
 
   callbacks: {
-    // Persist all user info in the JWT token
-    async jwt({ token, user, account }) {
-      if (user) {
-        token.id = user.id;
-        token.name = user.name ?? null;
-        token.email = user.email ?? null;
-        token.contact = user.contact ?? null;
-        token.role = user.role ?? null;
-        token.image = user.image ?? null;
-        token.providerid = user.providerid ?? null;
+    async session({ session, token }) {
+      if (token?.id) {
+        session.user.id = token.id as string;
       }
+      if (token?.role) {
+        session.user.role = token.role as string;
+      }
+      if (token?.avatarUrl) {
+        session.user.avatarUrl = token.avatarUrl as string;
+      }
+      if (Array.isArray(token?.addresses)) {
+        session.user.addresses = token.addresses;
+      }
+      if (token?.isAffiliate !== undefined) {
+        session.user.isAffiliate = token.isAffiliate as boolean;
+      }
+      if (token?.affiliate) {
+        session.user.affiliate = token.affiliate as any;
+      }
+      return session;
+    },
+
+    async jwt({ token, user, account }) {
+      // When signing in for the first time
+      if (account?.provider === "google") {
+        if (user?.email) {
+          const dbUser = await prisma.user.findUnique({
+            where: { email: user.email },
+          });
+
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.role = dbUser.role ?? "customer";
+            token.avatarUrl = dbUser.image ?? undefined;
+            token.addresses = await prisma.shippingAddress.findMany({ where: { userId: dbUser.id } });
+            
+            // Add affiliate status
+            const affiliate = await prisma.affiliate.findUnique({
+              where: { userId: dbUser.id },
+              select: { id: true, affiliateId: true, name: true, earnings: true }
+            });
+            token.isAffiliate = !!affiliate;
+            token.affiliate = affiliate;
+          }
+        }
+      }
+
+      // When signing in with credentials
+      if (account?.provider === "credentials" && user) {
+        const u = user as any;
+        token.id = u.id;
+        token.role = u.role;
+        token.avatarUrl = u.avatarUrl;
+        token.addresses = u.addresses;
+        
+        // Add affiliate status
+        const affiliate = await prisma.affiliate.findUnique({
+          where: { userId: u.id },
+          select: { id: true, affiliateId: true, name: true, earnings: true }
+        });
+        token.isAffiliate = !!affiliate;
+        token.affiliate = affiliate;
+      }
+
       return token;
     },
 
-    // Make the token info available in the session object
-    async session({ session, token }) {
-      if (token) {
-        session.user.id = token.id as string;
-        session.user.name = token.name as string ?? null;
-        session.user.email = token.email as string ?? null;
-        session.user.contact = token.contact as string ?? null;
-        session.user.role = token.role as string ?? null;
-        session.user.image = token.image as string ?? null;
-        session.user.providerid = token.providerid as string ?? null;
-        
-        // Fetch addresses here instead of storing in JWT
-        session.user.addresses = await prisma.shippingAddress.findMany({
-          where: { userId: token.id as string },
-        });
-        session.user.shippingAddress = session.user.addresses[0] || null;
+    signIn: async ({ user, account }) => {
+      if (account?.provider === "google") {
+        try {
+          const { email, name, image, id } = user;
+
+          if (!email || !id) {
+            throw new Error("Email and ID are required for Google sign in");
+          }
+
+          // Create high-quality Google avatar URL
+          const googleAvatar =
+            image?.replace(/=s\d+(-c)?$/, "=s500-c") ?? image;
+
+          const defaultAvatar =
+            "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png";
+
+          const hashedId = await bcrypt.hash(
+            id,
+            parseInt(process.env.SALT_ROUNDS || "10")
+          );
+
+          const existingUser = await prisma.user.findUnique({
+            where: { email },
+          });
+
+          // 1️⃣ USER DOES NOT EXIST → CREATE (no password required for OAuth)
+          if (!existingUser) {
+            await prisma.user.create({
+              data: {
+                email,
+                name,
+                image: googleAvatar ?? defaultAvatar,
+                providerid: hashedId,
+                // password is intentionally omitted — it's optional for OAuth users
+              },
+            });
+
+            return true;
+          }
+
+          // 2️⃣ USER EXISTS → UPDATE image if needed
+          const shouldUpdateAvatar =
+            !existingUser.image ||
+            existingUser.image.trim() === "" ||
+            existingUser.image === defaultAvatar;
+
+          if (shouldUpdateAvatar && googleAvatar) {
+            await prisma.user.update({
+              where: { email },
+              data: { image: googleAvatar },
+            });
+          }
+
+          return true;
+        } catch (error) {
+          console.error("Google SignIn Error:", error);
+          throw new Error("Error while creating/updating user");
+        }
       }
-      return session;
+
+      // Credentials provider
+      if (account?.provider === "credentials") {
+        return true;
+      }
+
+      return false;
     },
   },
 
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
-    updateAge: 24 * 60 * 60, // 24 hours
+    maxAge: 10 * 60 * 60, // 10 hours
   },
 
   jwt: {
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 10 * 60 * 60, // 10 hours
   },
 
-  secret: process.env.AUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
+  debug: false,
 });
-
-export const runtime = "nodejs";

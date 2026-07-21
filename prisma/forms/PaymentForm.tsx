@@ -1,9 +1,7 @@
-
-// components/PaymentForm.tsx
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
-import { useEffect, useState } from 'react';
 
 export default function PaymentForm() {
   const [payments, setPayments] = useState<any[]>([]);
@@ -12,30 +10,30 @@ export default function PaymentForm() {
     method: '',
     amount: 0,
   });
-  const [editId, setEditId] = useState<any>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [carts, setCarts] = useState<any[]>([]); // carts to be mapped to the select input
 
-  useEffect(() => {
-    fetchPayments();
-    fetchCarts();
-  }, []);
-
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     try {
       const res = await axios.get('/api/dbhandler?model=payment');
       setPayments(res.data);
     } catch (err) {
       console.error('Failed to fetch payments', err);
     }
-  };
+  }, []);
 
-  const fetchCarts = async () => {
+  const fetchCarts = useCallback(async () => {
     const res = await axios.get('/api/dbhandler?model=cart');
     setCarts(res.data);
     if (res.data.length > 0) {
       setFormData(prev => ({ ...prev, cartId: res.data[0].id }));
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchPayments();
+    fetchCarts();
+  }, [fetchPayments, fetchCarts]);
 
   const resetForm = () => {
     setFormData({
@@ -84,8 +82,8 @@ export default function PaymentForm() {
     <div>
       <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-sm gap-2 justify-center items-center p-3 border-2 border-secondary-foreground rounded-sm m-2'>
         <h2 className='font-semibold text-lg'>Payment Form</h2>
-        <div>Cart ID</div>
-        <select value={formData.cartId} onChange={(e) => setFormData({ ...formData, cartId: e.target.value })}>
+        <label className="sr-only" htmlFor="payment-cart">Cart ID</label>
+        <select id="payment-cart" title="Select cart" value={formData.cartId} onChange={(e) => setFormData({ ...formData, cartId: e.target.value })}>
           {carts.length > 0 ? carts.map((cart, index) => (
             <option key={index} value={cart.id}>
               {cart.id}
@@ -109,8 +107,8 @@ export default function PaymentForm() {
                 <p>Method: {item.method || <em>No method</em>}</p>
                 <p>Amount: {item.amount || <em>No amount</em>}</p>
                 <div className='flex flex-row gap-2 p-1 w-full'>
-                  <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                  <Button type='button' onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
+                  <Button onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
+                  <Button onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
                 </div>
               </li>
             ))

@@ -1,7 +1,7 @@
 "use server";
 
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import cloudinary from "cloudinary";
 
 cloudinary.v2.config({
@@ -10,7 +10,6 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const prisma = new PrismaClient();
 
 // Centralized model mapping
 const modelMap: Record<string, any> = {
@@ -81,7 +80,7 @@ async function dbHandler({
           return { status: 200, data: items };
         }
 
-      case "POST": {
+      case "POST":
         if (body.price) body.price = parseFloat(body.price);
         if (body.url) body.images = [body.url]; // convert URL to images array
         const newItem = await prismaModel.create({ data: body });
@@ -90,20 +89,20 @@ async function dbHandler({
         if (profileImage && model === "user" && body.userId && body.url) {
           await prisma.user.update({
             where: { id: body.userId },
-            data: { image: body.url },
+            data: { avatarUrl: body.url },
           });
         }
 
         return { status: 200, data: newItem };
-      }
-      case "PUT": {
+
+      case "PUT":
         const { id: _id, ...updatedData } = body;
         const updatedItem = await prismaModel.update({
           where: { id: _id },
           data: updatedData,
         });
         return { status: 200, data: updatedItem };
-      }
+
       case "DELETE":
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };

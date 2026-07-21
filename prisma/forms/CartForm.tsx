@@ -1,203 +1,245 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { DataTableDemo } from "@/components/myComponents/subs/datatable";
-import { CartDetailsDialog } from "@/components/myComponents/subs/CartDetailsDialog";
-import { Trash2, Eye } from "lucide-react";
-import { toast } from 'sonner';
-import { AdminFormContainer } from '@/components/utility/AdminFormContainer';
-import { Badge } from '@/components/ui/badge';
-import { ShoppingCart, RefreshCcw, Search as SearchIcon } from "lucide-react";
+import { Label } from '@/components/ui/label';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+
+const ITEMS_PER_PAGE = 10;
 
 export default function CartForm() {
-  const [carts, setCarts] = useState<any[]>([]);
-  const [search, setSearch] = useState('');
-  const [selectedCart, setSelectedCart] = useState<any | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [carts, setCarts] = useState([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    userId: '',
+    productId: '',
+    quantity: 0,
+    total: 0,
+    pharmacistSummary: '',
+  });
+  const [editId, setEditId] = useState(null);
+
+  // Pagination and Search State
+  const [productSearch, setProductSearch] = useState("");
+  const [productPage, setProductPage] = useState(1);
+  const [cartPage, setCartPage] = useState(1);
+
+  const fetchCarts = useCallback(async () => {
+    const res = await axios.get('/api/dbhandler?model=cart');
+    setCarts(res.data);
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    const res = await axios.get('/api/dbhandler?model=user');
+    setUsers(res.data);
+  }, []);
+
+  const fetchProducts = useCallback(async () => {
+    const res = await axios.get('/api/dbhandler?model=product');
+    setProducts(res.data);
+  }, []);
 
   useEffect(() => {
     fetchCarts();
-  }, []);
+    fetchUsers();
+    fetchProducts();
+  }, [fetchCarts, fetchUsers, fetchProducts]);
 
-  const fetchCarts = async () => {
-    setLoading(true);
-    try {
-        const res = await axios.get('/api/dbhandler?model=cart');
-        setCarts(res.data);
-    } catch(err) {
-        console.error(err);
-    } finally {
-        setLoading(false);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const newFormData = {
+      ...formData,
+      quantity: +formData.quantity,
+      total: +formData.total,
+    };
+    if (editId) {
+      await axios.put(`/api/dbhandler?model=cart&id=${editId}`, newFormData);
+    } else {
+      await axios.post('/api/dbhandler?model=cart', newFormData);
     }
+    resetForm();
+    fetchCarts();
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this cart?")) return;
-    try {
-        await axios.delete(`/api/dbhandler?model=cart&id=${id}`);
-        fetchCarts();
-    } catch (err) {
-        console.error("Failed to delete", err);
-    }
+  const handleEdit = (item: any) => {
+    setFormData(item);
+    setEditId(item.id);
   };
 
-  const handleUpdatePayment = async () => {
-      await fetchCarts();
-      if (selectedCart) {
-          const updated = carts.find(c => c.id === selectedCart.id);
-          if (updated) setSelectedCart(updated);
-      }
-      setDialogOpen(false); 
-  }
-  
-  const columns = useMemo(() => [
-      {
-          accessorKey: "id",
-          header: "Order ID",
-          cell: ({ row }: any) => <span className="font-mono text-[10px] font-black uppercase tracking-widest text-muted-foreground">{row.original.id.slice(-6)}</span>
-      },
-      {
-          accessorKey: "user.email",
-          header: "Customer",
-          cell: ({ row }: any) => (
-             <div className="flex flex-col">
-                 <span className="font-black text-xs uppercase tracking-tight">{row.original.user?.name || "Guest User"}</span>
-                 <span className="text-[10px] text-muted-foreground font-medium">{row.original.user?.email}</span>
-             </div>
-          )
-      },
-      {
-          accessorKey: "total",
-          header: "Amount",
-          cell: ({ row }: any) => <span className="font-black text-sm text-accent">₦{row.original.total.toLocaleString()}</span>
-      },
-      {
-          accessorKey: "status",
-          header: "Status",
-          cell: ({ row }: any) => {
-            const s = row.original.status;
-            let variant: any = "secondary";
-            if (s === 'paid') variant = "default";
-            if (s === 'unconfirmed') variant = "outline";
-            
-            return (
-              <Badge variant={variant} className={cn(
-                "uppercase text-[9px] font-black tracking-widest",
-                s === 'paid' ? "bg-green-500 hover:bg-green-600" : s === 'unconfirmed' ? "border-orange-500 text-orange-500" : ""
-              )}>
-                {s}
-              </Badge>
-            )
-          }
-      },
-      {
-          accessorKey: "createdAt",
-          header: "Date",
-          cell: ({ row }: any) => <span className="text-[10px] font-bold uppercase text-muted-foreground">{new Date(row.original.createdAt).toLocaleDateString()}</span>
-      },
-      {
-          id: "actions",
-          cell: ({ row }: any) => (
-              <div className="flex gap-1 justify-end">
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-accent/10 hover:text-accent" onClick={(e) => { e.stopPropagation(); setSelectedCart(row.original); setDialogOpen(true); }}>
-                      <Eye className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={(e) => handleDelete(e, row.original.id)}>
-                      <Trash2 className="w-4 h-4" />
-                  </Button>
-              </div>
-          )
-      }
-  ], [carts]); 
+  const handleDelete = async (id: any) => {
+    if(!confirm("Remove this cart item?")) return;
+    await axios.delete(`/api/dbhandler?model=cart&id=${id}`);
+    fetchCarts();
+  };
 
-  const filteredData = useMemo(() => {
-      if (!search) return carts;
-      const lower = search.toLowerCase();
-      return carts.filter(c => 
-          c.id?.toLowerCase().includes(lower) || 
-          c.user?.name?.toLowerCase().includes(lower) || 
-          c.user?.email?.toLowerCase().includes(lower) ||
-          c.status?.toLowerCase().includes(lower)
-      );
-  }, [carts, search]);
+  const resetForm = () => {
+    setFormData({
+      userId: '',
+      productId: '',
+      quantity: 0,
+      total: 0,
+      pharmacistSummary: '',
+    });
+    setEditId(null);
+  };
 
-  const onRowClick = (row: any) => {
-      setSelectedCart(row);
-      setDialogOpen(true);
-  }
+  // ✅ Product Filtering & Pagination
+  const filteredProducts = useMemo(() => {
+    return products.filter((p: any) => 
+      p.name.toLowerCase().includes(productSearch.toLowerCase())
+    );
+  }, [products, productSearch]);
+
+  const totalProductPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const start = (productPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProducts, productPage]);
+
+  // ✅ Cart Filtering & Pagination
+  const totalCartPages = Math.ceil(carts.length / ITEMS_PER_PAGE);
+  const paginatedCarts = useMemo(() => {
+    const start = (cartPage - 1) * ITEMS_PER_PAGE;
+    return carts.slice(start, start + ITEMS_PER_PAGE);
+  }, [carts, cartPage]);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [productSearch]);
 
   return (
-    <div className='w-full max-w-6xl mx-auto'>
-      <AdminFormContainer 
-        title="Order History" 
-        description="Monitor and process customer transactions and pending payments."
-      >
-        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center mb-8 gap-4">
-            <div className="relative flex-1 max-w-md">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                    placeholder="Search by ID, name, or email..." 
-                    value={search} 
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="h-11 pl-10 rounded-2xl border-2"
-                />
+    <div className='p-4'>
+      <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-lg gap-4 p-6 border-2 border-primary/20 rounded-2xl m-2 bg-card shadow-lg'>
+        <h2 className='font-bold text-xl text-primary border-b pb-2'>Cart Administration</h2>
+        
+        <div className="space-y-2">
+          <Label htmlFor="cart-user" className="text-xs font-bold uppercase text-muted-foreground">Select User</Label>
+          <select 
+            id="cart-user"
+            title="Select user"
+            value={formData.userId} 
+            onChange={(e) => setFormData({ ...formData, userId: e.target.value })}
+            className="w-full h-10 px-3 rounded-md border border-input bg-background"
+          >
+            <option value="">-- Choose User --</option>
+            {users.map((user: any) => (
+              <option key={user.id} value={user.id}>{user.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2 pt-2 border-t">
+          <Label className="text-xs font-bold uppercase text-muted-foreground">Select Product</Label>
+          
+          <div className="relative mb-2">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Filter products..." 
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              className="pl-8 h-8 text-xs"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-1 max-h-48 overflow-y-auto border rounded-md p-1 bg-muted/20">
+            {paginatedProducts.map((p: any) => (
+              <div 
+                key={p.id} 
+                onClick={() => setFormData({...formData, productId: p.id})}
+                className={`flex justify-between items-center p-2 rounded cursor-pointer transition-colors ${formData.productId === p.id ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}
+              >
+                <span className="text-xs font-medium truncate">{p.name}</span>
+                <span className="text-[10px] opacity-70">₦{p.price}</span>
+              </div>
+            ))}
+            {paginatedProducts.length === 0 && <p className="text-[10px] text-center py-4 italic">No products matched.</p>}
+          </div>
+
+          {totalProductPages > 1 && (
+            <div className="flex items-center justify-between px-1">
+              <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setProductPage(p => Math.max(1, p-1))} disabled={productPage === 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-[10px] font-bold">{productPage} / {totalProductPages}</span>
+              <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={() => setProductPage(p => Math.min(totalProductPages, p+1))} disabled={productPage === totalProductPages}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-            <Button variant="outline" onClick={fetchCarts} className="h-11 rounded-2xl border-2 font-black text-xs uppercase tracking-widest gap-2">
-              <RefreshCcw className={cn("h-4 w-4", loading && "animate-spin")} />
-              Sync Orders
-            </Button>
+          )}
         </div>
 
-        <div className="bg-card rounded-[2.5rem] border-2 border-muted overflow-hidden shadow-sm">
-            {loading ? (
-                <div className="flex flex-col items-center justify-center py-32 space-y-4">
-                  <div className="h-12 w-12 border-4 border-accent border-t-transparent rounded-full animate-spin" />
-                  <p className="font-black text-xs uppercase tracking-widest text-muted-foreground">Retrieving Transaction Data...</p>
-                </div>
-            ) : filteredData.length > 0 ? (
-                <DataTableDemo 
-                    columns={columns} 
-                    data={filteredData} 
-                    onRowClick={onRowClick}
-                />
-            ) : (
-                <div className="py-20 text-center flex flex-col items-center space-y-4">
-                   <div className="h-16 w-16 bg-muted/20 rounded-full flex items-center justify-center">
-                     <ShoppingCart className="h-8 w-8 text-muted-foreground/30" />
-                   </div>
-                   <p className="text-muted-foreground font-medium">No order records found.</p>
-                </div>
-            )}
+        <div className="grid grid-cols-2 gap-4 pt-2 border-t">
+          <div className="space-y-1">
+            <Label className="text-xs font-bold uppercase text-muted-foreground">Quantity</Label>
+            <Input placeholder="Qty" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: +e.target.value })}  type="number" />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-bold uppercase text-muted-foreground">Unit Total (₦)</Label>
+            <Input placeholder="Price" value={formData.total} onChange={(e) => setFormData({ ...formData, total: +e.target.value })}  type="number" />
+          </div>
         </div>
 
-        <CartDetailsDialog 
-            open={dialogOpen} 
-            onOpenChange={setDialogOpen}
-            cart={selectedCart}
-            onConfirmPayment={async () => {
-               if(!selectedCart) return;
-               try {
-                  toast.loading("Confirming payment...");
-                  await axios.put('/api/dbhandler?model=cart', {
-                      id: selectedCart.id,
-                      status: 'paid',
-                      adminConfirmed: true
-                  });
-                  toast.success("Transaction confirmed");
-                  await handleUpdatePayment();
-               } catch(e) {
-                   console.error(e);
-                   toast.error("Failed to confirm payment");
-               }
-            }}
-        />
-      </AdminFormContainer>
+        <div className="space-y-1 pt-2 border-t">
+          <Label className="text-xs font-bold uppercase text-muted-foreground">Pharmacist Summary (Dosage, Precautions)</Label>
+          <textarea 
+            placeholder="Enter medical notes..." 
+            value={formData.pharmacistSummary} 
+            onChange={(e) => setFormData({ ...formData, pharmacistSummary: e.target.value })}
+            className="w-full min-h-[100px] text-sm p-3 rounded-xl border bg-muted/10 outline-none focus:ring-1 focus:ring-primary transition-all"
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <Button type="submit" className="flex-1 font-bold">{editId ? 'Update Cart' : 'Add to Cart'}</Button>
+          {editId && <Button type="button" variant="outline" onClick={resetForm} className="flex-1">Cancel</Button>}
+        </div>
+
+        <div className='w-full mt-8 pt-6 border-t'>
+          <h3 className="font-bold mb-4 flex justify-between items-center">
+            Active Carts 
+            <span className="text-[10px] bg-secondary px-2 py-0.5 rounded-full">{carts.length} records</span>
+          </h3>
+          <ul className='grid gap-2'>
+            {paginatedCarts.map((item: any) => (
+              <li key={item.id} className="flex flex-col gap-1 p-3 bg-secondary/10 border rounded-xl hover:bg-secondary/20 transition-all">
+                <div className="flex justify-between items-start">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold truncate">{users.find((u: any) => u.id === item.userId)?.name || "Unknown User"}</p>
+                    <p className="text-[10px] text-primary font-bold">{products.find((p: any) => p.id === item.productId)?.name || "Product Deleted"}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-[10px] font-bold">₦{item.total}</p>
+                    <p className="text-[10px] text-muted-foreground">x{item.quantity}</p>
+                  </div>
+                </div>
+                {item.pharmacistSummary && (
+                  <p className="text-[10px] bg-primary/5 p-2 rounded-lg italic border border-primary/10 mt-1 line-clamp-2">
+                    Note: {item.pharmacistSummary}
+                  </p>
+                )}
+                <div className='flex gap-2 mt-2'>
+                  <Button size="sm" variant="outline" onClick={() => handleEdit(item)} className='flex-1 h-7 text-[10px]'>Edit</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleDelete(item.id)} className='flex-1 h-7 text-[10px] border-destructive text-destructive hover:bg-destructive hover:text-white'>Remove</Button>
+                </div>
+              </li>
+            ))}
+            {carts.length === 0 && <p className="text-center py-10 text-xs italic text-muted-foreground">No cart items found.</p>}
+          </ul>
+
+          {totalCartPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-2" onClick={() => setCartPage(p => Math.max(1, p-1))} disabled={cartPage === 1}>
+                <ChevronLeft className="h-4 w-4" /> Prev
+              </Button>
+              <span className="text-xs font-bold">{cartPage} / {totalCartPages}</span>
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-2" onClick={() => setCartPage(p => Math.min(totalCartPages, p+1))} disabled={cartPage === totalCartPages}>
+                 Next <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </form>
     </div>
   );
 }
-
-import { cn } from '@/lib/utils';
-

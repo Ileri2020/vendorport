@@ -1,124 +1,100 @@
-;
-
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
+/** Rejects after `ms` milliseconds — used to fail-fast when DB is unreachable */
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
+  Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`DB timeout after ${ms}ms`)), ms)
+    ),
+  ]);
 
+// POST /api/visit - Record a page visit (called from browser, works for all users including unauthenticated)
 export async function POST(req: NextRequest) {
-    try {
-        const body = await req.json();
-        const { fingerprint, userAgent } = body;
+  try {
+    const body = await req.json().catch(() => ({}));
+    const path = body.path || "/";
+    const browserId = body.browserId || body.fingerprint || "unknown";
+    const userAgent = req.headers.get("user-agent") || "";
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+      req.headers.get("x-real-ip") ||
+      "unknown";
 
-        if (!fingerprint) {
-            return NextResponse.json(
-                { error: "Fingerprint is required" },
-                { status: 400 }
-            );
-        }
-
-        // Get today's date (start of day)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // Get IP address from request headers
-        const ipAddress =
-            req.headers.get("x-forwarded-for") ||
-            req.headers.get("x-real-ip") ||
-            "unknown";
-
-        // Try to create a visit record
-        // The unique constraint on [fingerprint, visitDate] will prevent duplicates
-        try {
-            const visit = await prisma.visit.create({
-                data: {
-                    fingerprint,
-                    visitDate: today,
-                    userAgent: userAgent || null,
-                    ipAddress: ipAddress,
-                },
-            });
-
-            return NextResponse.json({
-                success: true,
-                message: "Visit tracked",
-                visitId: visit.id,
-            });
-        } catch (error: any) {
-            // If error is due to unique constraint, it means visit already tracked today
-            if (error.code === "P2002") {
-                return NextResponse.json({
-                    success: false,
-                    message: "Visit already tracked for today",
-                });
-            }
-
-            throw error;
-        }
-    } catch (error) {
-        console.error("Visit tracking error:", error);
-        return NextResponse.json(
-            { error: "Failed to track visit" },
-            { status: 500 }
+    // Resolve businessId if visiting a storefront
+    let businessId: string | null = null;
+    const pathParts = path.split("/").filter(Boolean);
+    if (pathParts.length > 0) {
+      const possibleStore = pathParts[0];
+      const platformRoutes = ["home", "about", "store", "account", "contact", "create-store", "admin", "api"];
+      if (!platformRoutes.includes(possibleStore)) {
+        const businesses = await prisma.business.findMany({ select: { id: true, name: true } });
+        const match = businesses.find(
+          (b) => b.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") === possibleStore
         );
+        if (match) businessId = match.id;
+      }
     }
+
+    // Only record once per browserId per business per day
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const existing = await withTimeout(
+      prisma.visit.findFirst({
+        where: { fingerprint: browserId, businessId, createdAt: { gte: today } },
+      }),
+      5000
+    );
+
+    if (!existing) {
+      await withTimeout(
+        prisma.visit.create({
+          data: { fingerprint: browserId, userAgent, ipAddress: ip, businessId },
+        }),
+        5000
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err: any) {
+    if (!err?.message?.includes('DB timeout')) {
+      console.error("Visit tracking error:", err);
+    }
+    return NextResponse.json({ ok: true });
+  }
 }
 
-// GET endpoint to retrieve visit statistics
+
+// GET /api/visit - Returns daily visit counts for the analytics dashboard
 export async function GET(req: NextRequest) {
-    try {
-        const { searchParams } = new URL(req.url);
-        const days = parseInt(searchParams.get("days") || "30");
+  try {
+    const { searchParams } = new URL(req.url);
+    const fromStr = searchParams.get("from");
+    const toStr = searchParams.get("to");
+    const from = fromStr ? new Date(fromStr) : new Date(Date.now() - 30 * 86400000);
+    const to = toStr ? new Date(toStr) : new Date();
 
-        // Get date range
-        const endDate = new Date();
-        const startDate = new Date();
-        startDate.setDate(startDate.getDate() - days);
-        startDate.setHours(0, 0, 0, 0);
+    const visitsRaw = await prisma.visit.findMany({
+      where: { createdAt: { gte: from, lte: to } },
+      select: { createdAt: true },
+    });
 
-        // Get visits in date range
-        const visits = await prisma.visit.findMany({
-            where: {
-                visitDate: {
-                    gte: startDate,
-                    lte: endDate,
-                },
-            },
-            orderBy: {
-                visitDate: "desc",
-            },
-        });
+    // Group by day
+    const byDay: Record<string, number> = {};
+    visitsRaw.forEach((v: any) => {
+      const day = v.createdAt.toISOString().split("T")[0];
+      byDay[day] = (byDay[day] || 0) + 1;
+    });
 
-        // Group by date
-        const visitsByDate: Record<string, number> = {};
+    const dailyVisits = Object.entries(byDay)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
 
-        visits.forEach((visit) => {
-            const dateKey = visit.visitDate.toISOString().split("T")[0];
-            visitsByDate[dateKey] = (visitsByDate[dateKey] || 0) + 1;
-        });
-
-        // Get total unique visitors
-        const uniqueVisitors = await prisma.visit.groupBy({
-            by: ["fingerprint"],
-            where: {
-                visitDate: {
-                    gte: startDate,
-                    lte: endDate,
-                },
-            },
-        });
-
-        return NextResponse.json({
-            totalVisits: visits.length,
-            uniqueVisitors: uniqueVisitors.length,
-            visitsByDate,
-            days,
-        });
-    } catch (error) {
-        console.error("Visit stats error:", error);
-        return NextResponse.json(
-            { error: "Failed to fetch visit statistics" },
-            { status: 500 }
-        );
-    }
+    return NextResponse.json({ dailyVisits, total: visitsRaw.length });
+  } catch (err) {
+    console.error("Visit GET error:", err);
+    return NextResponse.json({ error: "Failed to fetch visits" }, { status: 500 });
+  }
 }

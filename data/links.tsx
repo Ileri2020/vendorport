@@ -1,55 +1,40 @@
-import {AiOutlineSearch, AiOutlineHome, AiOutlineShop, AiOutlineMan, AiOutlineContacts, AiOutlineWoman, AiOutlineProfile,AiOutlineHistory} from "react-icons/ai"
+import {AiOutlineSearch, AiOutlineHome, AiOutlineShop, AiOutlineMan, AiOutlineContacts, AiOutlineWoman, AiOutlineProfile, AiOutlineInfoCircle} from "react-icons/ai"
 import { BiPhoneCall, BiSolidContact, BiPhone,} from "react-icons/bi"
 import { CiShoppingCart, } from "react-icons/ci"
 import { IoMdHelp } from "react-icons/io";
 import { VscAccount } from "react-icons/vsc";
 import { IoFastFoodOutline } from "react-icons/io5";
 
-
-
-
 export default {Links : [
     {
-      icon: <AiOutlineHome />,
-      path: "/",
-      name: "Home",
+      name: <AiOutlineHome />,
+      title: "Home",
+      path: "/home",
     },
     {
-      icon: <AiOutlineShop />,
+      name: <AiOutlineShop />,
+      title: "Store",
       path: "/store",
-      name: "Store",
-    },
-    // {
-    //   name: <IoMdHelp />,
-    //   path: "/help",
-    // },
-    {
-      icon: <IoFastFoodOutline />,
-      path: "/lunch",
-      name: "Lunch",
     },
     {
-      icon: <AiOutlineHistory />,
+      name: <AiOutlineInfoCircle />,
+      title: "About",
       path: "/about",
-      name: "About",
     },
     {
-      icon: <BiPhone />,
+      name: <BiPhone />,
+      title: "Contact",
       path: "/contact",
-      name: "Contact",
     },
     {
-      icon: <VscAccount />,
-      path: "/account",
-      name: "Account",
+      name: <AiOutlineProfile />,
+      title: "Blog",
+      path: "/blog",
     },
-    // {
-    //   name: "blogs",
-    //   path: "/blogs",
-    // },
-    // {
-    //   name: <CiShoppingCart />,
-    //   path: "/cart",
-    // },
+    {
+      name: <VscAccount />,
+      title: "Account",
+      path: "/account",
+    },
   ]
 }

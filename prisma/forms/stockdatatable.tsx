@@ -14,18 +14,16 @@ import {
   ColumnDef,
 } from "@tanstack/react-table";
 
+// import { stockColumns } from "./columns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ArrowUpDown, MoreHorizontal } from "lucide-react";
-
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator
 } from "@/components/ui/dropdown-menu";
 
 import {
@@ -37,9 +35,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-/* ===============================
-   Types
-================================ */
+
+
+
 export type StockMetric = {
   id: string;
   name: string;
@@ -50,11 +48,91 @@ export type StockMetric = {
   profit: number;
 };
 
-/* ===============================
-   Component
-================================ */
+export const stockColumns: ColumnDef<StockMetric>[] = [
+  {
+    accessorKey: "name",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Product
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+  },
+  {
+    accessorKey: "price",
+    header: "Price",
+    cell: ({ row }) => {
+      const price = row.getValue<number>("price") ?? 0;
+      return <div>₦{price}</div>;
+    },
+  },
+  {
+    accessorKey: "totalStock",
+    header: "Total Stock",
+    cell: ({ row }) => {
+      const totalStock = row.getValue<number>("totalStock") ?? 0;
+      return <div>{totalStock}</div>;
+    },
+  },
+  {
+    accessorKey: "totalSold",
+    header: "Sold",
+    cell: ({ row }) => {
+      const totalSold = row.getValue<number>("totalSold") ?? 0;
+      return <div>{totalSold}</div>;
+    },
+  },
+  {
+    accessorKey: "available",
+    header: "Available",
+    cell: ({ row }) => {
+      const available = row.getValue<number>("available") ?? 0;
+      return <div className="font-semibold text-blue-600">{available}</div>;
+    },
+  },
+  {
+    accessorKey: "profit",
+    header: "Profit",
+    cell: ({ row }) => {
+      const profit = row.getValue<number>("profit") ?? 0;
+      return <div className="font-semibold text-green-700">₦{profit}</div>;
+    },
+  },
+  {
+    id: "actions",
+    enableHiding: false,
+    cell: ({ row }) => {
+      const item = row.original;
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+            <DropdownMenuItem onClick={() => navigator.clipboard.writeText(item.id)}>
+              Copy Product ID
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>View Product</DropdownMenuItem>
+            <DropdownMenuItem>View Stock History</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      );
+    },
+  },
+];
+
+
+
+
 export default function StockTable() {
-  const [data, setData] = React.useState<StockMetric[]>([]);
+  const [data, setData] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
 
   const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -64,9 +142,10 @@ export default function StockTable() {
     React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
 
-  /* ===============================
-     Fetch Stock
-  ================================ */
+  React.useEffect(() => {
+    loadMetrics();
+  }, []);
+
   const loadMetrics = async () => {
     setLoading(true);
     const res = await fetch("/api/stock");
@@ -75,126 +154,9 @@ export default function StockTable() {
     setLoading(false);
   };
 
-  React.useEffect(() => {
-    loadMetrics();
-  }, []);
-
-  /* ===============================
-     Delete Stock
-  ================================ */
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this stock record?")) return;
-
-    try {
-      await fetch(`/api/dbhandler?model=stock&id=${id}`, {
-        method: "DELETE",
-      });
-
-      // Optimistic UI update
-      setData((prev) => prev.filter((item) => item.id !== id));
-    } catch (err) {
-      console.error("Failed to delete stock:", err);
-    }
-  };
-
-  /* ===============================
-     Columns (dynamic)
-  ================================ */
-  const columns = React.useMemo<ColumnDef<StockMetric>[]>(
-    () => [
-      {
-        accessorKey: "name",
-        header: ({ column }) => (
-          <Button
-            variant="ghost"
-            onClick={() =>
-              column.toggleSorting(column.getIsSorted() === "asc")
-            }
-          >
-            Product
-            <ArrowUpDown className="ml-2 h-4 w-4" />
-          </Button>
-        ),
-      },
-      {
-        accessorKey: "price",
-        header: "Price",
-        cell: ({ row }) => `₦${row.getValue("price")}`,
-      },
-      {
-        accessorKey: "totalStock",
-        header: "Total Stock",
-      },
-      {
-        accessorKey: "totalSold",
-        header: "Sold",
-      },
-      {
-        accessorKey: "available",
-        header: "Available",
-        cell: ({ row }) => (
-          <span className="font-semibold text-blue-600">
-            {row.getValue("available")}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "profit",
-        header: "Profit",
-        cell: ({ row }) => (
-          <span className="font-semibold text-green-700">
-            ₦{row.getValue("profit")}
-          </span>
-        ),
-      },
-      {
-        id: "actions",
-        enableHiding: false,
-        cell: ({ row }) => {
-          const item = row.original;
-
-          return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-
-                <DropdownMenuItem
-                  onClick={() =>
-                    navigator.clipboard.writeText(item.id)
-                  }
-                >
-                  Copy Stock ID
-                </DropdownMenuItem>
-
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem
-                  className="text-red-600 focus:text-red-600"
-                  onClick={() => handleDelete(item.id)}
-                >
-                  Delete Stock
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          );
-        },
-      },
-    ],
-    []
-  );
-
-  /* ===============================
-     Table
-  ================================ */
   const table = useReactTable({
     data,
-    columns,
+    columns: stockColumns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
@@ -215,7 +177,7 @@ export default function StockTable() {
 
   return (
     <div className="w-full">
-      {/* FILTER + COLUMNS */}
+      {/* FILTER / COLUMNS */}
       <div className="flex items-center py-4">
         <Input
           placeholder="Filter products..."
@@ -235,8 +197,7 @@ export default function StockTable() {
           </DropdownMenuTrigger>
 
           <DropdownMenuContent align="end">
-            {table
-              .getAllColumns()
+            {table.getAllColumns()
               .filter((column) => column.getCanHide())
               .map((column) => (
                 <DropdownMenuCheckboxItem
@@ -275,7 +236,7 @@ export default function StockTable() {
           </TableHeader>
 
           <TableBody>
-            {table.getRowModel().rows.length ? (
+            {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
@@ -290,10 +251,7 @@ export default function StockTable() {
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={stockColumns.length} className="text-center h-24">
                   No results.
                 </TableCell>
               </TableRow>

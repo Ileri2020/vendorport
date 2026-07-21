@@ -1,10 +1,10 @@
+"use server";
+
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 import cloudinary from "cloudinary";
-import path from "path";
 import { auth } from "@/auth";
-import { DEFAULT_PAGE_TEMPLATES } from "@/lib/storeTemplates";
 
 cloudinary.v2.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -12,10 +12,19 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const prisma = new PrismaClient();
+const PRICE_MARKUPS: Record<string, number> = {
+  customer: 1.3,
+  professional: 1.2,
+  wholesaler: 1.1,
+  admin: 1.1,
+  staff: 1.1,
+  visitor: 1.3,
+  user: 1.3,
+};
 
 // Centralized model mapping
 const modelMap: Record<string, any> = {
+  business: prisma.business,
   cart: prisma.cart,
   cartItem: prisma.cartItem,
   category: prisma.category,
@@ -30,379 +39,309 @@ const modelMap: Record<string, any> = {
   shippingAddress: prisma.shippingAddress,
   stock: prisma.stock,
   user: prisma.user,
-  deliveryFee: prisma.deliveryFee,
-  visit: prisma.visit,
   message: prisma.message,
-  business: prisma.business,
-  projectSettings: prisma.projectSettings,
-  page: prisma.page,
-  section: prisma.section,
-  businessSection: prisma.businessSection,
+  brand: prisma.brand,
+  activeIngredient: prisma.activeIngredient,
+  healthConcern: prisma.healthConcern,
+  bulkPrice: prisma.bulkPrice,
+  // @ts-ignore
+  priceFeedback: prisma.priceFeedback,
+  deliveryFee: prisma.deliveryFee,
 };
 
 // =====================
 // Utilities
 // =====================
-async function parseJson(req: NextRequest) {
-  try {
-    const json = await req.json();
-    return typeof json === "object" && json !== null ? json : {};
-  } catch {
-    return {};
-  }
+function parseId(id: string | null, model: string) {
+  if (!id) return null;
+  return ["user", "category", "product", "brand"].includes(model) ? id : Number(id);
 }
 
 async function handleUpload(file: File | string) {
   let dataURI = typeof file === "string" ? file : "";
-
   if (typeof file !== "string") {
     const buffer = await file.arrayBuffer();
     const b64 = Buffer.from(buffer).toString("base64");
     dataURI = `data:${file.type};base64,${b64}`;
   }
-
-  const res = await cloudinary.v2.uploader.upload(dataURI, {
-    resource_type: "auto",
-  });
-  return res;
+  return await cloudinary.v2.uploader.upload(dataURI, { resource_type: "auto" });
 }
-
-function parseId(id: string | null, model: string) {
-  if (!id) return null;
-  // return ["user", "category", "product"].includes(model) ? id : Number(id);
-  return id;
-}
-
-const DELIVERY_FEES_BY_STATE: Record<string, number> = {
-  Kwara: 1000,
-
-  Kogi: 2500,
-  Niger: 3000,
-  Oyo: 3000,
-  Osun: 3000,
-
-  Ogun: 3500,
-  Ondo: 3500,
-  Ekiti: 3500,
-  Benue: 3500,
-  Nasarawa: 3500,
-
-  Lagos: 4000,
-  FCT: 4000,
-  Edo: 4000,
-
-  Anambra: 4500,
-  Enugu: 4500,
-  Imo: 4500,
-  Abia: 4500,
-  Ebonyi: 4500,
-
-  Delta: 4500,
-  Rivers: 5000,
-  Akwa_Ibom: 5500,
-  Cross_River: 5500,
-  Bayelsa: 5500,
-
-  Kaduna: 4500,
-  Kano: 5000,
-  Katsina: 5000,
-  Jigawa: 5000,
-  Zamfara: 5000,
-  Sokoto: 5500,
-  Kebbi: 5500,
-
-  Bauchi: 5500,
-  Gombe: 5500,
-  Adamawa: 6000,
-  Taraba: 6000,
-  Borno: 6500,
-  Yobe: 6500,
-};
-
-const normalizeState = (state?: string | null): string | null => {
-  if (!state) return null;
-  return state.replace(/state/i, "").replace(/[-\s]/g, "_").trim();
-};
 
 // ==================== GET ====================
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-
   const model = searchParams.get("model");
   const id = parseId(searchParams.get("id"), model || "");
-  const searchQuery = searchParams.get("search")?.toLowerCase() || "";
-  const categoryFilter = searchParams.get("category")?.toLowerCase() || "";
-  const statusParam = searchParams.get("status"); // ← NEW
+  const limit = parseInt(searchParams.get("limit") || "50");
+  const offset = parseInt(searchParams.get("offset") || "0");
+  const minimal = searchParams.get("minimal") === "true";
 
-  if (!model || !modelMap[model]) {
-    return NextResponse.json({ error: "Invalid model" }, { status: 400 });
-  }
+  if (!model || !modelMap[model]) return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
   const prismaModel = modelMap[model];
 
-  // =====================
-  // INCLUDE MAP
-  // =====================
-  const includeMap: Record<string, any> = {
-    product: { category: true, stock: true, reviews: true },
-    featuredProduct: {
-      product: { include: { category: true, stock: true, reviews: true } },
-    },
-    review: {
-      user: { select: { id: true, name: true, email: true, image: true } },
-      product: true,
-    },
-    post: { author: true },
-    cart: {
-      products: {
-        include: { product: true },
-      },
-      user: {
-        select: { id: true, name: true, email: true },
-      },
-      payment: true,
-    },
-    user: {
-      cart: true,
-      reviews: true,
-      addresses: true,
-      post: true,
-      notification: true,
-    },
-    category: { products: true },
-    stock: { product: true },
-    payment: { cart: true },
-    refund: { cart: true },
-    message: {
-      user: { select: { id: true, name: true, email: true, image: true } },
-    },
-    business: {
-      owner: true,
-      settings: {
-        include: {
-          pages: {
-            include: { sections: true },
-          },
-        },
-      },
-      // include master sections if present
-      sections: true,
-      siteSettings: true,
-      staff: true,
-      promotions: true,
-      subscribers: true,
-      stats: true,
-      partners: true,
-      helpArticles: true,
-    },
-    projectSettings: {
-      business: true,
-      pages: {
-        include: { sections: true },
-      },
-    },
-    page: {
-      projectSettings: true,
-      sections: true,
-    },
-    section: {
-      page: true,
-    },
-    businessSection: {
-      business: true,
-      items: true,
-    },
-    staff: {
-      business: true,
-    },
-  };
-
   try {
-    // =====================
-    // SINGLE ITEM
-    // =====================
-    if (id) {
-      if (model === "review") {
-        const items = await prisma.review.findMany({
-          where: { productId: id },
-          include: includeMap.review,
+    if (!id) {
+      if (model === "business") {
+        const includeArchived = searchParams.get("includeArchived") === "true";
+        const where: any = {};
+        if (!includeArchived) where.isArchived = false;
+
+        const businesses = await prisma.business.findMany({
+          where,
+          take: Math.min(limit, 12),
+          skip: offset,
+          orderBy: [{ ratings: 'desc' as const }, { createdAt: 'desc' as const }],
         });
-        return NextResponse.json(items);
+
+        const ownerIds = businesses.map(b => b.ownerId).filter(Boolean);
+        const owners = await prisma.user.findMany({
+          where: { id: { in: ownerIds } },
+          select: { id: true, name: true, image: true, email: true }
+        });
+
+        const ownerMap = new Map(owners.map(o => [o.id, o]));
+        const result = businesses.map(b => ({
+          ...b,
+          owner: ownerMap.get(b.ownerId) || { name: "Anonymous User", image: null, email: null }
+        }));
+
+        return NextResponse.json(result);
       }
 
-      const item = await prismaModel.findUnique({
-        where: { id },
-        include: includeMap[model],
-      });
-
-      if (!item) {
-        return NextResponse.json(
-          { error: "Document not found" },
-          { status: 404 },
-        );
+      if (model === "featuredProduct") {
+        const businessId = searchParams.get("businessId");
+        const where: any = {};
+        if (businessId) where.businessId = businessId;
+        return NextResponse.json(await prisma.featuredProduct.findMany({
+          take: limit,
+          skip: offset,
+          where,
+          include: { 
+            product: { 
+              include: { 
+                category: true, 
+                stock: !minimal, 
+                reviews: false // Never load reviews for lists
+              } 
+            } 
+          },
+        }));
       }
 
-      return NextResponse.json(item);
-    }
+      if (model === "review" || model === "post") {
+        return NextResponse.json(await prismaModel.findMany({
+          take: limit,
+          skip: offset,
+          include: { user: { select: { id: true, email: true, name: true, avatarUrl: true } } },
+          orderBy: { createdAt: 'desc' }
+        }));
+      }
 
-    // =====================
-    // CART FILTERING (🔥 FIX)
-    // =====================
-    // =====================
-    // CART FILTERING (🔥 FIX)
-    // =====================
-    if (model === "cart") {
+      if (model === "category") {
+        const businessId = searchParams.get("businessId");
+        const where: any = {};
+        if (businessId) where.businessId = businessId;
+        return NextResponse.json(await prisma.category.findMany({
+          take: limit,
+          skip: offset,
+          where,
+          include: { 
+            products: { take: 3, select: { images: true } },
+            _count: { select: { products: true } }
+          }
+        }));
+      }
+
+      if (model === "product") {
+        const brand = searchParams.get("brand");
+        const categoryId = searchParams.get("categoryId");
+        const categoryName = searchParams.get("categoryName");
+        const concern = searchParams.get("concern");
+        const businessId = searchParams.get("businessId");
+        const includeParams = searchParams.get("include")?.split(",");
+        
+        const where: any = {};
+        if (businessId) where.businessId = businessId;
+        if (brand) {
+          where.OR = [
+            { brand: { equals: brand.trim(), mode: 'insensitive' } },
+            { brandData: { name: { equals: brand.trim(), mode: 'insensitive' } } },
+          ];
+        }
+        if (categoryId) where.categoryId = categoryId;
+        if (categoryName) where.category = { name: { equals: categoryName.trim(), mode: 'insensitive' } };
+        if (concern) where.category = { name: { equals: concern.trim(), mode: 'insensitive' } };
+
+        const searchQuery = searchParams.get("query")?.trim();
+        if (searchQuery) {
+          where.OR = [
+            { name: { contains: searchQuery, mode: 'insensitive' } },
+            { description: { contains: searchQuery, mode: 'insensitive' } },
+            { brand: { contains: searchQuery, mode: 'insensitive' } },
+            { brandData: { name: { contains: searchQuery, mode: 'insensitive' } } },
+            { category: { name: { contains: searchQuery, mode: 'insensitive' } } },
+            { activeIngredients: { has: searchQuery } },
+          ];
+        }
+
+        if (searchParams.get("requireImages") === "true") {
+          where.images = { isEmpty: false };
+        }
+        if (searchParams.get("requirePrice") === "true") {
+          where.price = { gt: 0 };
+        }
+
+        const include: any = {};
+        const includeMap: Record<string, any> = {
+          category: { category: true },
+          brand: { brandData: true },
+          stock: { stock: true },
+          activeIngredients: { activeIngredientRefs: true },
+          healthConcerns: { healthConcerns: true },
+          bulkPrices: { bulkPrices: true },
+        };
+
+        if (includeParams) {
+          includeParams.forEach((inc) => {
+            const mapped = includeMap[inc];
+            if (mapped) {
+              Object.assign(include, mapped);
+            }
+          });
+        } else if (!minimal) {
+          include.category = true;
+          include.stock = true;
+          include.brandData = true;
+          include.activeIngredientRefs = true;
+          include.healthConcerns = true;
+          include.bulkPrices = true;
+        } else {
+          include.category = true;
+        }
+
+        const query = {
+          where,
+          include: Object.keys(include).length > 0 ? include : undefined,
+          take: Math.min(limit, 5000), // Cap product fetch to 5000
+          skip: offset,
+          orderBy: { createdAt: 'desc' as const }
+        };
+
+        if (searchParams.get("pagination") === "true") {
+          const [data, total] = await Promise.all([
+            prisma.product.findMany(query),
+            prisma.product.count({ where })
+          ]);
+          return NextResponse.json({ data, total });
+        }
+
+        return NextResponse.json(await prisma.product.findMany(query));
+      }
+
+      if (model === "category") {
+        return NextResponse.json(await prisma.category.findMany({
+          take: limit,
+          include: { _count: { select: { products: true } } },
+          orderBy: { name: 'asc' }
+        }));
+      }
+
+      if (model === "brand") {
+        return NextResponse.json(await prisma.brand.findMany({
+          take: limit,
+          include: { _count: { select: { products: true } } },
+          orderBy: { order: 'asc' }
+        }));
+      }
+
+      if (model === "activeIngredient") {
+        return NextResponse.json(await prisma.activeIngredient.findMany({
+          take: limit,
+          include: { _count: { select: { products: true } } },
+          orderBy: { name: 'asc' }
+        }));
+      }
+
+      if (model === "healthConcern") {
+        return NextResponse.json(await prisma.healthConcern.findMany({
+          take: limit,
+          include: { _count: { select: { products: true } } },
+          orderBy: { name: 'asc' }
+        }));
+      }
+
+      if (model === "bulkPrice") {
+        return NextResponse.json(await prisma.bulkPrice.findMany({
+          take: limit,
+          include: { product: { select: { name: true } } },
+          orderBy: { createdAt: 'desc' }
+        }));
+      }
+
+      const userId = searchParams.get("userId");
+      const code = searchParams.get("code");
+      const state = searchParams.get("state");
+      const status = searchParams.get("status"); // CSV support
       const where: any = {};
 
-      if (statusParam) {
-        const statuses = statusParam
-          .split(",")
-          .map((s) => s.trim().toLowerCase());
-
-        where.status = { in: statuses };
+      if (userId) where.userId = userId;
+      if (model === "coupon" && code) where.code = code;
+      if (model === "deliveryFee" && state) where.state = state;
+      
+      if (model === "cart" && status) {
+          where.status = { in: status.split(",").map(s => s.trim()) };
       }
 
-      if (searchQuery) {
-        where.OR = [
-          { name: { contains: searchQuery, mode: "insensitive" } },
-          { user: { name: { contains: searchQuery, mode: "insensitive" } } },
-          { user: { email: { contains: searchQuery, mode: "insensitive" } } },
-          { user: { contact: { contains: searchQuery, mode: "insensitive" } } },
-          // Check id too just in case
-          { id: { contains: searchQuery, mode: "insensitive" } },
-        ];
-      }
-
-      // If userId is passed via searchParam (often unrelated to text search)
-      if (searchParams.get("userId")) {
-        where.userId = searchParams.get("userId");
-      }
-
-      const carts = await prisma.cart.findMany({
-        where,
-        include: includeMap.cart,
-        orderBy: { createdAt: "desc" },
-      });
-
-      return NextResponse.json(carts);
-    }
-
-    // =====================
-    // PRODUCT SEARCH
-    // =====================
-    if (model === "product") {
-      const minPrice = parseFloat(searchParams.get("minPrice") || "0");
-      const maxPrice = parseFloat(searchParams.get("maxPrice") || "999999999");
-      const bid = searchParams.get("businessId");
-
-      const where: any = {
-        price: { gte: minPrice, lte: maxPrice },
-      };
-
-      if (bid) where.businessId = bid;
-
-      if (searchQuery || categoryFilter) {
-        where.AND = [];
-        if (searchQuery) {
-          where.AND.push({
-            OR: [
-              { name: { contains: searchQuery, mode: "insensitive" } },
-              {
-                business: {
-                  name: { contains: searchQuery, mode: "insensitive" },
-                },
+      if (model === "cart") {
+          return NextResponse.json(await prisma.cart.findMany({
+              where,
+              include: {
+                  user: { select: { id: true, email: true, name: true, contact: true } },
+                  products: { include: { product: true } },
+                  payment: true
               },
-            ],
-          });
-        }
-        if (categoryFilter) {
-          where.AND.push({
-            category: {
-              name: { contains: categoryFilter, mode: "insensitive" },
-            },
-          });
-        }
+              take: limit,
+              skip: offset,
+              orderBy: { createdAt: 'desc' }
+          }));
       }
 
-      const products = await prisma.product.findMany({
-        where,
-        include: { ...includeMap.product, business: true },
-        take: 100,
-        orderBy: { createdAt: "desc" },
+      return NextResponse.json(await prismaModel.findMany({ 
+        where, 
+        take: limit,
+        skip: offset,
+        orderBy: { createdAt: 'desc' }
+      }));
+    } else {
+      // Single item fetch
+      const include: any = {};
+      if (model === "product") {
+        include.category = true;
+        include.stock = true;
+        include.brand = true;
+        include.activeIngredients = true;
+        include.healthConcerns = true;
+        include.bulkPrices = true;
+        include.reviews = { include: { user: { select: { name: true, avatarUrl: true } } } };
+      }
+
+      if (model === "cart") {
+          include.user = { select: { id: true, email: true, name: true, contact: true, addresses: true } };
+          include.products = { include: { product: true } };
+          include.payment = true;
+      }
+      
+      const item = await prismaModel.findUnique({ 
+        where: { id },
+        include: Object.keys(include).length > 0 ? include : undefined
       });
-
-      return NextResponse.json(products);
+      if (!item) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+      return NextResponse.json(item);
     }
-
-    // =====================
-    // DEFAULT FETCH ALL (with businessId filtering)
-    // =====================
-    const bid = searchParams.get("businessId");
-    const where: any = {};
-    if (bid) {
-      if (
-        model === "projectSettings" ||
-        model === "category" ||
-        model === "product" ||
-        model === "coupon" ||
-        model === "deliveryFee" ||
-        model === "visit" ||
-        model === "message" ||
-        model === "featuredProduct" ||
-        model === "review" ||
-        model === "notification" ||
-        model === "post" ||
-        model === "lunch" ||
-        model === "wishlist" ||
-        model === "businessSection"
-      ) {
-        where.businessId = bid;
-      }
-    }
-
-    // Determine if we can sort by createdAt
-    const modelsWithCreatedAt = [
-      "user",
-      "business",
-      "session",
-      "emailVerificationCode",
-      "post",
-      "notification",
-      "category",
-      "product",
-      "stock",
-      "cart",
-      "cartItem",
-      "payment",
-      "coupon",
-      "shippingAddress",
-      "deliveryFee",
-      "visit",
-      "refund",
-      "message",
-      "featuredProduct",
-      "review",
-      "lunch",
-      "wishlist",
-    ];
-
-    const findOptions: any = {
-      where,
-      include: includeMap[model],
-    };
-
-    if (modelsWithCreatedAt.includes(model)) {
-      findOptions.orderBy = { createdAt: "desc" };
-    }
-
-    const items = await prismaModel.findMany(findOptions);
-    return NextResponse.json(items);
   } catch (error) {
     console.error("Database GET error:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch items" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to fetch items" }, { status: 500 });
   }
 }
 
@@ -410,337 +349,157 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const model = searchParams.get("model");
+  const session = await auth();
+  const role = (session?.user as any)?.role || "visitor";
 
-  if (!model || !modelMap[model]) {
-    return NextResponse.json({ error: "Invalid model" }, { status: 400 });
+  const protectedModels = ["product", "category", "featuredProduct", "stock", "coupon", "brand", "post"];
+  if (protectedModels.includes(model || "") && role !== "admin" && role !== "staff") {
+    return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
+
+  if (!model || !modelMap[model]) return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
   const prismaModel = modelMap[model];
   const contentType = req.headers.get("content-type") || "";
-  let body: Record<string, any> = {};
+  let body: any = {};
+
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await req.formData();
+    const files = formData.getAll("file") as File[];
+    if (files.length > 0) {
+      const urls: string[] = [];
+      for (const file of files) {
+        const uploadRes = await handleUpload(file);
+        urls.push(uploadRes.url);
+      }
+      if (model === "product") body.images = urls;
+      if (model === "user") body.image = urls[0];
+      if (model === "category") body.image = urls[0];
+      if (model === "post") body.contentUrl = urls[0];
+    }
+    formData.forEach((value, key) => { if (key !== "file") body[key] = value; });
+  } else {
+    body = await req.json();
+  }
 
   try {
-    /**
-     * =========================
-     * BODY PARSING (JSON + FORM)
-     * =========================
-     */
-    if (
-      contentType.includes("multipart/form-data") ||
-      contentType.includes("application/x-www-form-urlencoded")
-    ) {
-      const formData = await req.formData();
-      const file = formData.get("file") as File | null;
-
-      // Handle file upload
-      if (file) {
-        const uploadRes = await handleUpload(file);
-
-        if (model === "category" || model === "user") {
-          body.image = uploadRes.url;
-        }
-
-        if (model === "product") {
-          body.images = [uploadRes.url];
-        }
+    if (model === "business") {
+      const businessName = (body.name || "").toString().trim();
+      if (!businessName) {
+        return NextResponse.json({ error: "Business name is required" }, { status: 400 });
       }
 
-      // Copy remaining fields
-      formData.forEach((value, key) => {
-        if (key === "file") return;
-        body[key] = value;
+      const business = await prisma.business.create({
+        data: {
+          name: businessName,
+          description: (body.description || `Welcome to ${businessName}`).toString(),
+          ownerId: body.ownerId,
+          template: body.template || "estore",
+        },
       });
-    } else if (contentType.includes("application/json")) {
-      body = await parseJson(req);
-    } else {
-      return NextResponse.json(
-        { error: "Unsupported Content-Type" },
-        { status: 415 },
-      );
+
+      await Promise.all([
+        prisma.projectSettings.create({
+          data: { businessId: business.id, currency: "NGN", exchangeRate: 1.0 },
+        }),
+        prisma.siteSettings.create({
+          data: { businessId: business.id },
+        }),
+      ]);
+
+      return NextResponse.json(business);
     }
 
-    /**
-     * =========================
-     * CART / PAYMENT CREATION
-     * =========================
-     */
     if (model === "cart") {
-      const { userId, items, deliveryAddressId } = body;
-
-      if (!userId || !items?.length || !deliveryAddressId) {
-        return NextResponse.json(
-          { error: "Missing checkout data" },
-          { status: 400 },
-        );
-      }
-
-      const productIds = items.map((i: any) => i.productId);
+      const { userId, products, status } = body;
       const dbProducts = await prisma.product.findMany({
-        where: { id: { in: productIds } },
-        select: { id: true, price: true },
+        where: { id: { in: products.map((p: any) => p.productId).filter(Boolean) } },
+        select: { id: true, price: true, bulkPrices: true },
       });
 
-      let subtotal = 0;
-      for (const item of items) {
-        const product = dbProducts.find((p) => p.id === item.productId);
-        if (!product) continue;
-        subtotal += product.price * item.quantity;
+      let total = 0;
+      let userRole = "customer";
+      if (userId && userId !== "nil") {
+        const dbUser = await prisma.user.findUnique({ where: { id: userId } });
+        if (dbUser) userRole = dbUser.role;
       }
+      const markup = PRICE_MARKUPS[userRole] || 1.3;
 
-      const address = await prisma.shippingAddress.findUnique({
-        where: { id: deliveryAddressId },
-        select: { country: true, state: true, city: true },
-      });
-
-      let deliveryFee = 6500;
-
-      if (address) {
-        // 1. Try City specific
-        const feeCity = await prisma.deliveryFee.findFirst({
-          where: {
-            country: address.country,
-            state: address.state,
-            city: address.city,
-          },
-        });
-
-        if (feeCity) {
-          deliveryFee = feeCity.price;
-        } else {
-          // 2. Try State specific
-          const feeState = await prisma.deliveryFee.findFirst({
-            where: {
-              country: address.country,
-              state: address.state,
-              city: null,
-            },
-          });
-
-          if (feeState) {
-            deliveryFee = feeState.price;
-          } else {
-            // 3. Try Country specific
-            const feeCountry = await prisma.deliveryFee.findFirst({
-              where: { country: address.country, state: null, city: null },
-            });
-
-            if (feeCountry) {
-              deliveryFee = feeCountry.price;
-            } else {
-              // 3b. Try Region/Group Specific (Fallback if no country match)
-              // Assumption: We check if any Defined Region matches the user's country?
-              // Or rather, if the user's country is part of a region?
-              // Without a Country->Region map table, we can only check if the address.country
-              // matches a 'region' field entry in DeliveryFee?
-              // No, wait. The user selects "United Kingdom" as country.
-              // If Admin sets Region="United Kingdom", Price=X.
-              // We should search where region = address.country OR region = 'Europe' (if we knew).
-              // For now, let's strictly check if the country name is used as a region key.
-
-              const feeRegion = await prisma.deliveryFee.findFirst({
-                where: { region: address.country },
-              });
-
-              if (feeRegion) {
-                deliveryFee = feeRegion.price;
-              } else {
-                // 4. Fallback to hardcoded for Nigeria states if applicable
-                const normalizedState = normalizeState(address.state);
-                if (
-                  normalizedState &&
-                  DELIVERY_FEES_BY_STATE[normalizedState]
-                ) {
-                  deliveryFee = DELIVERY_FEES_BY_STATE[normalizedState];
-                }
-              }
-            }
-          }
+      products.forEach((item: any) => {
+        if (item.productId?.startsWith("special-")) {
+            total += (item.customPrice || 0) * item.quantity;
+            return;
         }
-      }
+        
+        const found = dbProducts.find((p) => p.id === item.productId);
+        if (found) {
+            let itemPrice = found.price;
+            if (item.bulkPriceId) {
+                const bulk = found.bulkPrices.find(b => b.id === item.bulkPriceId);
+                if (bulk) itemPrice = bulk.price;
+            }
+            total += (itemPrice * markup) * item.quantity;
+        }
+      });
 
-      const total = subtotal + deliveryFee;
-
-      const cart = await prisma.cart.create({
+      return NextResponse.json(await prisma.cart.create({
         data: {
           userId,
           total,
-          deliveryFee,
-          status: "pending",
-          name: body.name, // optional name
-          contact: body.contact, // optional contact
-          products: {
-            create: items.map((i: any) => ({
-              productId: i.productId,
-              quantity: i.quantity,
-            })),
+          status: status || "pending",
+          products: { 
+            create: products.map((p: any) => ({ 
+              productId: p.productId && !p.productId.startsWith('special-') ? p.productId : null, 
+              quantity: p.quantity,
+              customName: p.customName || (p.productId?.startsWith('special-') ? p.name : null),
+              customPrice: p.customPrice,
+              bulkPriceId: p.bulkPriceId,
+              isSpecial: !!p.isSpecial || p.productId?.startsWith('special-')
+            })) 
           },
         },
         include: { products: true },
-      });
-
-      return NextResponse.json(cart);
+      }));
     }
 
-    /**
-     * =========================
-     * USER PASSWORD HASHING
-     * =========================
-     */
     if (model === "user" && body.password) {
-      const salt = await bcrypt.genSalt();
-      body.password = await bcrypt.hash(body.password, salt);
+      body.password = await bcrypt.hash(body.password, await bcrypt.genSalt());
     }
 
+    // Parsing
     if (body.price) body.price = parseFloat(body.price);
+    ['requiresPrescription', 'scarce', 'isRead'].forEach(field => {
+       if (body[field] === "true") body[field] = true;
+       if (body[field] === "false") body[field] = false;
+    });
 
-    console.log("Creating new", model, "with data:", body);
-
-    // Special handling for business creation: enforce uniqueness and create default settings/pages atomically
-    if (model === "business") {
-      // Normalize name
-      const normalized = (body.name || "").trim();
-      if (!normalized) {
-        return NextResponse.json({ error: "Missing business name" }, { status: 400 });
+    if (model === "product") {
+      if (body.brand) {
+        body.brand = { connectOrCreate: { where: { name: body.brand }, create: { name: body.brand } } };
+      } else {
+        delete body.brand;
       }
-
-      // Check for existing business with same name (case-insensitive fallback)
-      const existing = await prisma.business.findFirst({ where: { name: normalized } });
-      if (existing) {
-        return NextResponse.json({ error: "Business name already exists" }, { status: 409 });
+      if (Array.isArray(body.activeIngredients)) {
+        body.activeIngredients = { connectOrCreate: body.activeIngredients.map((name: string) => ({ where: { name }, create: { name } })) };
       }
-
-      // Create business with nested default project settings and ALL template pages
-      // Build pages from DEFAULT_PAGE_TEMPLATES
-      const templatePages = Object.entries(DEFAULT_PAGE_TEMPLATES)
-        .filter(([key]) => !['pharmacy', 'fastfood', 'restaurant', 'marketplace'].includes(key)) // exclude meta templates
-        .map(([slug, template]: any) => ({
-          name: template.name || slug.charAt(0).toUpperCase() + slug.slice(1),
-          slug,
-          sections: {
-            create: (template.sections || []).map((section: any) => ({
-              type: section.type,
-              layout: section.layout,
-              order: section.order,
-              data: section.data || {},
-            })),
-          },
-        }));
-
-      const created = await prisma.business.create({
-        data: {
-          name: normalized,
-          ownerId: body.ownerId,
-          template: body.template || "estore",
-          settings: {
-            create: {
-              currency: body.currency || "NGN",
-              exchangeRate: body.exchangeRate ? parseFloat(body.exchangeRate) : 1.0,
-              pages: {
-                create: templatePages.length > 0 ? templatePages : [{
-                  name: "Home",
-                  slug: "home",
-                  sections: { create: [] },
-                }],
-              },
-            },
-          },
-          siteSettings: {
-            create: {
-              aboutText: "Write about your business here",
-              addToHome: "Add our app to your home screen for a better experience!",
-              heroTitle: "Welcome to our store",
-              heroSubtitle: "Browse our products and enjoy great deals",
-              contactDesc: "Contact us today for product inquiries, order support, or business collaborations.",
-              contactEmail: "support@example.com",
-              contactPhone: "000-000-0000",
-            },
-          },
-        },
-        include: {
-          settings: { include: { pages: true } },
-          siteSettings: true,
-        },
-      });
-
-      // after the business is created, add placeholder data for a new store
-      try {
-        const placeholderFiles = [
-          "placeholderFemale.webp",
-          "placeholderMale.jpg",
-        ];
-        const uploaded: string[] = [];
-
-        for (const fname of placeholderFiles) {
-          const local = path.join(process.cwd(), "VendorPort", "public", fname);
-          try {
-            const r = await cloudinary.v2.uploader.upload(local, {
-              folder: `placeholders/${created.id}`,
-            });
-            uploaded.push(r.secure_url);
-          } catch (e) {
-            console.error("Failed to upload placeholder", fname, e);
-          }
-        }
-
-        // create 3 placeholder categories
-        const categoryIds: string[] = [];
-        for (let i = 1; i <= 3; i++) {
-          const cat = await prisma.category.create({
-            data: {
-              name: `Placeholder Category ${i}`,
-              businessId: created.id,
-              image: uploaded[(i - 1) % uploaded.length] || undefined,
-            },
-          });
-          categoryIds.push(cat.id);
-        }
-
-        // create 5 placeholder products
-        const productIds: string[] = [];
-        for (let i = 1; i <= 5; i++) {
-          const prod = await prisma.product.create({
-            data: {
-              name: `Placeholder Product ${i}`,
-              description: "Sample item for customizing your store",
-              price: 0.0,
-              images: uploaded.length ? [uploaded[(i - 1) % uploaded.length]] : [],
-              businessId: created.id,
-              categoryId: categoryIds[i % categoryIds.length],
-            },
-          });
-          productIds.push(prod.id);
-        }
-
-        // make first two products featured
-        for (let j = 0; j < Math.min(2, productIds.length); j++) {
-          await prisma.featuredProduct.create({
-            data: {
-              productId: productIds[j],
-              businessId: created.id,
-            },
-          });
-        }
-      } catch (e) {
-        console.error("Error creating placeholder data for business", e);
+      if (Array.isArray(body.healthConcerns)) {
+        body.healthConcerns = { connectOrCreate: body.healthConcerns.map((name: string) => ({ where: { name }, create: { name } })) };
       }
-
-      return NextResponse.json(created);
+      if (Array.isArray(body.bulkPrices)) {
+        body.bulkPrices = {
+          create: body.bulkPrices.map((bp: any) => ({
+            name: bp.name,
+            quantity: parseInt(bp.quantity),
+            price: parseFloat(bp.price)
+          }))
+        };
+      }
     }
 
-    const newItem = await prismaModel.create({ data: body });
-    return NextResponse.json(newItem);
+    return NextResponse.json(await prismaModel.create({ data: body }));
   } catch (error) {
     console.error("Database POST error:", error);
-    // If it's a unique constraint failure, surface a 409
-    const errMessage = (error && (error as any).message) || "Failed to create item";
-    if (errMessage.toLowerCase().includes("unique")) {
-      return NextResponse.json({ error: "Duplicate entry" }, { status: 409 });
-    }
-
-    return NextResponse.json(
-      { error: "Failed to create item" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Creation failed" }, { status: 500 });
   }
 }
 
@@ -748,197 +507,116 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const model = searchParams.get("model");
+  const session = await auth();
+  const role = (session?.user as any)?.role || "visitor";
 
-  if (!model || !modelMap[model]) {
-    return NextResponse.json({ error: "Invalid model" }, { status: 400 });
+  if (model !== "user" && role !== "admin" && role !== "staff") {
+    return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
+
+  if (!model || !modelMap[model]) return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
   const prismaModel = modelMap[model];
   const contentType = req.headers.get("content-type") || "";
-  const body: Record<string, any> = {};
+  let body: any = {};
 
+  if (contentType.includes("multipart/form-data")) {
+    const formData = await req.formData();
+    const file = formData.get("file") as File | null;
+    if (file) {
+      const uploadRes = await handleUpload(file);
+      if (model === "category") body.image = uploadRes.url;
+      if (model === "user") body.image = uploadRes.url;
+      if (model === "product") body.images = [uploadRes.url];
+    }
+    formData.forEach((value, key) => { if (key !== "file") body[key] = value; });
+  } else {
+    body = await req.json();
+  }
+
+  // Support for bulk brand reordering
+  if (model === "brand" && Array.isArray(body)) {
+    try {
+      const updates = body.map((item: any) => 
+        prisma.brand.update({
+          where: { id: item.id },
+          data: { order: parseInt(item.order) || 0 }
+        })
+      );
+      await prisma.$transaction(updates);
+      return NextResponse.json({ success: true, count: updates.length });
+    } catch (error) {
+      console.error("Bulk update error:", error);
+      return NextResponse.json({ error: "Bulk update failed" }, { status: 500 });
+    }
+  }
+
+  const id = parseId(body.id || searchParams.get("id"), model);
+  if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
+
+  const { id: _, ...updatedData } = body;
+  
+  if (updatedData.isRead === "true") updatedData.isRead = true;
+  if (updatedData.isRead === "false") updatedData.isRead = false;
+
+  if (model === "product") {
+    if (updatedData.brand !== undefined) {
+      if (updatedData.brand) {
+        updatedData.brand = { connectOrCreate: { where: { name: updatedData.brand }, create: { name: updatedData.brand } } };
+      } else {
+        updatedData.brand = { disconnect: true };
+      }
+    }
+    if (updatedData.category !== undefined || updatedData.categoryId !== undefined) {
+      const categoryValue = updatedData.category || updatedData.categoryId;
+      if (categoryValue) {
+        // If it's already an ID (ObjectId), connect directly
+        if (typeof categoryValue === 'string' && categoryValue.match(/^[0-9a-fA-F]{24}$/)) {
+          updatedData.category = { connect: { id: categoryValue } };
+        } else {
+          // Otherwise treat as name and connectOrCreate
+          updatedData.category = { connectOrCreate: { where: { name: categoryValue }, create: { name: categoryValue } } };
+        }
+      } else {
+        updatedData.category = { disconnect: true };
+      }
+      // Remove categoryId to avoid conflicts
+      delete updatedData.categoryId;
+    }
+    if (updatedData.images !== undefined) {
+      if (Array.isArray(updatedData.images)) {
+        updatedData.images = updatedData.images.map((item: any) => String(item).trim()).filter(Boolean);
+      } else if (typeof updatedData.images === 'string') {
+        updatedData.images = updatedData.images.trim() ? [updatedData.images.trim()] : [];
+      } else {
+        delete updatedData.images;
+      }
+    }
+    if (Array.isArray(updatedData.activeIngredients)) {
+      updatedData.activeIngredients = { set: [], connectOrCreate: updatedData.activeIngredients.map((name: string) => ({ where: { name }, create: { name } })) };
+    }
+    if (Array.isArray(updatedData.healthConcerns)) {
+      updatedData.healthConcerns = { set: [], connectOrCreate: updatedData.healthConcerns.map((name: string) => ({ where: { name }, create: { name } })) };
+    }
+    if (Array.isArray(updatedData.bulkPrices)) {
+      updatedData.bulkPrices = {
+        deleteMany: {},
+        create: updatedData.bulkPrices.map((bp: any) => ({
+          name: bp.name,
+          quantity: parseInt(bp.quantity),
+          price: parseFloat(bp.price)
+        }))
+      };
+    }
+  }
   try {
-    // =========================
-    // FORM DATA
-    // =========================
-    if (
-      contentType.includes("multipart/form-data") ||
-      contentType.includes("application/x-www-form-urlencoded")
-    ) {
-      const formData = await req.formData();
-      const file = formData.get("file") as File | null;
-
-      // handle file upload only if present
-      if (file instanceof File && file.size > 0) {
-        const uploadRes = await handleUpload(file);
-
-        if (model === "category" || model === "user") {
-          body.image = uploadRes.url;
-        }
-
-        if (model === "product") {
-          body.images = [uploadRes.url];
-        }
-      }
-
-      // copy remaining fields
-      formData.forEach((value, key) => {
-        if (key === "file") return;
-        body[key] = value;
-      });
-    }
-
-    // =========================
-    // JSON BODY
-    // =========================
-    else if (contentType.includes("application/json")) {
-      const json = await req.json();
-      Object.assign(body, json);
-
-      if (json.image && (model === "user" || model === "category")) {
-        body.image = json.image;
-      }
-
-      if (json.images && model === "product") {
-        body.images = json.images;
-      }
-    } else {
-      return NextResponse.json(
-        { error: "Unsupported Content-Type" },
-        { status: 415 },
-      );
-    }
-
-    // =========================
-    // ID RESOLUTION
-    // =========================
-    const id = parseId(body.id || searchParams.get("id"), model);
-    if (!id) {
-      return NextResponse.json(
-        { error: "Missing or invalid id" },
-        { status: 400 },
-      );
-    }
-
-    // remove id from update payload
-    const { id: _ignore, ...updatedData } = body;
-
-    // =========================
-    // TYPE FIXES (CRITICAL)
-    // =========================
-    if (updatedData.price) {
-      updatedData.price = parseFloat(updatedData.price);
-    }
-    if (updatedData.costPrice) {
-      updatedData.costPrice = parseFloat(updatedData.costPrice);
-    }
-
-    // =========================
-    // CART PAYLOAD UPDATES
-    // =========================
-    if (model === "cart") {
-      // Allow updating name and contact if provided
-      // Logic handled by default update below unless it is status/payment specific
-      // However, if it IS status/payment specific, we enter the block below.
-      // We should merge logic or let the block below handle strict status/payment updates.
-      // If the user is just renaming (body only has name), it skips the big block below.
-    }
-
-    if (!updatedData || Object.keys(updatedData).length === 0) {
-      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
-    }
-
-    // =========================
-    // UPDATE
-    // =========================
-    // =========================
-    // CART PAYMENT UPDATE
-    // =========================
-    if (model === "cart" && (body.status || body.payment || body.total)) {
-      // Fetch existing cart to check status
-      const existingCart = await prisma.cart.findUnique({
-        where: { id },
-        select: { status: true },
-      });
-
-      const updatePayload: any = {};
-      if (body.status) updatePayload.status = body.status;
-      // Only allow total update if cart is still pending (not paid/completed)
-      if (body.total && existingCart?.status === "pending")
-        updatePayload.total = body.total;
-
-      // Also allow updating name/contact here if passed
-      if (body.name) updatePayload.name = body.name;
-      if (body.contact) updatePayload.contact = body.contact;
-
-      if (Object.keys(updatePayload).length > 0 || body.payment) {
-        const updatedCart = await prisma.cart.update({
-          where: { id },
-          data: {
-            ...updatePayload,
-            ...(body.payment && {
-              payment: {
-                upsert: {
-                  create: body.payment,
-                  update: body.payment,
-                },
-              },
-            }),
-          },
-          include: {
-            user: { include: { addresses: true } },
-            products: { include: { product: true } },
-            payment: true,
-          },
-        });
-
-        // Send email if paid
-        if (
-          body.status === "paid" &&
-          updatedCart.user?.email &&
-          body.adminConfirmed
-        ) {
-          const { sendPaymentConfirmationEmail } =
-            await import("@/lib/nodemailer");
-          // Use cart contact, then user contact, then address phone
-          const contact =
-            updatedCart.contact ||
-            updatedCart.user.contact ||
-            updatedCart.user.addresses?.[0]?.phone ||
-            "N/A";
-
-          const address = updatedCart.user.addresses?.[0];
-          const addressStr = address
-            ? `${address.address}, ${address.city}, ${address.state}, ${address.country}`
-            : "Address on file";
-
-          await sendPaymentConfirmationEmail(updatedCart.user.email, {
-            customerName: updatedCart.user.name || "Customer",
-            contact: contact,
-            address: addressStr,
-            products: updatedCart.products,
-            total: updatedCart.total,
-            deliveryFee: updatedCart.deliveryFee,
-            orderId: updatedCart.id,
-          });
-        }
-
-        return NextResponse.json(updatedCart);
-      }
-    }
-
-    const updatedItem = await prismaModel.update({
-      where: { id },
+    return NextResponse.json(await prismaModel.update({
+      where: { id: String(id) },
       data: updatedData,
-    });
-
-    return NextResponse.json(updatedItem);
+    }));
   } catch (error) {
     console.error("Database PUT error:", error);
-    return NextResponse.json(
-      { error: "Failed to update item" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
 }
 
@@ -946,40 +624,20 @@ export async function PUT(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const model = searchParams.get("model");
-  const id = `${parseId(searchParams.get("id"), model || "")}`;
-  console.log(
-    "DELETE request for model:",
-    model,
-    "id:",
-    id,
-    "search params id",
-    searchParams.get("id"),
-  );
+  const id = parseId(searchParams.get("id"), model || "");
+  const session = await auth();
+  const role = (session?.user as any)?.role || "visitor";
 
-  if (!model || !modelMap[model])
-    return NextResponse.json({ error: "Invalid model" }, { status: 400 });
-  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+  if (role !== "admin" && role !== "staff") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
 
-  const prismaModel = modelMap[model];
+  if (!model || !modelMap[model] || !id) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
   try {
-    const session = await auth();
-    const userRole = session?.user?.role || "";
-
-    if (model === "business" && userRole !== "supreme") {
-      return NextResponse.json(
-        { error: "Only Supreme admins can delete businesses" },
-        { status: 403 }
-      );
-    }
-
-    await prismaModel.delete({ where: { id } });
+    await modelMap[model].delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Database DELETE error:", error);
-    return NextResponse.json(
-      { error: "Failed to delete item" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Deletion failed" }, { status: 500 });
   }
 }

@@ -123,12 +123,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             return session
         },
 
-        async signIn({user, account}) {
+        async signIn({ user, account }) {
 
-            if (account && account.provider === "google"){
+            if (account?.provider === "google") {
 
                 try {
-                    const { email, name, image, id } = user
+                    const { email, image, id } = user
                     // await connect()
                     // let alreadyUser
 
@@ -144,29 +144,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
                     const response = await fetch(`/api/data/finduser?email=${email}`, {
                         method: 'GET',
                         headers: {
-                          'Content-Type': 'application/json',
+                            'Content-Type': 'application/json',
                         },
                         // query: { email: email },
                     });
-            
+
                     if (response.ok) {
                         alreadyUser = await response.json();
+                        // return userData;
                     } else {
-                        throw new Error('Failed to fetch user data')
+                        console.error('Failed to fetch user data')
                     }
 
-                    if(!alreadyUser) {
+                    if (!alreadyUser) {
+                        // try {
+                        //     User.create({
+                        //         // firstName: firstName,
+                        //         // lastName: lastName,
+                        //         email: email,
+                        //         // password: hashedPassword,
+                        //         // role: role,
+                        //         image : image,
+                        //         authProviderId : id
+                        //     })
+                        // } catch (error) {
+                        //     // users = mongoose.model('users', userSchema)
+                        //     console.log("unable to get user from database")
+                        // }  
                         console.log("i need to create user account for you using api route")
-                        return true;
+                        return true
                     } else {
                         return true
                     }
-                }catch (error) {
+                } catch (error) {
                     console.log("error while creating user from google credentials")
-                    return false;
+                    return false
                 }
             }
-            return true;
+            return true
         }
 
 

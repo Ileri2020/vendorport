@@ -15,9 +15,10 @@ const baseUrl = BASE_URL + "/comments";
 
 const Comments = ( props : {videoId : string}) => {
   const { user, isModal, setIsModal, comments, setComments} = useAppContext();
-  const [compComments, setCompComments] = useState<any[]>([]); //<CommentType[]>
+  const [compComments, setCompComments] = useState<any[]>([]);
   const [comment, setComment] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
 
 
@@ -57,12 +58,12 @@ const Comments = ( props : {videoId : string}) => {
       })
       .catch((err) => console.log(err));
 
-    setCompComments(comments.filter((comment)=> comment.contentId === props.videoId))
-    console.log('all comment',comments,'filtered comments', comments.filter((comment)=> comment.contentId === props.videoId))
+    setCompComments(comments.filter((comment: any)=> comment.contentId === props.videoId))
+    console.log('all comment',comments,'filtered comments', comments.filter((comment: any)=> comment.contentId === props.videoId))
   }, [props.videoId]);
   
 
-  if (!props.videoId) return;
+  if (!props.videoId) return null;
 
   const validate = (): boolean => comment.length > 0;
 
@@ -84,7 +85,7 @@ const Comments = ( props : {videoId : string}) => {
     setIsModal(false);
   };
   //for collapsible
-  const [isOpen, setIsOpen] = useState(false)
+  //isOpen state moved above the early return
 
   return (
     <Collapsible

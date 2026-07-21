@@ -1,7 +1,7 @@
 "use client";
-import { UserProps } from "@/types/user";
+// import { UserProps } from "@/types/user";
 import { VideoType } from "@/types/videoType";
-import React, { createContext, useState, ReactNode } from "react";
+import React, { createContext, useState } from "react";
 
 
 interface Comment {
@@ -13,13 +13,6 @@ interface Comment {
   createdAt: string | Date;
 }
 
-// Dialog Configuration Interface
-export interface DialogConfig {
-  isOpen: boolean;
-  title: string;
-  description: string;
-  variant?: "default" | "destructive" | "success"; // Optional for styling
-}
 
 interface AppContextProps {
   // isDark: boolean;
@@ -40,18 +33,12 @@ interface AppContextProps {
   setIsModal: (isModal: boolean) => void;
   useMock: boolean;
   setUseMock: (useMock: boolean) => void;
-  comments: any;
-  setComments: (comments: any) => void;
-
-  // Global Dialog Props
-  dialogConfig: DialogConfig;
-  setDialogConfig: (config: DialogConfig) => void;
-  openDialog: (description: string, title?: string) => void;
-  closeDialog: () => void;
-
-  // Business Specific Settings
-  currentBusiness: any;
-  setCurrentBusiness: (business: any) => void;
+  comments : any ;
+  setComments : (comments : any) => void;
+  currentBusiness: any | null;
+  setCurrentBusiness: (business: any | null) => void;
+  checkoutData: any;
+  setCheckoutData: (data: any) => void;
 }
 
 export const AppContext = createContext<AppContextProps | null>(null);
@@ -61,31 +48,22 @@ export const AppContextProvider: React.FC<any> = ({ children }) => {
   const [isList, setIsList] = useState(true);
   const [videos, setVideos] = useState<VideoType[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<VideoType | null>(null);
-  const [user, setUser] = useState<any>({ name: "visitor", id: "nil", email: "nil", image: "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png", role: "user", contact: "xxxx", addresses: [], shippingAddress: null });
+  const [currentBusiness, setCurrentBusiness] = useState<any | null>(null);
+  const [user, setUser] = useState<any>({ 
+    name: "visitor", 
+    id: "nil", 
+    email: "nil", 
+    avatarUrl: "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png", 
+    role: "user", 
+    contact: "xxxx",
+    walletBalance: 0,
+    walletCurrency: "₦"
+  });
   const [cart, setCart] = useState<any[]>([]);
   const [isModal, setIsModal] = useState(false);
   const [useMock, setUseMock] = useState(true);
   const [comments, setComments] = useState([])
-  const [currentBusiness, setCurrentBusiness] = useState<any>(null);
-
-  // Global Dialog State
-  const [dialogConfig, setDialogConfig] = useState<DialogConfig>({
-    isOpen: false,
-    title: "",
-    description: "",
-  });
-
-  const openDialog = (description: string, title: string = "Notification") => {
-    setDialogConfig({
-      isOpen: true,
-      title,
-      description,
-    });
-  };
-
-  const closeDialog = () => {
-    setDialogConfig((prev) => ({ ...prev, isOpen: false }));
-  };
+  const [checkoutData, setCheckoutData] = useState<any>(null);
 
   const appContextValues: AppContextProps = {
     // isDark,
@@ -98,6 +76,8 @@ export const AppContextProvider: React.FC<any> = ({ children }) => {
     setComments,
     selectedVideo,
     setSelectedVideo,
+    currentBusiness,
+    setCurrentBusiness,
     user,
     setUser,
     cart,
@@ -106,16 +86,8 @@ export const AppContextProvider: React.FC<any> = ({ children }) => {
     setIsModal,
     useMock,
     setUseMock,
-
-    // Global Dialog Values
-    dialogConfig,
-    setDialogConfig,
-    openDialog,
-    closeDialog,
-
-    // Business Specific Settings
-    currentBusiness,
-    setCurrentBusiness,
+    checkoutData,
+    setCheckoutData,
   };
 
   return (

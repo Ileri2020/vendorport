@@ -1,7 +1,6 @@
+import { prisma } from "@/lib/prisma";
 
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 
 const modelMap = {
   //ministries: prisma.ministry,
@@ -21,24 +20,22 @@ const modelMap = {
   user: prisma.user,
 };
 
-type ModelName = keyof typeof modelMap;
-
 async function dbHandler({
-  model,
-  id,
+  model = null,
+  id = null,
   body = null,
   method,
   profileImage = false,
 }: {
-  model: ModelName;
-  id?: string;
+  model: any;
+  id?: string | null;
   body?: any;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   profileImage?: boolean;
 }) {
   console.log("In dbhandler function");
 
-  const prismaModel = modelMap[model] as any;
+  const prismaModel = modelMap[model];
 
   if (!prismaModel) {
     return { status: 400, data: { message: 'Invalid model' } };
@@ -57,10 +54,10 @@ async function dbHandler({
           const items = await prismaModel.findMany();
           return { status: 200, data: items };
         }
-      case 'POST': {
+      case 'POST':
         const data = body;
         const newItem = await prismaModel.create({ data });
-        if (profileImage && model === 'post') {
+        if (profileImage && model === 'posts') {
           try {
             console.log("about to change user profile image")
             await prisma.user.update({
@@ -73,15 +70,13 @@ async function dbHandler({
           }
         }
         return { status: 200, data: newItem };
-      }
-      case 'PUT': {
+      case 'PUT':
         const { _id, ...updatedata } = body;
         const updatedItem = await prismaModel.update({
           where: { id : _id },
           data: updatedata,
         });
         return { status: 200, data: updatedItem };
-      }
       case 'DELETE':
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };
@@ -118,8 +113,7 @@ export default dbHandler;
 
 
 
-// import { PrismaClient } from '@prisma/client';
-
+// 
 // const prisma = new PrismaClient();
 
 // const modelMap = {

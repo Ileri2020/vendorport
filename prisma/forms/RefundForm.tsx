@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -12,16 +12,16 @@ export default function RefundForm() {
     reason: '',
     status: 'pending',
   });
-  const [editId, setEditId] = useState<any>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  const fetchRefunds = useCallback(async () => {
+    const res = await axios.get('/api/dbhandler?model=refund');
+    setRefunds(res.data);
+  }, []);
 
   useEffect(() => {
     fetchRefunds();
-  }, []);
-
-  const fetchRefunds = async () => {
-    const res = await axios.get('/api/dbhandler?model=refund');
-    setRefunds(res.data);
-  };
+  }, [fetchRefunds]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,13 +61,14 @@ export default function RefundForm() {
         <Input type="text" placeholder="Cart ID" value={formData.cartId} onChange={(e) => setFormData({ ...formData, cartId: e.target.value })} />
         <Input type="number" placeholder="Amount" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} />
         <Input type="text" placeholder="Reason" value={formData.reason} onChange={(e) => setFormData({ ...formData, reason: e.target.value })} />
-        <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
+        <label className="sr-only" htmlFor="refund-status">Refund status</label>
+        <select id="refund-status" title="Select refund status" value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
           <option value="pending">Pending</option>
           <option value="approved">Approved</option>
           <option value="rejected">Rejected</option>
         </select>
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <Button onClick={resetForm}>Cancel</Button>}
+        {editId && <button onClick={resetForm}>Cancel</button>}
         <ul className='w-full'>
           {refunds.length > 0 ? (
             refunds.map((item , index) => (
@@ -80,8 +81,8 @@ export default function RefundForm() {
                 <p>Reason : {item.reason || <em>No reason</em>}</p>
                 <p>Status : {item.status || <em>No status</em>}</p>
                 <div className='flex flex-row gap-2 p-1 w-full'>
-                  <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                  <Button type='button' onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
+                  <Button onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
+                  <Button onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
                 </div>
               </li>
             ))

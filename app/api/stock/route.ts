@@ -1,7 +1,6 @@
-import { PrismaClient } from "@prisma/client";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
-const prisma = new PrismaClient();
 
 // -----------------------------------------
 // GET → fetch stock metrics for ALL products
@@ -15,13 +14,13 @@ export async function GET() {
       },
     });
 
-    const metrics = products.map((p) => {
+    const metrics = products.map((p: any) => {
       // SUM ALL STOCK ENTRIES
-      const totalStock = p.stock.reduce((sum, s) => sum + s.addedQuantity, 0);
+      const totalStock = p.stock.reduce((sum: number, s: any) => sum + s.addedQuantity, 0);
 
       // SUM ALL SOLD ENTRIES
       const totalSold = p.cartItems.reduce(
-        (sum, item) => sum + item.quantity,
+        (sum: number, item: any) => sum + item.quantity,
         0
       );
 
@@ -61,20 +60,21 @@ export async function POST(req: Request) {
   }
 
   try {
-    console.log("Data to create :", productId, addedQuantity);
-
-    const stock = await prisma.stock.create({
-      data: {
-        productId,
-        addedQuantity: Number(addedQuantity),
-        costPerProduct: Number(costPerProduct || 0),
-      },
-    });
-    return new Response(JSON.stringify(stock), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  } catch (error) {
-    // console.error('Database POST error:', error);
-    return new Response(JSON.stringify({ error: 'Failed to create item' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-  }
+      console.log("Data to create :", productId, addedQuantity);
+  
+      const stock = await prisma.stock.create({
+            data: { 
+              productId, 
+              addedQuantity: Number(addedQuantity),
+              costPerProduct: costPerProduct ? Number(costPerProduct) : undefined,
+              pricePerProduct: pricePerProduct ? Number(pricePerProduct) : undefined
+            },
+        });
+      return new Response(JSON.stringify(stock), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    } catch (error) {
+      // console.error('Database POST error:', error);
+      return new Response(JSON.stringify({ error: 'Failed to create item' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    }
 }
 
 // -------------------------------------------------
@@ -95,6 +95,7 @@ export async function PUT(req: Request) {
     data: { 
       addedQuantity: addedQuantity ? Number(addedQuantity) : undefined,
       costPerProduct: costPerProduct ? Number(costPerProduct) : undefined,
+      pricePerProduct: pricePerProduct ? Number(pricePerProduct) : undefined
     },
   });
 

@@ -10,19 +10,20 @@ export default function UserForm() {
     email: '',
     password: '',
     name: '',
-    image: '',
-    role: 'user',
+    avatarUrl: '',
+    role: 'customer',
+    verificationStatus: 'unverified',
   });
-  const [editId, setEditId] = useState<any>(null);
-
-  useEffect(() => {
-    fetchUsers();
-  }, []);
+  const [editId, setEditId] = useState(null);
 
   const fetchUsers = async () => {
     const res = await axios.get('/api/dbhandler?model=user');
     setUsers(res.data);
   };
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -50,8 +51,9 @@ export default function UserForm() {
       email: '',
       password: '',
       name: '',
-      image: '',
-      role: 'user',
+      avatarUrl: '',
+      role: 'customer',
+      verificationStatus: 'unverified'
     });
     setEditId(null);
   };
@@ -82,19 +84,37 @@ export default function UserForm() {
         <Input
           type="text"
           placeholder="Avatar URL"
-          value={formData.image || ''}
-          onChange={(e) => setFormData({ ...formData, image: e.target.value })}
+          value={formData.avatarUrl || ''}
+          onChange={(e) => setFormData({ ...formData, avatarUrl: e.target.value })}
         />
         <select
+          id="user-role"
+          title="Select role"
+          className="w-full p-2 border rounded-md"
           value={formData.role}
           onChange={(e) => setFormData({ ...formData, role: e.target.value })}
         >
-          <option value="user">User</option>
+          <option value="customer">Customer</option>
+          <option value="professional">Professional</option>
+          <option value="wholesaler">Wholesaler</option>
+          <option value="staff">Staff</option>
           <option value="admin">Admin</option>
-          <option value="moderator">Moderator</option>
+        </select>
+
+        <select
+          id="user-verification"
+          title="Select verification status"
+          className="w-full p-2 border rounded-md"
+          value={formData.verificationStatus || 'unverified'}
+          onChange={(e) => setFormData({ ...formData, verificationStatus: e.target.value })}
+        >
+          <option value="unverified">Unverified</option>
+          <option value="pending">Pending</option>
+          <option value="verified">Verified</option>
+          <option value="rejected">Rejected</option>
         </select>
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <Button onClick={resetForm}>Cancel</Button>}
+        {editId && <button onClick={resetForm}>Cancel</button>}
 
         <ul className='w-full'>
         {users.length > 0 ? (
@@ -106,8 +126,8 @@ export default function UserForm() {
               </div>
               <p>Email : {item.email || <em>No email</em>}</p>
               <div className='flex flex-row gap-2 p-1 w-full'>
-                <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                <Button type='button' onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
+                <Button onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
+                <Button onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
               </div>
             </li>
           ))

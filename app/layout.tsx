@@ -1,17 +1,17 @@
-// @ts-nocheck
 import type { Metadata } from "next";
 // import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider"
 import { Providers } from "@/store/providers";
-import Navbar from "@/components/utility/navbar";
 import { AppContextProvider } from "@/context/appContext";
-import { Footer } from "@/components/myComponents/subs/footer";
+import { NotificationUI } from "@/components/myComponents/subs";
 import { CartProvider } from "@/hooks/use-cart";
+import { VisitTracker } from "@/components/utility/VisitTracker";
 import { SessionProvider } from "next-auth/react"
 import { usersession } from "@/session";
-import { VisitTracker } from "@/components/utility/VisitTracker";
-import { prisma } from "@/lib/prisma";
+import { Session } from "next-auth";
+import { LoginPopup } from "@/components/myComponents/subs/LoginPopup";
+
 // import {Roboto} from "next/font/google"
 
 // const roboto = Roboto({
@@ -29,25 +29,16 @@ import { prisma } from "@/lib/prisma";
 //   weight: "100 900",
 // });
 
-interface Session {
-  user?: {
-    name?: string
-    email?: string
-    image?: string
-  }
-  expires: string
-}
-
 const metadata: Metadata = {
-  title: "VendorPort | The SaaS Platform for E-Store Builders",
-  description: "VendorPort is the ultimate website builder to launch your online business in seconds. create e-stores, pharmacies, and more.",
+  title: "Vendors Hub",
+  description: "Modern professional smart web solution built to grow your business.",
 };
 
 export const SEO_CONFIG = {
-  description: 'Design, launch, and manage your e-store or pharmacy with ease.',
-  fullName: "VendorPort Platform",
-  name: "VendorPort",
-  slogan: "Empowering Businesses Digitally",
+  description:'Modern professional smart web solution built to grow your business.',
+  fullName: "Vendors Hub",
+  name: "Vendors Hub",
+  slogan: "your business on click always",
 };
 
 export const SYSTEM_CONFIG = {
@@ -58,40 +49,38 @@ export const SYSTEM_CONFIG = {
   // repoStars: true,
 };
 
-import { Toaster } from "@/components/ui/sonner"
+// Local Session interface removed to use next-auth's global extension
 
 export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session: Session | null = await usersession();
+  const session : Session | null =  await usersession() || null;
   return (
     <html lang="en">
-      <SessionProvider session={session}>
+      <SessionProvider  session={session}>
         <AppContextProvider>
           <body
             className={`font-roboto_mono antialiased`}
-          // ${geistSans.variable} ${geistMono.variable}
+            // ${geistSans.variable} ${geistMono.variable}
           >
             <Providers>
-              <CartProvider>
+              <CartProvider businessSlug="platform">
                 <ThemeProvider
-                  attribute="class"
-                  defaultTheme="light"
-                  enableSystem
-                  disableTransitionOnChange
-                >
-                  <VisitTracker />
-                  <Navbar />
-                  {children}
-                  <Toaster />
-                  <Footer categories={await prisma.category.findMany({ 
-                    take: 5, 
-                    orderBy: { products: { _count: 'desc' } }, 
-                    select: { id: true, name: true } 
-                  }) as any} />
-                </ThemeProvider>
+                    attribute="class"
+                    defaultTheme="light"
+                    enableSystem
+                    disableTransitionOnChange
+                  >
+                    {/* Navbar and Footer are rendered by child layouts:
+                        - (platform)/layout.tsx  → platform pages (no business props)
+                        - [storeName]/layout.tsx → business pages (with fetched business props) */}
+                    <VisitTracker />
+                    <LoginPopup />
+                    <NotificationUI />
+                    {children}
+                  </ThemeProvider>
               </CartProvider>
             </Providers>
           </body>

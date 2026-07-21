@@ -2,38 +2,28 @@
 
 import { CartItem } from "@/components/myComponents/subs/cart";
 import * as React from "react";
-import { useAppContext } from "@/hooks/useAppContext";
+import { useAppContext } from "./useAppContext";
+import { PRICE_MARKUPS } from "@/lib/stock-pricing";
+
+//import type { CartItem } from "~/ui/components/cart";
 
 /* -------------------------------------------------------------------------- */
 /*                                   Types                                    */
 /* -------------------------------------------------------------------------- */
 
-export interface CheckoutData {
-  cartId: string;
-  tx_ref: string;
-  amount: number;
-  currency: string;
-}
-
 export interface CartContextType {
-  // Cart (Scoped to current business)
-  addItem: (item: Omit<CartItem, "quantity"> & { businessId?: string }, quantity?: number) => void;
+  addItem: (item: Omit<CartItem, "quantity">, quantity?: number) => void;
   clearCart: () => void;
   itemCount: number;
   items: CartItem[];
-  removeItem: (id: string, businessId?: string) => void;
+  removeItem: (id: string, bulkPriceId?: string) => void;
   subtotal: number;
-  updateQuantity: (id: string, quantity: number, businessId?: string) => void;
-
-  // Global Cart (Platform view)
-  allCarts: MultiCartData;
-  clearAllCarts: () => void;
-
-  // Checkout
-  checkoutData: CheckoutData | null;
-  setCheckoutData: (data: CheckoutData | null) => void;
-  clearCheckoutData: () => void;
+  updateQuantity: (id: string, quantity: number, bulkPriceId?: string) => void;
 }
+
+/* -------------------------------------------------------------------------- */
+/*                                Context                                     */
+/* -------------------------------------------------------------------------- */
 
 const CartContext = React.createContext<CartContextType | undefined>(undefined);
 
@@ -41,203 +31,143 @@ const CartContext = React.createContext<CartContextType | undefined>(undefined);
 /*                         Local-storage helpers                              */
 /* -------------------------------------------------------------------------- */
 
-const MULTI_CART_STORAGE_KEY = "v_builder_multi_carts";
-const CHECKOUT_STORAGE_KEY = "v_builder_checkout"; // keeping global for now
 const DEBOUNCE_MS = 500;
 
-type MultiCartData = Record<string, CartItem[]>;
-
-const loadAllCartsFromStorage = (): MultiCartData => {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(MULTI_CART_STORAGE_KEY);
-    if (!raw) return {};
-    return JSON.parse(raw);
-  } catch (err) {
-    console.error("Failed to load multi-carts:", err);
-    return {};
+const getStorageKey = (businessSlug?: string): string => {
+  if (businessSlug) {
+    return `cart.storefront.${businessSlug}`;
   }
+  return "cart.platform";
 };
 
-const loadCheckoutFromStorage = (): CheckoutData | null => {
-  if (typeof window === "undefined") return null;
+const loadCartFromStorage = (businessSlug?: string): CartItem[] => {
+  if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(CHECKOUT_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
+    const storageKey = getStorageKey(businessSlug);
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) {
+      return parsed as CartItem[];
+    }
   } catch (err) {
-    console.error("Failed to load checkout:", err);
-    return null;
+    console.error("Failed to load cart:", err);
   }
+  return [];
 };
 
 /* -------------------------------------------------------------------------- */
 /*                               Provider                                     */
 /* -------------------------------------------------------------------------- */
 
-export function CartProvider({ children }: React.PropsWithChildren) {
-  const { currentBusiness } = useAppContext();
-  const businessId = currentBusiness?.id || "global";
+interface CartProviderProps extends React.PropsWithChildren {
+  businessSlug?: string;
+}
 
-  /* ----------------------------- State ---------------------------------- */
-  const [allCarts, setAllCarts] = React.useState<MultiCartData>(loadAllCartsFromStorage);
-  const [checkoutData, setCheckoutDataState] = React.useState<CheckoutData | null>(loadCheckoutFromStorage);
+export function CartProvider({ children, businessSlug }: CartProviderProps) {
+  const { user } = useAppContext();
+  const [items, setItems] = React.useState<CartItem[]>(() => loadCartFromStorage(businessSlug));
+  
+  const role = user?.role || "customer";
+  const markup = PRICE_MARKUPS[role as keyof typeof PRICE_MARKUPS] || 1.3;
 
-  /* -------------------- Active Items ------------------------------------ */
-  const items = React.useMemo(() => allCarts[businessId] || [], [allCarts, businessId]);
-
-  /* -------------------- Persist Carts (debounced) ------------------------- */
-  const saveTimeout = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* -------------------- Persist to localStorage (debounced) ------------- */
+  const saveTimeout = React.useRef<null | ReturnType<typeof setTimeout>>(null);
 
   React.useEffect(() => {
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
-
     saveTimeout.current = setTimeout(() => {
       try {
-        localStorage.setItem(MULTI_CART_STORAGE_KEY, JSON.stringify(allCarts));
+        const storageKey = getStorageKey(businessSlug);
+        localStorage.setItem(storageKey, JSON.stringify(items));
       } catch (err) {
-        console.error("Failed to save carts:", err);
+        console.error("Failed to save cart:", err);
       }
     }, DEBOUNCE_MS);
 
     return () => {
       if (saveTimeout.current) clearTimeout(saveTimeout.current);
     };
-  }, [allCarts]);
+  }, [items, businessSlug]);
 
-  /* -------------------- Persist Checkout --------------------------------- */
-  React.useEffect(() => {
-    try {
-      if (checkoutData) {
-        localStorage.setItem(CHECKOUT_STORAGE_KEY, JSON.stringify(checkoutData));
-      } else {
-        localStorage.removeItem(CHECKOUT_STORAGE_KEY);
-      }
-    } catch (err) {
-      console.error("Failed to save checkout:", err);
-    }
-  }, [checkoutData]);
-
-  const clearCheckoutData = React.useCallback(() => {
-    setCheckoutDataState(null);
-  }, []);
-
-  const setCheckoutData = React.useCallback((data: CheckoutData | null) => {
-    setCheckoutDataState(data);
-  }, []);
-
-  /* ----------------------------- Cart Actions ---------------------------- */
+  /* ----------------------------- Actions -------------------------------- */
   const addItem = React.useCallback(
-    (newItem: Omit<CartItem, "quantity"> & { businessId?: string }, qty = 1) => {
+    (newItem: Omit<CartItem, "quantity">, qty = 1) => {
       if (qty <= 0) return;
-      const targetId = newItem.businessId || businessId;
-      setAllCarts((prev) => {
-        const currentItems = prev[targetId] || [];
-        const existing = currentItems.find((i) => i.id === newItem.id);
-        
-        let nextItems;
+      setItems((prev) => {
+        const existing = prev.find((i) => i.id === newItem.id && i.bulkPriceId === newItem.bulkPriceId);
         if (existing) {
-          nextItems = currentItems.map((i) =>
-            i.id === newItem.id ? { ...i, quantity: i.quantity + qty } : i
+          return prev.map((i) =>
+            (i.id === newItem.id && i.bulkPriceId === newItem.bulkPriceId) ? { ...i, quantity: i.quantity + qty } : i,
           );
-        } else {
-          nextItems = [...currentItems, { ...newItem, quantity: qty }];
         }
-        
-        return { ...prev, [targetId]: nextItems };
+        return [...prev, { ...newItem, quantity: qty }];
       });
-      clearCheckoutData();
     },
-    [businessId, clearCheckoutData]
+    [],
   );
 
-  const removeItem = React.useCallback(
-    (id: string, bizId?: string) => {
-      const targetId = bizId || businessId;
-      setAllCarts((prev) => {
-        const currentItems = prev[targetId] || [];
-        const nextItems = currentItems.filter((i) => i.id !== id);
-        return { ...prev, [targetId]: nextItems };
-      });
-      clearCheckoutData();
-    },
-    [businessId, clearCheckoutData]
-  );
+  const removeItem = React.useCallback((id: string, bulkPriceId?: string) => {
+    setItems((prev) => prev.filter((i) => !(i.id === id && i.bulkPriceId === bulkPriceId)));
+  }, []);
 
-  const updateQuantity = React.useCallback(
-    (id: string, qty: number, bizId?: string) => {
-      const targetId = bizId || businessId;
-      setAllCarts((prev) => {
-        const currentItems = prev[targetId] || [];
-        const nextItems = currentItems.flatMap((i) => {
-          if (i.id !== id) return i;
-          if (qty <= 0) return [];
-          return { ...i, quantity: qty };
-        });
-        return { ...prev, [targetId]: nextItems };
-      });
-      clearCheckoutData();
-    },
-    [businessId, clearCheckoutData]
-  );
+  const updateQuantity = React.useCallback((id: string, qty: number, bulkPriceId?: string) => {
+    setItems((prev) =>
+      prev.flatMap((i) => {
+        if (!(i.id === id && i.bulkPriceId === bulkPriceId)) return i;
+        if (qty <= 0) return []; // treat zero/negative as remove
+        if (qty === i.quantity) return i;
+        return { ...i, quantity: qty };
+      }),
+    );
+  }, []);
 
-  const clearCart = React.useCallback(() => {
-    setAllCarts((prev) => ({ ...prev, [businessId]: [] }));
-    clearCheckoutData();
-  }, [businessId, clearCheckoutData]);
+  const clearCart = React.useCallback(() => setItems([]), []);
 
-  const clearAllCarts = React.useCallback(() => {
-    setAllCarts({});
-    clearCheckoutData();
-  }, [clearCheckoutData]);
-
-  /* --------------------------- Derived data ------------------------------ */
+  /* --------------------------- Derived data ----------------------------- */
   const itemCount = React.useMemo(
     () => items.reduce((t, i) => t + i.quantity, 0),
-    [items]
+    [items],
   );
 
   const subtotal = React.useMemo(
-    () => items.reduce((t, i) => t + i.price * i.quantity, 0),
-    [items]
+    () => items.reduce((t, i) => t + (i.price * markup) * i.quantity, 0),
+    [items, markup],
   );
 
+  /* ----------------------------- Context value -------------------------- */
   const value = React.useMemo<CartContextType>(
     () => ({
       addItem,
-      removeItem,
-      updateQuantity,
       clearCart,
       itemCount,
       items,
+      removeItem,
       subtotal,
-      allCarts,
-      clearAllCarts,
-      checkoutData,
-      setCheckoutData,
-      clearCheckoutData,
+      updateQuantity,
     }),
     [
+      items,
       addItem,
       removeItem,
       updateQuantity,
       clearCart,
       itemCount,
-      items,
       subtotal,
-      allCarts,
-      clearAllCarts,
-      checkoutData,
-      setCheckoutData,
-      clearCheckoutData,
-    ]
+    ],
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
 
+/* -------------------------------------------------------------------------- */
+/*                                 Hook                                      */
+/* -------------------------------------------------------------------------- */
+
 export function useCart(): CartContextType {
-  const ctx = React.useContext(CartContext);
+  const ctx = React.use(CartContext);
   if (!ctx) throw new Error("useCart must be used within a CartProvider");
   return ctx;
 }
+
+export { getStorageKey };

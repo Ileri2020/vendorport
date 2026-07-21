@@ -1,125 +1,69 @@
-"use client"
-import React, { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import axios from 'axios'
-import { AlertCircle, Settings, BarChart3, PlusCircle, Search, ShoppingCart, User, Menu, ChevronRight, Plus } from 'lucide-react'
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useAppContext } from '@/hooks/useAppContext'
-import { usePageCache } from '@/hooks/usePageCache'
-import { useMounted } from '@/hooks/use-mounted'
-import StoreHome from '@/components/platform/StoreHome'
+/**
+ * app/[storeName]/page.tsx  →  vendorport.com/[store-name]
+ *
+ * DEFAULT ROUTE — renders the business STORE page UI as the default storefront.
+ *
+ * Note: business fetching, Navbar, Footer, and BusinessContextProvider are all
+ * handled by the parent layout (app/[storeName]/layout.tsx), so this page only
+ * needs to handle the suspended-store guard and render the Store UI.
+ */
 
-const DynamicStorePage = () => {
-  const { storeName } = useParams();
-  const router = useRouter();
-  const { user, setCurrentBusiness } = useAppContext();
-  const mounted = useMounted();
-  const { pageData, business, isLoading, error, invalidateCache } = usePageCache(
-    storeName as string,
-    'home'
-  );
-  const [adminTab, setAdminTab] = useState<'pages' | 'settings' | null>(null);
+import { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { getCachedBusiness } from "@/lib/getBusinessBySlug";
+import Store from "./store/page";
 
-  useEffect(() => {
-    if (business) {
-      setCurrentBusiness(business);
-    }
-  }, [business, setCurrentBusiness]);
+export const revalidate = 300;
 
-  const handleOpenAdmin = (tab: 'pages' | 'settings') => {
-    // We set it to null first then the tab to trigger the effect in StoreHome if it's already set
-    setAdminTab(null);
-    setTimeout(() => setAdminTab(tab), 10);
+interface Props {
+  params: Promise<{ storeName: string }>;
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { storeName } = await params;
+  const business = await getCachedBusiness(storeName);
+
+  if (!business) {
+    return { title: "Store Not Found | VendorPort" };
+  }
+
+  return {
+    title: `${business.name} | VendorPort`,
+    description:
+      business.siteSettings?.aboutText ??
+      `Shop the latest products from ${business.name}`,
+    openGraph: {
+      title: business.name,
+      description: business.siteSettings?.aboutText ?? "",
+      images: business.siteSettings?.heroImage ? [business.siteSettings.heroImage] : [],
+    },
   };
+}
 
-  if (isLoading && !business) {
-    return (
-      <div className="min-h-screen w-full bg-background p-6 flex flex-col items-center justify-center gap-6">
-        <div className="w-full max-w-4xl space-y-6">
-          <div className="rounded-3xl bg-muted/80 p-6 shadow-lg shadow-muted/20">
-            <div className="flex items-center justify-between gap-4">
-              <Skeleton className="h-12 w-32 rounded-full" />
-              <Skeleton className="h-10 w-24 rounded-full" />
-            </div>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
-              <Skeleton className="h-64 w-full rounded-3xl" />
-              <Skeleton className="h-64 w-full rounded-3xl" />
-            </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Skeleton className="h-32 w-full rounded-3xl" />
-            <Skeleton className="h-32 w-full rounded-3xl" />
-            <Skeleton className="h-32 w-full rounded-3xl" />
-          </div>
-        </div>
-      </div>
-    );
+export default async function StoreDefaultPage({ params }: Props) {
+  const { storeName } = await params;
+  const business = await getCachedBusiness(storeName);
+
+  if (!business) {
+    notFound();
   }
 
-  if (error || !business) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6 text-center px-4">
-        <AlertCircle className="h-20 w-20 text-destructive" />
-        <div className="space-y-2">
-           <h1 className="text-4xl font-extrabold tracking-tight">Oops! That store doesn't exist.</h1>
-           <p className="text-xl text-muted-foreground">It seems you've followed a broken link or the store has been renamed.</p>
-        </div>
-        <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
-           Back to Platform Home
-        </Button>
-      </div>
-    );
-  }
-
-  // Check if business is archived
   if (business.isArchived) {
     return (
-      <div className="h-screen w-full flex flex-col items-center justify-center space-y-6 text-center px-4">
-        <AlertCircle className="h-20 w-20 text-yellow-500" />
-        <div className="space-y-2">
-           <h1 className="text-4xl font-extrabold tracking-tight">This Store is Currently Suspended</h1>
-           <p className="text-xl text-muted-foreground">The business "{business.name}" has been archived by the platform administrators. Pages are temporarily unavailable.</p>
-        </div>
-        <Button size="lg" onClick={() => router.push('/')} variant="outline" className="h-12 border-2 px-8 font-bold">
-           Back to Platform Home
-        </Button>
+      <div className="h-screen flex flex-col items-center justify-center text-center px-4 space-y-4">
+        <h1 className="text-3xl font-extrabold">Store Suspended</h1>
+        <p className="text-muted-foreground max-w-md">
+          &quot;{business.name}&quot; has been temporarily suspended by the platform. Please check back later.
+        </p>
       </div>
     );
   }
 
-  // Redirect to StoreHome component or render it here
   return (
-    <div className="min-h-screen bg-background relative">
-       {/* Admin Toolbar (only if owner/staff) */}
-       {mounted && (user.id === business.ownerId || user.role === 'admin' || user.role === 'staff') && (
-         <div className="sticky top-0 z-50 bg-accent text-white py-2 px-4 shadow-xl flex justify-between items-center bg-opacity-95 backdrop-blur-md">
-            <div className="flex items-center gap-2">
-               <div className="h-8 w-8 bg-white/20 rounded flex items-center justify-center font-bold">A</div>
-               <span className="font-bold hidden md:inline uppercase tracking-tighter text-sm">Owner Mode: {business.name}</span>
-            </div>
-            <div className="flex gap-2">
-               <Link href={`/${storeName}/analytics`}>
-                 <Button size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
-                    <BarChart3 className="h-4 w-4" /> <span className="hidden sm:inline">Insights</span>
-                 </Button>
-               </Link>
-               <Button onClick={() => handleOpenAdmin('pages')} size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
-                  <PlusCircle className="h-4 w-4" /> <span className="hidden sm:inline">Add Page</span>
-               </Button>
-               <Button onClick={() => handleOpenAdmin('settings')} size="sm" variant="outline" className="text-white border-white/40 hover:bg-white/20 flex items-center gap-1 font-bold text-xs h-9">
-                  <Settings className="h-4 w-4" /> <span className="hidden sm:inline">Edit Layout</span>
-               </Button>
-            </div>
-         </div>
-       )}
-
-       <StoreHome business={business} activePageSlug="home" initialAdminTab={adminTab} onDataChange={invalidateCache} />
+    <div className="min-h-screen">
+      <main className="flex-1">
+        <Store />
+      </main>
     </div>
   );
 }
-
-
-
-export default DynamicStorePage

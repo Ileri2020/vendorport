@@ -1,21 +1,19 @@
-// ts-nocheck
 'use client'
 import { FlutterWaveButton, closePaymentModal } from 'flutterwave-react-v3';
-import async from './flutterwavehook';
 
 type FlutterwavePaymentProps = {
   amount: number;
   currency: string;
   email: string;
-  phonenumber: string;
+  phone_number: string;
   name: string;
 };
 
-export default async function FlutterwavePaymentButton({
+export default function FlutterwavePaymentButton({
   amount,
   currency,
   email,
-  phonenumber,
+  phone_number,
   name,
 }: FlutterwavePaymentProps) {
   const config = {
@@ -26,11 +24,11 @@ export default async function FlutterwavePaymentButton({
     payment_options: 'card,mobilemoney,ussd',
     customer: {
       email,
-      phone_number: phonenumber,
+      phone_number,
       name,
     },
     customizations: {
-      title: 'Succo Stores',
+      title: 'Loyz Food and Spices',
       description: 'Payment for items in cart using Flutterwave',
       logo: 'https://res.cloudinary.com/dc5khnuiu/image/upload/v1765733238/j8jw0lwd79tuhofhpao9.png',
     },

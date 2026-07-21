@@ -48,11 +48,11 @@ export const ChatInterface = () => {
   const [search, setSearch] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const isAdmin = user?.role === "admin" || user?.role === "professional" || user?.role === "staff";
+  const isAdmin = user.role === "admin" || user.role === "professional" || user.role === "staff";
 
   // ── For Customers: auto-select admin ──────────────────────────────
   useEffect(() => {
-    if (user?.id !== "nil" && !isAdmin) {
+    if (!isAdmin) {
       axios.get("/api/dbhandler?model=user").then((res) => {
         const admins = res.data.filter((u: any) => u.role === "admin" || u.role === "staff");
         if (admins.length > 0) {
@@ -61,11 +61,11 @@ export const ChatInterface = () => {
         }
       }).catch(console.error);
     }
-  }, [isAdmin, user?.id]);
+  }, [isAdmin]);
 
   // ── For Admin: fetch ALL non-admin users + their message metadata ──
   const fetchUsersWithMessages = async () => {
-    if (!isAdmin || !user?.id || user.id === "nil") return;
+    if (!isAdmin) return;
     try {
       const [usersRes, msgsRes] = await Promise.all([
         axios.get("/api/dbhandler?model=user"),
@@ -115,9 +115,10 @@ export const ChatInterface = () => {
 
   // ── Fetch messages for selected conversation ───────────────────────
   const fetchMessages = async () => {
-    if (!selectedUserId || !user?.id || user.id === "nil") return;
+    if (!selectedUserId || !user.id) return;
     try {
       const res = await axios.get(`/api/dbhandler?model=message`);
+      const targetId = isAdmin ? selectedUserId : user.id;
       const filtered = res.data
         .filter((msg: any) => {
           if (isAdmin) {
@@ -147,16 +148,14 @@ export const ChatInterface = () => {
 
   // Initial load + polling
   useEffect(() => {
-    if (user?.id && user.id !== "nil") {
+    fetchUsersWithMessages();
+    fetchMessages();
+    const interval = setInterval(() => {
       fetchUsersWithMessages();
       fetchMessages();
-      const interval = setInterval(() => {
-        fetchUsersWithMessages();
-        fetchMessages();
-      }, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [selectedUserId, user?.id]);
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [selectedUserId, user.id]);
 
   // Auto-scroll
   useEffect(() => {
@@ -167,7 +166,7 @@ export const ChatInterface = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedUserId || !user?.id) return;
+    if (!newMessage.trim() || !selectedUserId || !user.id) return;
     setLoading(true);
     try {
       await axios.post("/api/dbhandler?model=message", {
@@ -194,7 +193,7 @@ export const ChatInterface = () => {
   );
 
   // Not logged in
-  if (!user || user.email === "nil") {
+  if (user.email === "nil") {
     return (
       <div className="flex flex-col items-center justify-center h-[500px] w-full max-w-5xl mx-auto border-2 border-dashed rounded-3xl bg-muted/20 gap-6 p-10 text-center">
         <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center">
@@ -203,7 +202,7 @@ export const ChatInterface = () => {
         <div className="space-y-3">
           <h2 className="text-2xl font-black tracking-tight">Login Required</h2>
           <p className="text-muted-foreground max-w-xs mx-auto">
-            You need to be logged in to chat with our licensed professionals and staff.
+            You need to be logged in to chat with our licensed pharmacists and clinical staff.
           </p>
         </div>
         <Link href="/account">
@@ -221,7 +220,7 @@ export const ChatInterface = () => {
       {isAdmin && (
         <div className={`w-full md:w-80 border-r bg-muted/10 flex flex-col ${selectedUserId && "hidden md:flex"}`}>
           <div className="p-4 border-b bg-background space-y-3">
-            <h2 className="text-xl font-bold text-primary">Conversations</h2>
+            <h2 className="text-xl font-bold text-primary">All Users</h2>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -268,6 +267,12 @@ export const ChatInterface = () => {
                           </Badge>
                         )}
                       </div>
+                      <Badge
+                        variant="outline"
+                        className="text-[9px] h-4 px-1 mt-0.5 font-bold capitalize border-primary/20 text-primary/60"
+                      >
+                        {u.role}
+                      </Badge>
                     </div>
                   </div>
                 ))
@@ -293,7 +298,7 @@ export const ChatInterface = () => {
                 <AvatarFallback><UserIcon /></AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="font-bold text-sm">{selectedUser?.name || "Support"}</h3>
+                <h3 className="font-bold text-sm">{selectedUser?.name || "Pharmacist"}</h3>
                 {isAdmin && (
                   <p className="text-[10px] text-muted-foreground capitalize">{selectedUser?.role} · {selectedUser?.email}</p>
                 )}
@@ -315,12 +320,14 @@ export const ChatInterface = () => {
                     <p className="text-sm">
                       {isAdmin
                         ? `No messages with ${selectedUser?.name || "this user"} yet. Say hello!`
-                        : `Start your conversation with the support team`}
+                        : `Start your conversation with the pharmacist`}
                     </p>
                   </div>
                 ) : (
                   messages.map((msg, idx) => {
-                    const isOwn = msg.senderId === user.id;
+                    const isOwn = isAdmin
+                      ? msg.sender?.role === "admin" || msg.sender?.role === "staff" || msg.sender?.role === "professional"
+                      : msg.senderId === user.id;
 
                     const prevMsg = messages[idx - 1];
                     const showTime = !prevMsg || new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime() > 300000;
@@ -335,9 +342,9 @@ export const ChatInterface = () => {
                           </div>
                         )}
                         <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${isOwn ? "bg-accent text-white rounded-tr-none" : "bg-white border rounded-tl-none"}`}>
+                          <div className={`max-w-[80%] p-3 rounded-2xl text-sm shadow-sm ${isOwn ? "bg-primary text-primary-foreground rounded-tr-none" : "bg-card border rounded-tl-none"}`}>
                             {msg.content}
-                            <div className={`text-[9px] mt-1 flex justify-end gap-1 ${isOwn ? "text-white/70" : "text-muted-foreground"}`}>
+                            <div className={`text-[9px] mt-1 flex justify-end gap-1 ${isOwn ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                               {format(new Date(msg.createdAt), "HH:mm")}
                               {isOwn && <CheckCheck className="h-3 w-3" />}
                             </div>
@@ -356,9 +363,9 @@ export const ChatInterface = () => {
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 placeholder="Type your message..."
-                className="flex-1 h-12 rounded-full px-6 border-2 focus-visible:ring-accent"
+                className="flex-1 h-12 rounded-full px-6 border-2 focus-visible:ring-primary"
               />
-              <Button type="submit" size="icon" className="h-12 w-12 rounded-full shrink-0 shadow-lg bg-accent hover:bg-accent/90" disabled={loading || !newMessage.trim()}>
+              <Button type="submit" size="icon" className="h-12 w-12 rounded-full shrink-0 shadow-lg" disabled={loading || !newMessage.trim()}>
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               </Button>
             </form>
@@ -370,7 +377,7 @@ export const ChatInterface = () => {
             </div>
             <div>
               <h3 className="text-xl font-bold text-foreground mb-2">Select a user to chat</h3>
-              <p className="max-w-xs mx-auto">Click any user on the left to start or continue a conversation.</p>
+              <p className="max-w-xs mx-auto">Click any user on the left — even if they haven't messaged yet. You can initiate!</p>
             </div>
           </div>
         )}

@@ -1,15 +1,5 @@
 "use client"
-import React, { FormEvent, useEffect, useRef, useState } from 'react'
-import dynamic from 'next/dynamic'
-// const AlertDialog = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialog),{ssr: false,})
-// const AlertDialogAction = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialogAction),{ssr: false,})
-// const AlertDialogCancel = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialogCancel),{ssr: false,})
-// const AlertDialogContent = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialogContent),{ssr: false,})
-// const AlertDialogDescription = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialogDescription),{ssr: false,})
-// const AlertDialogFooter = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialogFooter),{ssr: false,})
-// const AlertDialogHeader = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialogHeader),{ssr: false,})
-// const AlertDialogTitle = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialogTitle),{ssr: false,})
-// const AlertDialogTrigger = dynamic(() => import('@/components/ui/alert-dialog').then((e) => e.AlertDialogTrigger),{ssr: false,})
+import React, { useState } from 'react'
 import {
   Drawer,
   DrawerClose,
@@ -23,187 +13,218 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { register } from '@/server/action/signup'
 import axios from 'axios'
-import { useAppContext } from '@/hooks/useAppContext'
-import Login from './login'
 import { FcGoogle } from 'react-icons/fc'
-import { FaFacebook } from "react-icons/fa";
-import { facebookSignIn, googleSignIn } from './googlesignin'
-
-const Signup = () => {
-  const { currentBusiness } = useAppContext();
-  // const [details, setDetails] = useState({
-  //   userName : "",
-  //   email : "",
-  //   password : "",
-  // })
-
-  // // const [render, setRender] = useState(0);
-
-  // // useEffect(() => {
-  // // }, [render]);
-
-  // interface RefObject<T> {
-  //   readonly current: T | null
-  // }
-
-  //   const form = useRef<HTMLFormElement>(null);
+import { googleSignIn } from './googlesignin'
+import Login, { LoginForm } from './login'
 
 
-  //   const handleChange = (e : any)=>{
-  //     const { name, value } = e.target;
+interface SignupProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+  onLoginClick?: () => void;
+}
 
-  //     setDetails((prevFormData) => ({ ...prevFormData, [name]: value }));
-  //   }
-  
-  const [users, setUsers] = useState([]);
+export const SignupForm = ({ onLoginClick }: { onLoginClick?: () => void }) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     name: '',
-    image: '',
+    avatarUrl: '',
+    role: 'customer',
+    professionalType: '',
+    regNumber: '',
+    facilityName: '',
+    facilityAddress: '',
+    facilityRegNumber: '',
   });
   const [editId, setEditId] = useState(null);
-
-  useEffect(() => {
-
-  }, []);
-
-  const form = useRef<HTMLFormElement>(null);
-
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (editId) {
-      await axios.put(`/api/dbhandler?model=user&id=${editId}`, formData);
-    } else {
-      await axios.post('/api/dbhandler?model=user', formData);
-    }
-    resetForm();
-  };
-
-  const handleEdit = (item) => {
-    setFormData(item);
-    setEditId(item.id);
-  };
-
-  const handleDelete = async (id) => {
-    await axios.delete(`/api/dbhandler?model=users&id=${id}`);
-  };
 
   const resetForm = () => {
     setFormData({
       email: '',
       password: '',
       name: '',
-      image: '',
+      avatarUrl: '',
+      role: 'customer',
+      professionalType: '',
+      regNumber: '',
+      facilityName: '',
+      facilityAddress: '',
+      facilityRegNumber: '',
     });
     setEditId(null);
   };
 
+  const handleSubmit = async (e: any) => {
+    e.preventDefault();
+    try {
+      if (editId) {
+        await axios.put(`/api/dbhandler?model=user&id=${editId}`, formData);
+      } else {
+        await axios.post('/api/auth/register', formData);
+      }
+      resetForm();
+    } catch (error) {
+      console.error("Signup error", error);
+    }
+  };
+
   return (
-    <div className='inline w-full'>
-      <Drawer>
-        <DrawerTrigger asChild className='bg-green-500 w-full'>
-          <Button variant="outline" className='bg-green-500 w-full'>Sign up</Button>
-        </DrawerTrigger>
-        <DrawerContent className='flex flex-col justify-center items-center py-10 /bg-red-500 max-w-5xl mx-auto'>
+    <div className='flex flex-col justify-center items-center py-5 max-w-5xl mx-auto w-full'>
+      <DrawerHeader>
+        <DrawerTitle className='w-full text-center'>
+          Create an account with <span className='text-primary'>HealthClique</span>
+        </DrawerTitle>
+        <DrawerDescription></DrawerDescription>
+      </DrawerHeader>
 
-          <DrawerHeader>
-            <DrawerTitle className='w-full text-center'>Create an account with <span className='text-accent'>{currentBusiness?.name || 'VendorPort'}</span></DrawerTitle>
-            <DrawerDescription></DrawerDescription>
-          </DrawerHeader>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-10 bg-secondary rounded-xl max-w-xl"> 
-          <Input
-              type="text"
-              placeholder="Name"
-              value={formData.name || ''}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-6 bg-secondary rounded-xl max-w-xl w-full">
+        <Input
+          type="text"
+          placeholder="Full Name"
+          value={formData.name || ''}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+        <Input
+          type="email"
+          placeholder="Email address"
+          value={formData.email}
+          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          required
+        />
+        <Input
+          type="password"
+          placeholder="Password"
+          value={formData.password}
+          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+          required
+        />
+
+        <div className="space-y-2 py-2">
+          <Label className="text-sm font-bold">Account Type</Label>
+          <select 
+            className="w-full p-2 rounded-md border bg-background"
+            value={formData.role}
+            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+          >
+            <option value="customer">Customer</option>
+            <option value="professional">Healthcare Professional (Doctor, Pharmacist, Nurse)</option>
+            <option value="wholesaler">Wholesaler / Facility Sales Rep</option>
+          </select>
+        </div>
+
+        {formData.role === 'professional' && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="space-y-1">
+              <Label>Professional Type</Label>
+              <select 
+                className="w-full p-2 rounded-md border bg-background"
+                value={formData.professionalType}
+                onChange={(e) => setFormData({ ...formData, professionalType: e.target.value })}
+                required
+              >
+                <option value="">Select Type</option>
+                <option value="pharmacist">Pharmacist</option>
+                <option value="doctor">Doctor</option>
+                <option value="nurse">Nurse</option>
+              </select>
+            </div>
+            <Input
+              placeholder="Professional Registration Number"
+              value={formData.regNumber}
+              onChange={(e) => setFormData({ ...formData, regNumber: e.target.value })}
+              required
+            />
+          </div>
+        )}
+
+        {formData.role === 'wholesaler' && (
+          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <Input
+              placeholder="Facility / Company Name"
+              value={formData.facilityName}
+              onChange={(e) => setFormData({ ...formData, facilityName: e.target.value })}
+              required
             />
             <Input
-              type="email"
-              placeholder="Email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="Facility Address"
+              value={formData.facilityAddress}
+              onChange={(e) => setFormData({ ...formData, facilityAddress: e.target.value })}
+              required
             />
             <Input
-              type="password"
-              placeholder="Password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              placeholder="Facility Registration Number"
+              value={formData.facilityRegNumber}
+              onChange={(e) => setFormData({ ...formData, facilityRegNumber: e.target.value })}
+              required
             />
-            {/* <select
-              value={formData.department}
-              onChange={(e) => setFormData({ ...formData, department : e.target.value })}
-            >
-              <option value="member">Member</option>
-              <option value="choir">Choir</option>
-              <option value="youth">Youth</option>
-              <option value="worker">Worker</option>
-              <option value="parochial">Parochial</option>
-              <option value="elder">Elder</option>
-            </select> */}
-            {/* <select
-              value={formData.sex}
-              onChange={(e) => setFormData({ ...formData, sex: e.target.value })}
-            >
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-            </select> */}
-            
-            <DrawerFooter className="flex flex-row w-full gap-2 mt-2">
-              {/* <Button>Submit</Button> */}
-              <DrawerClose className='flex-1' asChild>
-                <Button className='flex-1' variant="outline">Cancel</Button>
-              </DrawerClose>
-              <Button type="submit" className="flex-1 before:ani-shadow w-full">{editId ? 'Update' : 'Sign up'} &rarr;</Button>
-            </DrawerFooter>
-          </form>
-          {/* <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction>Continue</AlertDialogAction>
-          </AlertDialogFooter> */}
+          </div>
+        )}
 
-          <div className="w-full my-2 flex flex-col gap-2">
-            <form
-              action={googleSignIn}
-            >
-              <Button
-                className="border-2 border-primary relative w-full max-w-[300px] mx-auto flex /space-x-2 items-center justify-center text-black rounded-md h-10 font-medium shadow-input hover:bg-gray-50 dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_var(--neutral-800)]"
-                type="submit"
-                variant='outline'
-              >
-                <FcGoogle className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-                <span className="text-neutral-700 dark:text-neutral-300 text-sm">
-                  Google
-                </span>
-              </Button>
-            </form>
-            <form
-              action={facebookSignIn}
-            >
-              <Button
-                className="border-2 border-primary relative w-full max-w-[300px] mx-auto flex /space-x-2 items-center justify-center text-black rounded-md h-10 font-medium shadow-input hover:bg-gray-50 dark:bg-zinc-900 dark:shadow-[0px_0px_1px_1px_var(--neutral-800)]"
-                type="submit"
-                variant='outline'
-              >
-                <FaFacebook className="h-4 w-4 text-neutral-800 dark:text-neutral-300" />
-                <span className="text-neutral-700 dark:text-neutral-300 text-sm">
-                  Facebook
-                </span>
-              </Button>
-            </form>
-            <div className="border-2 border-primary max-w-[300px] mx-auto w-full my-2 rounded-md font-medium shadow-input flex justify-center items-center bg-green-500">
+        <DrawerFooter className="flex flex-row w-full gap-2 mt-2 px-0">
+          <Button type="submit" className="flex-1 w-full">
+            {editId ? 'Update' : 'Sign up'} →
+          </Button>
+        </DrawerFooter>
+      </form>
+
+      <div className="w-full my-4 flex flex-col gap-2">
+        <form action={googleSignIn}>
+          <Button
+            className="border-2 border-primary relative w-full max-w-[300px] mx-auto flex items-center justify-center rounded-md h-10 font-medium gap-2"
+            type="submit"
+            variant='outline'
+          >
+            <FcGoogle className="h-4 w-4" />
+            <span className="text-sm">Continue with Google</span>
+          </Button>
+        </form>
+        {onLoginClick ? (
+            <div className="flex justify-center mt-2">
+                <Button variant="link" onClick={onLoginClick} className="text-primary font-bold">
+                    Already have an account? Login
+                </Button>
+            </div>
+        ) : (
+            <div className="max-w-[300px] mx-auto w-full my-2 rounded-md font-medium flex justify-center items-center">
               <Login />
             </div>
-          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const Signup = ({ open: controlledOpen, onOpenChange: setControlledOpen, hideTrigger }: SignupProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const [mode, setMode] = useState<"login" | "signup">("signup");
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setIsOpen = setControlledOpen !== undefined ? setControlledOpen : setInternalOpen;
+
+  return (
+    <div className='inline w-full'>
+      <Drawer open={isOpen} onOpenChange={setIsOpen}>
+        {!hideTrigger && (
+          <DrawerTrigger asChild className='w-full'>
+            <Button variant="outline" className='w-full'>Sign up</Button>
+          </DrawerTrigger>
+        )}
+        <DrawerContent className='overflow-y-auto max-h-[90vh] bg-background'>
+           <div className='px-4 pb-8'>
+             {mode === "signup" ? (
+               <SignupForm onLoginClick={() => setMode("login")} />
+             ) : (
+               <LoginForm onSignupClick={() => setMode("signup")} />
+             )}
+           </div>
         </DrawerContent>
       </Drawer>
     </div>
   )
 }
 
+
 export default Signup
-
-

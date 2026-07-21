@@ -6,7 +6,7 @@ const Features = () => {
     const featuresWhyChooseUs = [
         {
           description:
-            "Free shipping on all orders over ₦200,000 within Nigeria. Fast and reliable delivery to your doorstep.",
+            "Free shipping on all orders over $50. Fast and reliable delivery to your doorstep.",
           icon: <Truck className="h-6 w-6 text-primary" />,
           title: "Free Shipping",
         },
@@ -61,8 +61,7 @@ const Features = () => {
             md:text-lg
           `}
         >
-          We offer the best shopping experience with premium features.
-          We are dedicated to providing a seamless and reliable shopping experience by offering high-quality food products and spice blends that meet strict standards of freshness, hygiene, and authenticity. Our commitment goes beyond just selling products—we carefully source our ingredients, maintain consistent quality control, ensure secure packaging, and deliver promptly to meet the needs of homes and businesses alike. With customer satisfaction at the core of everything we do, we combine competitive pricing, dependable service, and responsive support to build lasting trust and deliver value with every order.
+          We offer the best shopping experience with premium features
         </p>
       </div>
       <div

@@ -1,10 +1,11 @@
-import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const fromStr = searchParams.get("from");
   const toStr = searchParams.get("to");
+  const businessId = searchParams.get("businessId");
 
   if (!fromStr || !toStr) {
     return NextResponse.json({ error: "Missing from or to date" }, { status: 400 });
@@ -13,19 +14,13 @@ export async function GET(req: Request) {
   const from = new Date(fromStr);
   const to = new Date(toStr);
 
-  const bid = searchParams.get("businessId");
-
   try {
-    const whereBase: any = {
-       createdAt: { gte: from, lte: to }
-    };
-    if (bid) whereBase.businessId = bid;
-
     /* ================= PAID CARTS FOR REVENUE & PROFIT ================= */
     const paidCarts = await prisma.cart.findMany({
       where: {
-        ...whereBase,
         status: "paid",
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
       },
       include: {
         products: {
@@ -41,14 +36,15 @@ export async function GET(req: Request) {
 
     const totalCost = paidCarts.reduce((sum, cart) => {
       const cost = cart.products.reduce((pSum, item) => {
-        return pSum + (item.product.costPrice || 0) * item.quantity;
+        return pSum + ((item.product as any).costPrice || 0) * item.quantity;
       }, 0);
       return sum + cost;
     }, 0);
 
     const totalProfit = totalRevenue - totalCost;
 
-    /* ================= REVENUE OVER TIME ================= */
+    /* ================= REVENUE OVER TIME (For chart) ================= */
+    // Grouping by day manually as Prisma doesn't do it easily for MongoDB
     const revenueByDay: Record<string, number> = {};
     paidCarts.forEach(cart => {
       const day = cart.createdAt.toISOString().split("T")[0];
@@ -60,12 +56,12 @@ export async function GET(req: Request) {
       revenue
     })).sort((a, b) => a.date.localeCompare(b.date));
 
-    /* ================= PROFIT OVER TIME ================= */
+    /* ================= PROFIT OVER TIME (For chart) ================= */
     const profitByDay: Record<string, { revenue: number; cost: number; profit: number }> = {};
     paidCarts.forEach(cart => {
       const day = cart.createdAt.toISOString().split("T")[0];
       const cost = cart.products.reduce((pSum, item) => {
-        return pSum + (item.product.costPrice || 0) * item.quantity;
+        return pSum + ((item.product as any).costPrice || 0) * item.quantity;
       }, 0);
       
       if (!profitByDay[day]) {
@@ -84,7 +80,10 @@ export async function GET(req: Request) {
     /* ================= CART STATUS DISTRIBUTION ================= */
     const cartStatusCountsRaw = await prisma.cart.groupBy({
       by: ["status"],
-      where: whereBase,
+      where: {
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
+      },
       _count: { status: true },
     });
 
@@ -98,8 +97,9 @@ export async function GET(req: Request) {
       by: ["productId"],
       where: {
         cart: {
-          ...whereBase,
           status: "paid",
+          createdAt: { gte: from, lte: to },
+          ...(businessId && { businessId }),
         }
       },
       _sum: { quantity: true },
@@ -110,7 +110,10 @@ export async function GET(req: Request) {
     const productIds = topProductsRaw.map(p => p.productId);
 
     const products = await prisma.product.findMany({
-      where: { id: { in: productIds } },
+      where: { 
+        id: { in: productIds },
+        ...(businessId && { businessId }),
+      },
       select: { id: true, name: true }
     });
 
@@ -122,27 +125,34 @@ export async function GET(req: Request) {
       };
     });
 
-    /* ================= VISITS OVER TIME ================= */
+    /* ================= VISITS OVER TIME (from Visit model) ================= */
     const visitsRaw = await prisma.visit.findMany({
-      where: whereBase,
-      select: { createdAt: true }
+      where: { 
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
+      },
+      select: { createdAt: true, path: true },
     });
 
     const visitsByDay: Record<string, number> = {};
-    visitsRaw.forEach(v => {
+    visitsRaw.forEach((v) => {
       const day = v.createdAt.toISOString().split("T")[0];
       visitsByDay[day] = (visitsByDay[day] || 0) + 1;
     });
 
-    const visits = Object.entries(visitsByDay).map(([date, count]) => ({
-      date,
-      count
-    })).sort((a, b) => a.date.localeCompare(b.date));
+    const dailyVisits = Object.entries(visitsByDay)
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    const totalVisits = visitsRaw.length;
 
     /* ================= REFUND REASONS ================= */
     const refundsRaw = await prisma.refund.groupBy({
       by: ["reason"],
-      where: whereBase,
+      where: {
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
+      },
       _count: { reason: true },
     });
 
@@ -155,17 +165,79 @@ export async function GET(req: Request) {
     const ordersCount = paidCarts.length;
     
     const refundAgg = await prisma.refund.aggregate({
-      where: whereBase,
+      where: { 
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
+      },
       _sum: { amount: true }
     });
 
     const newUsers = await prisma.user.count({
       where: { createdAt: { gte: from, lte: to } }
     });
-
+    
     const totalUsers = await prisma.user.count();
 
-    const businessesCount = bid ? 1 : await prisma.business.count();
+    /* ================= MISC DB COUNTS ================= */
+    const totalProducts = await prisma.product.count({
+      ...(businessId && { where: { businessId } }),
+    });
+    const newProducts = await prisma.product.count({
+      where: { 
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
+      }
+    });
+
+    const totalBrands = await prisma.brand.count();
+
+    const totalPosts = await prisma.post.count({
+      ...(businessId && { where: { businessId } }),
+    });
+    const newPosts = await prisma.post.count({
+      where: { 
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
+      }
+    });
+
+    /* ================= POSTS BY CATEGORY ================= */
+    const postsByCategoryRaw = await prisma.post.groupBy({
+      by: ["category"],
+      where: { 
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
+      },
+      _count: { category: true }
+    });
+    
+    const postsByCategory = postsByCategoryRaw.map(p => ({
+      name: p.category || "Uncategorized",
+      value: p._count.category
+    }));
+
+    /* ================= USER ROLES OVERVIEW ================= */
+    const userRolesRaw = await prisma.user.groupBy({
+      by: ["role"],
+      _count: { role: true },
+    });
+
+    const userRoles = userRolesRaw.map(u => ({
+      name: u.role || "customer",
+      value: u._count.role
+    }));
+
+    /* ================= UNIQUE BROWSERS COUNT ================= */
+    const uniqueBrowsers = await prisma.visit.findMany({
+      where: { 
+        createdAt: { gte: from, lte: to },
+        ...(businessId && { businessId }),
+      },
+      select: { browserId: true },
+      distinct: ['browserId']
+    });
+
+    const totalUniqueBrowsers = uniqueBrowsers.length;
 
     return NextResponse.json({
       revenue: totalRevenue,
@@ -174,15 +246,25 @@ export async function GET(req: Request) {
       profitOverTime,
       cartStatusCounts,
       topProducts,
-      visits,
+      dailyVisits,
+      totalVisits,
       refunds,
+      postsByCategory,
+      userRoles,
+      uniqueBrowsers: totalUniqueBrowsers,
       kpis: {
         totalRevenue,
         totalOrders: ordersCount,
         totalRefunds: refundAgg._sum.amount || 0,
         newUsers,
         totalUsers,
-        businessesCount
+        totalProducts,
+        newProducts,
+        totalPosts,
+        newPosts,
+        totalBrands,
+        totalVisits,
+        totalUniqueBrowsers
       }
     });
   } catch (error) {

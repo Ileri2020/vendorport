@@ -1,117 +1,124 @@
-"use client"
-
-import React, { useEffect } from 'react';
-import Link from 'next/link';
-import Nav from './nav';
-import { Button } from '@/components/ui/button';
-import Sidenav from './sidenav';
-import { ModeToggle } from '@/components/ui/mode-toggle';
-import { Advert } from "@/components/myComponents/subs"
-import { GlobalCart } from '../utility/GlobalCart';
-import { SearchInput } from '../myComponents/subs/searchcomponent';
-import { useSession } from "next-auth/react";
-import { useAppContext } from '@/hooks/useAppContext';
+"use client";
+import Link from "next/link";
+import Nav from "./nav";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogTrigger, DialogTitle } from "@/components/ui/dialog";
+import Sidenav from "./sidenav";
+import { ModeToggle } from "@/components/ui/mode-toggle";
+import { Suspense } from "react";
 import {
-  TooltipProvider,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent
-} from "@/components/ui/tooltip";
-import { GlobalDialog } from '../ui/GlobalDialog';
-import Login from '../myComponents/subs/login';
-import { usePathname, useParams } from 'next/navigation';
+  AiOutlineSearch,
+  AiOutlineHome,
+  AiOutlineShop,
+  AiOutlineMan,
+  AiOutlineContacts,
+} from "react-icons/ai";
+import { Advert } from "@/components/myComponents/subs";
+import logo from "@/public/whitelogo.png";
+import greenlogo from "@/public/greenlogo.png";
+import Image from "next/image";
+import { Cart } from "../myComponents/subs/cart";
+import { GlobalSearch } from "../myComponents/subs/GlobalSearch";
+import { NotificationBell } from "../myComponents/subs/NotificationUI";
+import { useSession } from "next-auth/react";
+import { useAppContext } from "@/hooks/useAppContext";
+import { useEffect } from "react";
+import { initializeAffiliateTracking } from "@/lib/affiliate-tracking";
 
-const Navbar = (): JSX.Element | null => {
+export interface NavbarProps {
+  basePath?: string;
+  business?: any;
+  businessId?: string;
+}
+
+const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element => {
   const { setUser, user } = useAppContext();
-  const { data: session, status } = useSession();
-  const pathname = usePathname();
-  const { storeName } = useParams();
-
-  // Hide platform navbar UI when on a specific store route, but
-  // avoid returning early so hook order remains stable between renders.
-  const hideNavbar = Boolean(storeName);
+  const { data: session, status, update } = useSession();
+  const homeHref = basePath || "/";
+  const brandName = business?.name || "Health Clique";
+  const brandSubtitle = business?.siteSettings?.aboutText || "Your one stop shop for health needs";
 
   useEffect(() => {
-    if (status === "authenticated" && user.email === "nil") {
+    if (status === "authenticated" && session?.user && user.email === "nil") {
       setUser({
         ...session.user,
+        avatarUrl: session.user.image,
       });
     }
+    initializeAffiliateTracking();
   }, [status, session, user.email, setUser]);
 
   return (
-    <TooltipProvider>
-      <div className="sticky top-0 z-30 w-full overflow-clip flex flex-col m-0 p-0">
-        {hideNavbar ? null : (
-        <>
-        <header className="w-full justify-center items-center py-1 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
-          <div className="container mx-auto flex justify-between items-center gap-2 h-[60px] overflow-clip">
-
-            {/* Sidenav Mobile */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="lg:hidden">
-                  <Sidenav />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Menu</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Logo */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link href={"/"} className="flex flex-1 md:flex-none h-full items-center">
-                   <div className="flex items-center gap-2">
-                      <div className="bg-accent h-8 w-8 rounded-lg flex items-center justify-center text-white font-black text-xl shadow-lg">V</div>
-                      <span className="text-2xl font-black tracking-tighter hidden sm:block">VendorPort</span>
-                   </div>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>VendorPort Home</p>
-              </TooltipContent>
-            </Tooltip>
-
-            {/* Mobile Search/Cart */}
-            <div className="lg:hidden relative flex items-center gap-2">
-               <GlobalCart />
-               {user?.email === "nil" ? <Login /> : (
-                 <Link href="/create-store">
-                   <Button size="sm" className="bg-accent font-bold">Build</Button>
-                 </Link>
-               )}
-            </div>
-
-            <div className="md:flex hidden">
-              <SearchInput />
-            </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden lg:flex items-center gap-8">
-              <Nav />
-              <GlobalCart />
-              <ModeToggle />
-              {user?.email === "nil" ? (
-                <div className="flex gap-2">
-                   <Login />
-                </div>
-              ) : (
-                <Link href="/create-store">
-                   <Button className="bg-accent:bg-accent/90 hover:bg-accent/60 text-white font-bold">Create My Store</Button>
-                </Link>
-              )}
-            </div>
+    <div className="sticky top-0 z-30 w-[100vw] overflow-visible flex flex-col m-0 p-0">
+      <header className="w-[100%] py-4 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
+        <div className="container mx-auto flex justify-between items-center h-[50px] overflow-visible">
+          <div className="lg:hidden">
+            <Sidenav basePath={basePath} />
           </div>
-        </header>
+          <Link
+            href={homeHref}
+            className="flex dark:hidden flex-1 md:flex-none max-h-[43px] md:max-h-[50px] overflow-clip justify-center items-center py-5 /rounded-full"
+          >
+            <Image src={greenlogo} alt="" className="w-[100px] h-auto" />
+          </Link>
+          <Link
+            href={homeHref}
+            className="hidden dark:flex flex-1 md:flex-none max-h-[43px] md:max-h-[50px] overflow-clip justify-center items-center py-5 /rounded-full"
+          >
+            <Image src={logo} alt="" className="w-[100px] h-auto" />
+          </Link>
+
+          {/* Business name badge — commented out
+          {business && (
+            <div className="hidden md:flex items-center px-3 py-1.5 rounded-full border border-border/60 bg-background/70 backdrop-blur">
+              <span className="text-sm font-semibold text-foreground">{brandName}</span>
+            </div>
+          )}
+          */}
+
+          <div className="flex items-center gap-2 lg:hidden">
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className="relative flex justify-center items-center rounded-full w-[35px] h-[35px] overflow-clip text-accent text-xl"
+                >
+                  <AiOutlineSearch />
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="p-0 border-none bg-transparent shadow-none w-11/12 overflow-visible translate-y-[-30vh]">
+                <DialogTitle className="sr-only">Search</DialogTitle>
+                <GlobalSearch placeholder="Search medications..." className="w-full" />
+              </DialogContent>
+            </Dialog>
+            <Cart />
+            <NotificationBell />
+          </div>
+
+          <div className="hidden lg:block flex-1 max-w-md mx-4">
+            <GlobalSearch
+              placeholder="Search medications..."
+              className="h-10"
+            />
+          </div>
+
+          <div className="hidden lg:flex items-center gap-8">
+            <Nav basePath={basePath} />
+            {/*
+                <Link to="/contact">
+                  <Button className="">Hire me</Button>
+                </Link>
+              */}
+            <Cart />
+            <NotificationBell />
+            <ModeToggle />
+          </div>
+        </div>
         <Advert />
-        <GlobalDialog />
-        </>
-        )}
-      </div>
-    </TooltipProvider>
-  )
-}
+      </header>
+    </div>
+  );
+};
 
 export default Navbar;

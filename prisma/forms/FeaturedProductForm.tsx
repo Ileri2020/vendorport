@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Product {
   id: string;
@@ -20,22 +20,18 @@ interface FeaturedProduct {
 }
 
 const MAX_FEATURED_PRODUCTS = 16;
+const ITEMS_PER_PAGE = 10;
 
 interface FeaturedProductFormProps {
   hideList?: boolean;
 }
 
-import { AdminFormContainer } from "@/components/utility/AdminFormContainer";
-import { Badge } from "@/components/ui/badge";
-import { Search, Star, Trash2, Edit } from "lucide-react";
-
 export default function FeaturedProductForm({ hideList = false }: FeaturedProductFormProps) {
   const [featuredProduct, setFeaturedProduct] = useState<FeaturedProduct[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [currentPage, setCurrentPage] = useState(0);
-  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState(1);
+  const [currentListPage, setCurrentListPage] = useState(1);
 
   const [formData, setFormData] = useState({
     productId: "",
@@ -44,47 +40,56 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
 
   const [editId, setEditId] = useState<string | null>(null);
 
-  useEffect(() => {
-    refreshAll();
-  }, []);
-
-  const refreshAll = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([fetchFeaturedProduct(), fetchProducts()]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchFeaturedProduct = async () => {
+  const fetchFeaturedProduct = useCallback(async () => {
     try {
       const res = await axios.get("/api/dbhandler?model=featuredProduct");
       setFeaturedProduct(res.data);
     } catch (err) {
       console.error("Failed to fetch featured products", err);
     }
-  };
+  }, []);
 
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       const res = await axios.get("/api/dbhandler?model=product");
       setProducts(res.data);
     } catch (err) {
       console.error("Failed to fetch products", err);
     }
-  };
+  }, []);
+
+  const refreshAll = useCallback(async () => {
+    await Promise.all([fetchFeaturedProduct(), fetchProducts()]);
+  }, [fetchFeaturedProduct, fetchProducts]);
+
+  useEffect(() => {
+    refreshAll();
+  }, [refreshAll]);
 
   const featuredIds = useMemo(
     () => new Set(featuredProduct.map((f) => f.productId)),
     [featuredProduct]
   );
 
+  // ✅ Filtering and Pagination for Selection List
   const filteredProducts = useMemo(() => {
     return products.filter((p) =>
       p.name.toLowerCase().includes(search.toLowerCase())
     );
   }, [products, search]);
+
+  const totalPagesSelection = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedSelection = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
+
+  // ✅ Pagination for Current Featured List (Bottom List)
+  const totalPagesList = Math.ceil(featuredProduct.length / ITEMS_PER_PAGE);
+  const paginatedList = useMemo(() => {
+    const start = (currentListPage - 1) * ITEMS_PER_PAGE;
+    return featuredProduct.slice(start, start + ITEMS_PER_PAGE);
+  }, [featuredProduct, currentListPage]);
 
   const isLimitReached =
     featuredProduct.length >= MAX_FEATURED_PRODUCTS && !editId;
@@ -93,7 +98,7 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
     if (featuredIds.has(item.id)) return;
 
     if (featuredProduct.length >= MAX_FEATURED_PRODUCTS) {
-      toast.error(`You can only feature up to ${MAX_FEATURED_PRODUCTS} products.`);
+      toast.warning(`You can only feature up to ${MAX_FEATURED_PRODUCTS} products.`);
       return;
     }
 
@@ -123,7 +128,7 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
 
       toast.success("Featured product updated");
       resetForm();
-      refreshAll();
+      fetchFeaturedProduct();
     } catch (err) {
       console.error("Failed to update featured product:", err);
       toast.error("Failed to update featured product");
@@ -138,12 +143,12 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
     setEditId(item.id);
   };
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Remove ${name} from featured products?`)) return;
+  const handleDelete = async (id: string) => {
+    if(!confirm("Remove this product from featured list?")) return;
     try {
       await axios.delete(`/api/dbhandler?model=featuredProduct&id=${id}`);
       toast.success("Feature removed");
-      refreshAll();
+      fetchFeaturedProduct();
     } catch (err) {
       console.error("Failed to delete featured product", err);
       toast.error("Failed to remove feature");
@@ -155,158 +160,150 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
     setEditId(null);
   };
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   return (
-    <div className="w-full max-w-4xl mx-auto px-1">
-      <AdminFormContainer 
-        title="Featured Collections" 
-        description="Choose products to highlight on your home page carousel."
+    <div className="p-4 bg-card rounded-lg shadow-sm">
+      <h2 className="text-xl font-bold mb-4 text-primary">Featured Products Manager</h2>
+
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col w-full max-w-md gap-4 p-4 border-2 border-primary/20 rounded-xl bg-secondary/5"
       >
-        <div className="space-y-6">
+        <div className="w-full space-y-2">
+          <Label htmlFor="fp-search" className="font-bold flex justify-between">
+            Search to Add
+            <span className="text-xs font-normal text-muted-foreground">{featuredProduct.length}/{MAX_FEATURED_PRODUCTS} occupied</span>
+          </Label>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search products to feature..."
-              className="h-12 pl-10 rounded-2xl border-2"
+              id="fp-search"
+              placeholder="Filter available products..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 h-10"
             />
           </div>
+        </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
-            {(() => {
-              const start = currentPage * ITEMS_PER_PAGE;
-              const end = start + ITEMS_PER_PAGE;
-              const paginated = filteredProducts.slice(start, end);
-              return paginated.map((item) => {
-                const isFeatured = featuredIds.has(item.id);
-                return (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "flex items-center justify-between p-3 rounded-2xl border-2 transition-all group shadow-sm",
-                      isFeatured 
-                        ? "bg-accent/5 border-accent/20" 
-                        : "bg-muted/30 border-transparent hover:bg-white hover:border-accent/10"
-                    )}
-                  >
-                    <div className="flex-1 min-w-0 mr-2">
-                      <p className="font-bold text-sm truncate uppercase tracking-tight">{item.name}</p>
-                      <p className="text-[10px] text-muted-foreground font-black tracking-widest uppercase">₦{(item.price || 0).toLocaleString()}</p>
-                    </div>
-                    <Button
-                      size="sm"
-                      className={cn(
-                        "h-8 px-3 rounded-lg font-black text-[10px] uppercase tracking-widest",
-                        isFeatured ? "bg-accent/20 text-accent hover:bg-accent/30" : "bg-primary shadow-lg shadow-primary/20"
-                      )}
-                      onClick={() => handleFeatureClick(item)}
-                      disabled={isFeatured || isLimitReached}
-                    >
-                      {isFeatured ? (
-                        <div className="flex items-center gap-1"><Star className="h-3 w-3 fill-accent" /> FEAT</div>
-                      ) : isLimitReached ? (
-                        "FULL"
-                      ) : (
-                        "ADD"
-                      )}
-                    </Button>
+        <div className="w-full">
+          <ul className="space-y-2 max-h-80 overflow-y-auto mb-4 border rounded-lg p-2 bg-background">
+            {paginatedSelection.map((item) => {
+              const isFeatured = featuredIds.has(item.id);
+              return (
+                <li
+                  key={item.id}
+                  className="flex items-center justify-between gap-2 bg-secondary/20 rounded-lg p-3 hover:bg-secondary/40 transition-colors border border-transparent hover:border-primary/20"
+                >
+                  <div className="flex-1 min-w-0">
+                    <span className="font-bold text-xs block truncate italic">{item.name}</span>
+                    <span className="text-[10px] text-muted-foreground">₦{item.price ?? 0}</span>
                   </div>
-                );
-              });
-            })()}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="h-7 text-[10px] font-bold px-3 transition-all active:scale-95"
+                    onClick={() => handleFeatureClick(item)}
+                    disabled={isFeatured || isLimitReached}
+                    variant={isFeatured ? "outline" : "default"}
+                  >
+                    {isFeatured ? "Active" : isLimitReached ? "Full" : "Feature+"}
+                  </Button>
+                </li>
+              );
+            })}
             {filteredProducts.length === 0 && (
-               <div className="col-span-full py-10 text-center text-muted-foreground italic text-sm">No products matching your search.</div>
+              <li>
+                <p className="text-xs text-muted-foreground text-center py-10 italic">No products matched your search.</p>
+              </li>
             )}
-          </div>
-          
-          {/* Pagination Controls */}
-          {(() => {
-            const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
-            return totalPages > 1 ? (
-              <div className="flex items-center justify-between pt-4 border-t mt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                  disabled={currentPage === 0}
-                  size="sm"
-                  className="h-10 font-bold"
-                >
-                  ← Previous
-                </Button>
-                <span className="text-sm font-bold text-muted-foreground">
-                  Page {currentPage + 1} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                  disabled={currentPage === totalPages - 1}
-                  size="sm"
-                  className="h-10 font-bold"
-                >
-                  Next →
-                </Button>
-              </div>
-            ) : null;
-          })()}
+          </ul>
 
-          {!hideList && (
-            <div className="pt-8 border-t space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Featured Items</h3>
-                <Badge className="font-bold bg-accent/10 text-accent hover:bg-accent/20 border-none">
-                  {featuredProduct.length} / {MAX_FEATURED_PRODUCTS}
-                </Badge>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {featuredProduct.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="flex flex-col gap-3 p-4 bg-white rounded-3xl border-2 border-accent/10 shadow-lg shadow-accent/5 group"
-                  >
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="flex-1 overflow-hidden">
-                        <p className="font-black text-sm uppercase tracking-tight truncate">
-                          {index + 1}. {item.product?.name ?? "Unnamed"}
-                        </p>
-                        <p className="text-[10px] text-accent font-black tracking-widest uppercase">₦{(item.product?.price || 0).toLocaleString()}</p>
-                      </div>
-                      <div className="flex gap-1 shrink-0">
-                         <Button size="icon" variant="ghost" onClick={() => handleEdit(item)} className="h-8 w-8 text-muted-foreground hover:text-accent group-hover:bg-accent/10">
-                           <Edit className="h-4 w-4" />
-                         </Button>
-                         <Button size="icon" variant="ghost" onClick={() => handleDelete(item.id, item.product?.name || "this item")} className="h-8 w-8 text-muted-foreground hover:text-destructive group-hover:bg-destructive/10">
-                           <Trash2 className="h-4 w-4" />
-                         </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {featuredProduct.length === 0 && (
-                  <div className="col-span-full p-10 border-4 border-dashed rounded-[2rem] flex flex-col items-center justify-center text-center space-y-3 bg-muted/20">
-                    <Star className="h-8 w-8 text-muted-foreground/30" />
-                    <p className="text-muted-foreground text-sm font-medium">Add products above to see them in your home page spotlight.</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {editId && (
-            <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-               <div className="w-full max-w-md bg-background rounded-[2.5rem] p-8 shadow-2xl border-none">
-                 <h4 className="text-xl font-black mb-1">Modify Selection</h4>
-                 <p className="text-sm text-muted-foreground mb-6">Updating focal product for this feature slot.</p>
-                 <Input value={formData.productName} disabled className="h-12 border-2 bg-muted/50 font-bold mb-6 rounded-2xl" />
-                 <div className="flex gap-3">
-                    <Button onClick={handleSubmit} className="flex-1 h-12 rounded-2xl font-black bg-accent shadow-lg shadow-accent/20">Update Slot</Button>
-                    <Button onClick={resetForm} variant="outline" className="flex-1 h-12 rounded-2xl font-black border-2">Cancel</Button>
-                 </div>
-               </div>
+          {/* Pagination for selection */}
+          {totalPagesSelection > 1 && (
+            <div className="flex items-center justify-center gap-4 py-2 border-t mt-2">
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage === 1}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-[10px] font-bold">{currentPage} / {totalPagesSelection}</span>
+              <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setCurrentPage(p => Math.min(totalPagesSelection, p+1))} disabled={currentPage === totalPagesSelection}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           )}
         </div>
-      </AdminFormContainer>
+
+        {editId && (
+          <div className="space-y-3 pt-4 border-t-2 border-dashed border-primary/20">
+            <Label className="text-xs font-bold uppercase tracking-wider text-primary">Editing Slot</Label>
+            <Input value={formData.productName} disabled className="bg-muted text-xs h-8" />
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" className="flex-1 h-8 text-xs">Confirm Change</Button>
+              <Button type="button" size="sm" onClick={resetForm} variant="outline" className="flex-1 h-8 text-xs border-primary text-primary">Cancel</Button>
+            </div>
+          </div>
+        )}
+      </form>
+
+      {!hideList && (
+        <div className="mt-10 pt-6 border-t">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
+            Currently Featured
+            <span className="text-xs bg-primary/10 text-primary px-2 rounded-full font-bold">{featuredProduct.length}</span>
+          </h3>
+
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {paginatedList.map((item, index) => (
+              <li
+                key={item.id}
+                className="flex flex-col gap-2 bg-card rounded-xl p-4 border shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
+              >
+                <div className="flex justify-between items-start">
+                  <span className="font-bold text-sm leading-tight line-clamp-2 pr-4">
+                    {(currentListPage-1)*ITEMS_PER_PAGE + index + 1}. {item.product?.name ?? "NULL"}
+                  </span>
+                  <span className="text-xs font-bold text-primary shrink-0">₦{item.product?.price ?? 0}</span>
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <Button type="button" size="sm" variant="outline" onClick={() => handleEdit(item)} className="flex-1 h-8 text-[10px] font-bold border-primary/30 text-primary hover:bg-primary/5">
+                    Move
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => handleDelete(item.id)}
+                    variant="outline"
+                    className="flex-1 h-8 text-[10px] font-bold border-destructive/30 text-destructive hover:bg-destructive/5"
+                  >
+                    Remove
+                  </Button>
+                </div>
+              </li>
+            ))}
+            {featuredProduct.length === 0 && (
+              <li className="col-span-full py-16 text-center border-2 border-dashed rounded-2xl bg-muted/5">
+                 <p className="text-muted-foreground italic">No products are currently featured on the home page.</p>
+              </li>
+            )}
+          </ul>
+
+          {/* List Pagination */}
+          {totalPagesList > 1 && (
+            <div className="flex items-center justify-center gap-6 mt-8">
+               <Button variant="outline" size="sm" className="gap-2" onClick={() => setCurrentListPage(p => Math.max(1, p-1))} disabled={currentListPage === 1}>
+                 <ChevronLeft className="h-4 w-4" /> Prev
+               </Button>
+               <span className="font-bold text-sm">Page {currentListPage} of {totalPagesList}</span>
+               <Button variant="outline" size="sm" className="gap-2" onClick={() => setCurrentListPage(p => Math.min(totalPagesList, p+1))} disabled={currentListPage === totalPagesList}>
+                 Next <ChevronRight className="h-4 w-4" />
+               </Button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

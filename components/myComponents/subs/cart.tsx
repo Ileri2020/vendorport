@@ -4,17 +4,24 @@ import { CartClient } from "./cart-client";
 import { useAppContext } from "@/hooks/useAppContext";
 
 export interface CartItem {
-  category: string;
+  category?: string;
   id: string;
-  images: string[];
-  image?: string;
+  images?: string[];
+  img?: string;
   name: string;
   price: number;
   quantity: number;
+  regulatoryClassification?: string;
+  customName?: string;
+  customPrice?: number;
+  bulkPriceId?: string;
+  bulkName?: string;
+  isSpecial?: boolean;
 }
 
 interface CartProps {
   className?: string;
+  basePath?: string;
 }
 
 // const mockCart: CartItem[] = [
@@ -38,13 +45,13 @@ interface CartProps {
 //   },
 // ];
 
-export function Cart({ className }: CartProps) { 
+export function Cart({ className, basePath }: CartProps) { 
   const { user, setUser, cart, setCart } = useAppContext();
   return (
     <div className={cn("relative", className)}>
       {/* // TODO: Fetch cart from e.g. LocalStorage and/or database
       <CartClient className={cn("", className)} mockCart={mockCart} /> */}
-      <CartClient className={cn("", className)} cart={cart} />
+      <CartClient className={cn("", className)} cart={cart} basePath={basePath} />
     </div>
   );
 }

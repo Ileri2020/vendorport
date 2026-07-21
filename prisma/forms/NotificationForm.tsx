@@ -1,5 +1,4 @@
-
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -11,22 +10,22 @@ export default function NotificationForm() {
     userId: '',
     message: '',
   });
-  const [editId, setEditId] = useState<any>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+
+  const fetchNotifications = useCallback(async () => {
+    const res = await axios.get('/api/dbhandler?model=notification');
+    setNotifications(res.data);
+  }, []);
+
+  const fetchUsers = useCallback(async () => {
+    const res = await axios.get('/api/dbhandler?model=user');
+    setUsers(res.data);
+  }, []);
 
   useEffect(() => {
     fetchNotifications();
     fetchUsers();
-  }, []);
-
-  const fetchNotifications = async () => {
-    const res = await axios.get('/api/dbhandler?model=notification');
-    setNotifications(res.data);
-  };
-
-  const fetchUsers = async () => {
-    const res = await axios.get('/api/dbhandler?model=user');
-    setUsers(res.data);
-  };
+  }, [fetchNotifications, fetchUsers]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -61,7 +60,8 @@ export default function NotificationForm() {
     <div>
       <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-sm gap-2 justify-center items-center p-3 border-2 border-secondary-foreground rounded-sm m-2'>
         <h2 className='font-semibold text-lg'>Manage Notifications</h2>
-        <select value={formData.userId} onChange={(e) => setFormData({ ...formData, userId: e.target.value })}>
+        <label className="sr-only" htmlFor="notification-user">User</label>
+        <select id="notification-user" title="Select user" value={formData.userId} onChange={(e) => setFormData({ ...formData, userId: e.target.value })}>
           {users.length > 0 ? (
             users.map((user, index) => (
               <option key={index} value={user.id}>
@@ -82,8 +82,8 @@ export default function NotificationForm() {
                 <p>Message: {item.message}</p>
                 <p>User: {users.find((user) => user.id === item.userId)?.name}</p>
                 <div className='flex flex-row gap-2 p-1 w-full'>
-                  <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                  <Button type='button' onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
+                  <Button onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
+                  <Button onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
                 </div>
               </li>
             ))

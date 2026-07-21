@@ -16,7 +16,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
-import { Button } from "../ui/button"
 
 export const description = "An interactive bar chart"
 
@@ -153,7 +152,7 @@ export function ChartComponent() {
           {["desktop", "mobile"].map((key) => {
             const chart = key as keyof typeof chartConfig
             return (
-              <Button
+              <button
                 key={chart}
                 data-active={activeChart === chart}
                 className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t px-6 py-4 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0 sm:px-8 sm:py-6"
@@ -165,7 +164,7 @@ export function ChartComponent() {
                 <span className="text-lg font-bold leading-none sm:text-3xl">
                   {total[key as keyof typeof total].toLocaleString()}
                 </span>
-              </Button>
+              </button>
             )
           })}
         </div>

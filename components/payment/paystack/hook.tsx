@@ -1,8 +1,7 @@
 import React from 'react';
 import logo from './logo.svg';
 import { usePaystackPayment } from 'react-paystack';
-import './App.css';
-import { Button } from '@/components/ui/button';
+// import './App.css';
 
 const config = {
     reference: (new Date()).getTime().toString(),
@@ -12,7 +11,7 @@ const config = {
 };
 
 // you can call this function anything
-const onSuccess = (reference) => {
+const onSuccess = (reference: any) => {
   // Implementation for whatever you want to do with reference and after success call.
   console.log(reference);
 };
@@ -27,9 +26,9 @@ const PaystackHookExample = () => {
     const initializePayment = usePaystackPayment(config);
     return (
       <div>
-          <Button onClick={() => {
+          <button onClick={() => {
               // initializePayment(onSuccess, onClose)
-          }}>Paystack Hooks Implementation</Button>
+          }}>Paystack Hooks Implementation</button>
       </div>
     );
 };

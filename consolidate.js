@@ -9,7 +9,7 @@ const skipDirs = new Set([
 ]);
 
 const skipFiles = new Set([
-  'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 
+  'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'full_project_code.txt', 
   '.DS_Store', 'consolidate_code.py', 'consolidate.js',
   '.gitignore', '.env', '.env.local', 'tsconfig.json', 'package.json',
   'postcss.config.js', 'tailwind.config.js', 'components.json',

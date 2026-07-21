@@ -1,86 +1,256 @@
 "use client"
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-//import { useLocation} from "react-router-dom"
 import Link from "next/link"
 import { CiMenuFries } from "react-icons/ci"
+import { AiOutlineSetting } from "react-icons/ai"
 import Links from "../../data/links";
 import { ModeToggle } from '@/components/ui/mode-toggle'
 import { usePathname } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { GlobalSearch } from "../myComponents/subs/GlobalSearch"
+import { useEffect, useState } from "react"
+import axios from "axios"
+import { ChevronRight, LayoutGrid, Stethoscope, Tag, ShoppingCart, MessageSquare, Camera, LogOut, BarChart3 } from "lucide-react"
+import { Cart } from "../myComponents/subs/cart"
+import { Button } from "../ui/button";
+import { SnapPrescription } from "../myComponents/subs/SnapPrescription";
+import { SpecialOrderForm } from "../myComponents/subs/SpecialOrderForm";
+import { FlaskConical } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
-import { signOut } from "next-auth/react";
-import dynamic from 'next/dynamic'
-const Login = dynamic(() => import('@/components/myComponents/subs').then((e) => e.Login), { ssr: false, })
-import { Signup } from "@/components/myComponents/subs"
+import { signOut, useSession } from "next-auth/react";
+import { Login, Signup } from "../myComponents/subs";
 
-import { BarChart, LayoutDashboard } from "lucide-react";
+interface SidenavProps {
+    basePath?: string;
+}
 
-const Sidenav = () => {
+const Sidenav = ({ basePath }: SidenavProps) => {
+    const { user, setUser, currentBusiness } = useAppContext();
+    const { data: session } = useSession();
     const pathname = usePathname();
-    const { user, setUser } = useAppContext();
+    const [categories, setCategories] = useState<any[]>([]);
+    const [concerns, setConcerns] = useState<string[]>([]);
+    const [open, setOpen] = useState(false);
+    const [showAllCategories, setShowAllCategories] = useState(false);
+    const [showAllConcerns, setShowAllConcerns] = useState(false);
 
-    const baseLinks = [...Links.Links];
-    if (user?.role === "admin") {
-        baseLinks.push(
-            { path: "/admin", name: "Dashboard", icon: <LayoutDashboard className="h-5 w-5" /> },
-            { path: "/admin/analytics", name: "Analytics", icon: <BarChart className="h-5 w-5" /> }
-        );
-    }
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const [catRes, concernRes] = await Promise.all([
+                    axios.get("/api/dbhandler?model=category"),
+                    axios.get("/api/dbhandler?model=healthConcern")
+                ]);
+                setCategories(catRes.data);
+                setConcerns(concernRes.data.map((c: any) => c.name));
+            } catch (error) {
+                console.error("Error fetching sidebar data:", error);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const closeSheet = () => setOpen(false);
+
+    const resolveHref = (path: string) => {
+        if (!basePath) return path;
+        return `${basePath}${path}`;
+    };
+
+    const displayedCategories = showAllCategories ? categories : categories.slice(0, 10);
+    const displayedConcerns = showAllConcerns ? concerns : concerns.slice(0, 10);
 
     return (
-        <Sheet>
-            <SheetTrigger className="flex justify-center items-center text-[32px] text-accent">
+        <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger className="flex justify-center items-center text-[32px] text-accent p-2 hover:bg-accent/10 rounded-xl transition-all">
                 <CiMenuFries />
             </SheetTrigger>
-            <SheetHeader></SheetHeader>
-            <SheetTitle></SheetTitle>
-            <SheetContent className="flex flex-col justify-between items-center overflow-y-auto">
-                <nav className="flex flex-col justify-center items-center gap-8 text-xl py-10">
-                    {baseLinks.map((link: any, index: number) => {
-                        return (
-                            <Link href={link.path} key={index} className={`${link.path === pathname && "text-accent border-b-2 border-accent"} capitalize font-medium hover:text-accent transition-all flex items-center gap-2`}>
-                                {link.icon}
-                                {link.name}
-                            </Link>
-                        )
-                    })}
-                </nav>
-                {user?.id !== "nil" ? (
-                    <div className="h-12 w-full mx-4">
-                        <Button
-                            className="bg-red border-2 border-red-500 text-red-600 w-full flex-1"
-                            variant="outline"
-                            onClick={() => {
-                                signOut({ callbackUrl: "/" });
-                                setUser({
-                                    username: "visitor",
-                                    id: "nil",
-                                    email: "nil",
-                                    avatarUrl: "",
-                                    role: "user",
-                                    department: "nil",
-                                    contact: "xxxx",
-                                });
-                            }}
+            <SheetContent side="left" className="flex flex-col w-[300px] sm:w-[400px] p-0 gap-0 border-r-0 shadow-2xl">
+                <SheetHeader className="p-3 border-b bg-gradient-to-r from-primary/5 to-transparent">
+                    <SheetTitle className="text-left text-2xl font-black text-primary tracking-tighter italic">Health <span className="text-accent">Clique</span></SheetTitle>
+                </SheetHeader>
+                
+                <div className="flex-1 overflow-y-auto px-2 md:px-4 py-2 space-y-1 scrollbar-hide">
+                    {/* Cart & Talk Action */}
+                    <div className="flex gap-2 md:gap-4">
+                        <Cart className="flex-1" />
+                        <Link 
+                            href={resolveHref("/contact")} 
+                            onClick={closeSheet}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 bg-accent text-accent-foreground rounded-2xl text-sm font-bold hover:bg-accent/90 transition-all shadow-lg shadow-accent/20"
                         >
-                            Logout
-                        </Button>
+                            <MessageSquare className="w-4 h-4" />
+                            Chat
+                        </Link>
                     </div>
-                ) : (
-                    <div className="w-full">
-                        <p className="font-medium text-red-500">Please log in to proceed with checkout.</p>
-                        <div className="w-full h-[50vh] flex flex-col justify-center items-center">
-                            <div className="font-semibold text-lg text-destructive">You are not logged in</div>
-                            <div className="flex flex-row gap-5">
+
+                    {/* Search Section */}
+                    <div className="space-y-1 bg-muted/30 p-2 rounded-3xl border border-border/50">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
+                             Quick Find
+                        </h3>
+                        <GlobalSearch placeholder="Find meds..." className="h-12 rounded-2xl border-none shadow-sm focus-visible:ring-primary" />
+                    </div>
+
+                    {/* Navigation Links */}
+                    <div className="space-y-4">
+                        <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 px-2">Main Menu</h3>
+                        <nav className="flex flex-col gap-1">
+                            {(() => {
+                                const navLinks = [...Links.Links];
+                                const isStoreOwner =
+                                    basePath &&
+                                    currentBusiness?.ownerId &&
+                                    ((user?.id && user.id !== "nil" && String(currentBusiness.ownerId) === String(user.id)) ||
+                                     (session?.user?.id && String(currentBusiness.ownerId) === String(session.user.id)));
+
+                                if (isStoreOwner) {
+                                    navLinks.push({ name: <AiOutlineSetting />, title: "Store Admin", path: "/admin" });
+                                    navLinks.push({ name: <BarChart3 className="w-5 h-5" />, title: "Analytics", path: "/admin/analytics" });
+                                }
+
+                                return navLinks.map((link, index) => (
+                                    <Link 
+                                        href={resolveHref(link.path)} 
+                                        key={index} 
+                                        onClick={closeSheet}
+                                        className={`${resolveHref(link.path) === pathname ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-foreground hover:bg-muted"} flex items-center justify-between p-4 rounded-2xl transition-all group`}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`p-2 rounded-xl border ${resolveHref(link.path) === pathname ? "bg-white/20 border-white/30" : "bg-muted border-border group-hover:border-primary/30 group-hover:bg-primary/5"} transition-all`}>
+                                                <span className="text-xl shrink-0">{link.name}</span>
+                                            </div>
+                                            <span className="font-bold tracking-tight">{link.title}</span>
+                                        </div>
+                                        <ChevronRight className={`w-5 h-5 transition-all ${resolveHref(link.path) === pathname ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"}`} />
+                                    </Link>
+                                ));
+                            })()}
+                        </nav>
+                    </div>
+
+                    {/* Categories Section */}
+                    {categories.length > 0 && (
+                        <div className="space-y-4">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2 px-2">
+                                <LayoutGrid className="w-4 h-4" />
+                                Categories
+                            </h3>
+                            <div className="grid grid-cols-1 gap-1">
+                                {displayedCategories.map((category) => (
+                                    <Link 
+                                        key={category.id}
+                                        href={resolveHref(`/store?category=${encodeURIComponent(category.name)}`)}
+                                        onClick={closeSheet}
+                                        className="text-sm p-3 hover:bg-muted rounded-xl flex items-center justify-between group transition-all"
+                                    >
+                                        <span className="text-muted-foreground font-medium group-hover:text-foreground transition-colors">{category.name}</span>
+                                        <span className="text-[10px] font-bold bg-muted border border-border/50 group-hover:bg-primary/10 group-hover:text-primary px-2.5 py-1 rounded-full transition-all">{category._count?.products || 0}</span>
+                                    </Link>
+                                ))}
+                            </div>
+                            {categories.length > 10 && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => setShowAllCategories(!showAllCategories)}
+                                    className="w-full text-xs font-bold text-primary hover:bg-primary/5 mt-2"
+                                >
+                                    {showAllCategories ? "Show Less" : `Show More (${categories.length - 10} more)`}
+                                </Button>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Health Concerns Section */}
+                    {concerns.length > 0 && (
+                        <div className="space-y-4">
+                            <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2 px-2">
+                                <Stethoscope className="w-4 h-4" />
+                                Health Concern
+                            </h3>
+                            <div className="flex flex-wrap gap-2 px-2 pb-2">
+                                {displayedConcerns.map((concern) => (
+                                    <Link 
+                                        key={concern}
+                                        href={resolveHref(`/store?concern=${concern}`)}
+                                        onClick={closeSheet}
+                                        className="text-xs px-4 py-2 bg-muted/50 hover:bg-primary hover:text-primary-foreground rounded-full border border-border/50 transition-all font-bold"
+                                    >
+                                        {concern}
+                                    </Link>
+                                ))}
+                            </div>
+                            {concerns.length > 10 && (
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    onClick={() => setShowAllConcerns(!showAllConcerns)}
+                                    className="w-full text-xs font-bold text-primary hover:bg-primary/5"
+                                >
+                                    {showAllConcerns ? "Show Less" : `Show More (${concerns.length - 10} more)`}
+                                </Button>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="p-1 border-t bg-muted/20 space-y-2">
+                    <SnapPrescription>
+                        <Button className="w-full flex items-center gap-3 h-12 rounded-2xl bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20 font-bold">
+                            <Camera className="w-5 h-5" />
+                            Snap or List Prescription
+                        </Button>
+                    </SnapPrescription>
+                    <SpecialOrderForm>
+                        <Button className="w-full flex items-center gap-3 h-12 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500 hover:text-white transition-all font-bold">
+                            <FlaskConical className="w-5 h-5" />
+                            Scarce / Special Order
+                        </Button>
+                    </SpecialOrderForm>
+                </div>
+
+                <div className="p-1 border-t bg-muted/30 flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                        {user.id !== "nil" ? (
+                            <div className="flex items-center gap-3 bg-background/50 p-2 rounded-2xl flex-1 border border-border/50">
+                                <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 bg-muted shrink-0">
+                                    <img 
+                                        src={user.avatarUrl || user.image || "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png"} 
+                                        alt={user.name} 
+                                        className="w-full h-full object-cover"
+                                    />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-black truncate">{user.name}</p>
+                                    <button 
+                                        onClick={() => {
+                                            signOut({ callbackUrl: "/" });
+                                            setUser({
+                                                name: "visitor",
+                                                id: "nil",
+                                                email: "nil",
+                                                avatarUrl: "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png",
+                                                role: "user",
+                                                contact: "xxxx",
+                                                walletBalance: 0,
+                                                walletCurrency: "₦"
+                                            });
+                                        }}
+                                        className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1 hover:text-red-600 transition-colors"
+                                    >
+                                        <LogOut className="w-3 h-3" />
+                                        Sign Out
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-2 flex-1">
                                 <Login />
                                 <Signup />
                             </div>
-                        </div>
+                        )}
+                        <ModeToggle />
                     </div>
-                )}
-                <div className="my-5 w-full flex flex-row">
-                    <div className="flex w-full flex-1"></div>
-                    <ModeToggle />
                 </div>
             </SheetContent>
         </Sheet>

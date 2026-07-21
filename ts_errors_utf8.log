@@ -1,0 +1,3 @@
+﻿components/myComponents/subs/productCard.tsx(11,8): error TS2300: Duplicate identifier 'Link'.
+components/myComponents/subs/productCard.tsx(13,82): error TS2300: Duplicate identifier 'Link'.
+components/myComponents/subs/productCard.tsx(436,24): error TS2741: Property 'href' is missing in type '{ className: string; }' but required in type 'LinkProps<any>'.

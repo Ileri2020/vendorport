@@ -1,7 +1,6 @@
+import { prisma } from "@/lib/prisma";
 
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
 
 const modelMap = { 
   //ministries: prisma.ministry,
@@ -21,24 +20,22 @@ const modelMap = {
   user: prisma.user,
 };
 
-type ModelName = keyof typeof modelMap;
-
 async function dbHandler({
-  model,
-  id,
+  model = null,
+  id = null,
   body = null,
   method,
   profileImage = false,
 }: {
-  model: ModelName;
-  id?: string;
+  model: any;
+  id?: string | null;
   body?: any;
   method: 'GET' | 'POST' | 'PUT' | 'DELETE';
   profileImage?: boolean;
 }) {
   console.log("In product dbhandler function");
 
-  const prismaModel = modelMap[model] as any;
+  const prismaModel = modelMap[model];
 
   if (!prismaModel) {
     return { status: 400, data: { message: 'Invalid model' } };
@@ -57,25 +54,36 @@ async function dbHandler({
           const items = await prismaModel.findMany();
           return { status: 200, data: items };
         }
-      case 'POST': {
+      case 'POST':
         // const data = body;  Spicy, pepperish and groundnut yaji spice blend
         console.log('post product body:', body)
-        const newItem = await prismaModel.create({//{ data }
+         const newItem = await prismaModel.create({
             data: {
               description: body.description,
-                name: body.name,
-                categoryId: body.categoryId,
-                category: body.category,
-                price: parseFloat(body.price),
-                costPrice: body.costPrice ? parseFloat(body.costPrice) : null,
-              // images: {
-              //   push: body.url,
-              // },
+              name: body.name,
+              categoryId: body.categoryId,
+              price: parseFloat(body.price),
+              scarce: body.scarce,
+              regulatoryClassification: body.regulatoryClassification || "OTC",
+              requiresPrescription: body.requiresPrescription === true || body.requiresPrescription === "true",
               images: [body.url],
+              brand: body.brand ? {
+                connectOrCreate: { where: { name: body.brand }, create: { name: body.brand } }
+              } : undefined,
+              activeIngredients: {
+                connectOrCreate: (Array.isArray(body.activeIngredients) ? body.activeIngredients : []).map((name: string) => ({
+                  where: { name }, create: { name }
+                }))
+              },
+              healthConcerns: {
+                connectOrCreate: (Array.isArray(body.healthConcerns) ? body.healthConcerns : []).map((name: string) => ({
+                  where: { name }, create: { name }
+                }))
+              },
             },
-          } 
+          }
         );
-        if (profileImage && model === 'post') {
+        if (profileImage && model === 'posts') {
           try {
             console.log("about to change user profile image")
             await prisma.user.update({
@@ -88,15 +96,13 @@ async function dbHandler({
           }
         }
         return { status: 200, data: newItem };
-      }
-      case 'PUT': {
+      case 'PUT':
         const { _id, ...updatedata } = body;
         const updatedItem = await prismaModel.update({
           where: { id : _id },
           data: updatedata,
         });
         return { status: 200, data: updatedItem };
-      }
       case 'DELETE':
         await prismaModel.delete({ where: { id } });
         return { status: 200, data: { success: true } };
@@ -133,8 +139,7 @@ export default dbHandler;
 
 
 
-// import { PrismaClient } from '@prisma/client';
-
+// 
 // const prisma = new PrismaClient();
 
 // const modelMap = {

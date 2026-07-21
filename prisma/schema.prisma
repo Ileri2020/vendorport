@@ -37,11 +37,15 @@ model User {
   lunches       Lunch[]
   businesses    Business[]        @relation("UserBusinesses")
   chatThreads   ChatThread[]      @relation("UserChatThreads")
+  priceFeedbacks PriceFeedback[]
+  affiliate     Affiliate?
+  heavilyDiscountedProducts HeavilyDiscountedProduct[]
 }
 
 model Business {
   id               String            @id @default(auto()) @map("_id") @db.ObjectId
   name             String            @unique // this will be the storeName for the slug /(storeName)
+  description      String?          
   ownerId          String            @db.ObjectId
   owner            User              @relation("UserBusinesses", fields: [ownerId], references: [id])
   template         String            @default("estore") // estore, pharmacy, etc.
@@ -74,9 +78,6 @@ model Business {
   partners         Partner[]
   helpArticles     HelpArticle[]
   chatThreads      ChatThread[]      @relation("BusinessChatThreads")
-
-  // master sections defined by the admin for various pages
-  sections BusinessSection[]
 }
 
 model ProjectSettings {
@@ -85,63 +86,10 @@ model ProjectSettings {
   business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
   currency     String   @default("NGN")
   exchangeRate Float    @default(1.0)
-  pages        Page[]
+  // pages        Page[]
 }
 
-model Page {
-  id                String          @id @default(auto()) @map("_id") @db.ObjectId
-  name              String
-  slug              String
-  projectSettingsId String          @db.ObjectId
-  projectSettings   ProjectSettings @relation(fields: [projectSettingsId], references: [id])
-  sections          Section[]
-  seoTitle          String?
-  seoDescription    String?
-  seoImage          String?
-  seoKeywords       String?
-}
 
-model Section {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  pageId String @db.ObjectId
-  page   Page   @relation(fields: [pageId], references: [id])
-  type   String // e.g., "carousel", "description", "chat", etc.
-  layout String // e.g., "carousel of products", "carousel of cards", etc.
-  data   Json? // Store section-specific data
-  order  Int
-}
-
-// new unified section system for admins
-model BusinessSection {
-  id         String   @id @default(auto()) @map("_id") @db.ObjectId
-  businessId String   @db.ObjectId
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  page       String // home, about, shop, footer, header, contact, etc.
-  key        String // unique key for section type (hero, stats, testimonials)
-  type       String // static | dynamic | collection
-  position   Int
-  isActive   Boolean  @default(true)
-
-  heading    String?
-  subHeading String?
-  content    Json? // rich text, bullets, HTML
-  settings   Json? // layout + display config
-
-  // linked items such as products or posts when type == "collection"
-  items SectionItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model SectionItem {
-  id        String          @id @default(auto()) @map("_id") @db.ObjectId
-  sectionId String          @db.ObjectId
-  section   BusinessSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-  refType   String // product | post | review | category | custom
-  refId     String
-  position  Int
-}
 
 model Staff {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -173,9 +121,9 @@ model SiteSettings {
   iconImageUrl    String?
   iconImageWidth  Int      @default(40)
   iconImageHeight Int      @default(40)
-  contactDesc     String   @default("Contact us today for product inquiries, order support, or business collaborations.")
-  contactEmail    String?  @default("support@example.com")
-  contactPhone    String?  @default("000-000-0000")
+  contactDesc     String   @default("If you have any questions, inquiries, or would like to hire me, I would love to hear from you. Please feel free to reach out using the contact information provided below:")
+  contactEmail    String?  @default("healthcliquespecialties@gmail.com")
+  contactPhone    String?  @default("(+234) 816 968 4400")
   helpText        String   @default("How can we assist you?")
   facebook        String?
   instagram       String?
@@ -183,9 +131,28 @@ model SiteSettings {
   linkedin        String?
   headerCTA       String?  @default("Join Now")
   footerText      String?  @default("Your trusted partner in quality products.")
-  address         String?
+  address         String?  @default("22 Akinagbe, Alapere, Ketu, Lagos State")
   newsletterTitle String?  @default("Join our Newsletter")
   newsletterText  String?  @default("Be the first to know about new arrivals and exclusive offers.")
+  badgeText       String?  @default("NAFDAC Approved Pharmacy")
+  preHeroText     String?  @default("With a click, get your")
+  heroHighlight   String?  @default("Premium Medical Supplies")
+  promoTitle      String?  @default("Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.")
+  promoBannerText String?  @default("Authentic medical supplies at clearance prices. Limited quantities available — move fast!")
+  animatedTexts   String[] @default(["Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.", "Authentic medical supplies at clearance prices. Limited quantities available — move fast!", "Fast delivery to your doorstep"]) 
+  aboutSub        String   @default("We believe that access to safe, effective, and affordable medicines should never be a privilege—it should be a standard. We are a forward-thinking healthcare company dedicated to solving the complex challenges surrounding medicine access in Nigeria and across underserved African communities.")
+  whoWeAreText    String   @default("Healthclique Limited is owned and managed by licensed Pharmacists with deep expertise in pharmaceutical care, supply chain management, and patient-centered service delivery. We operate in full compliance with all regulatory requirements governing the pharmaceutical sector, ensuring that every product and service we provide meets the highest standards of safety, quality, and authenticity.")
+  visionText      String   @default("To become Africa’s most trusted digital healthcare platform, transforming how medicines are accessed and delivered—one community at a time.")
+  promiseText     String   @default("From the moment you place an order to the time it arrives at your doorstep, we are committed to delivering a smooth, secure, and memorable experience. At Healthclique Limited, your health is not just our business—it is our purpose.")
+  whatWeDoText    String   @default("We leverage a holistic, technology-driven approach to bridge the gap between patients, healthcare professionals, and essential medicines. Our robust platform is designed to serve:")
+  aiSystemText    String   @default("With our advanced AI-powered system, accessing medications has never been easier. Simply upload your prescription or request, and our intelligent platform handles verification, sourcing, and fulfillment—delivering a seamless, stress-free experience from start to finish.")
+  integrityText   String   @default("Integrity is the foundation of everything we do. Our mission aligns closely with the Nigerian National Drug Policy.")  
+  accentLight     String   @default("8365 100% 37%")
+  accentDark      String   @default("8365 100% 59%")
+  accentSecondaryLight  String   @default("199 89% 48%")
+  accentSecondaryDark   String   @default("199 89% 66%")
+  accentForegroundLight String   @default("222 47% 12%")
+  accentForegroundDark  String   @default("222 47% 10%")  
   updatedAt       DateTime @updatedAt
 }
 
@@ -305,12 +272,6 @@ model EmailVerificationCode {
   @@index([email])
 }
 
-// model Visit {
-//   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-//   user      User     @relation(fields: [userId], references: [id])
-//   userId    String   @db.ObjectId
-//   createdAt DateTime @default(now())
-// }
 
 model Post {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
@@ -386,12 +347,163 @@ model Product {
   wishlist          Wishlist[]
   businessId        String?          @db.ObjectId
   business          Business?        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  brandId           String?          @db.ObjectId
+  brandData         Brand?           @relation(fields: [brandId], references: [id])
+  activeIngredientIds String[]       @db.ObjectId
+  activeIngredientRefs ActiveIngredient[] @relation(fields: [activeIngredientIds], references: [id])
+  healthConcernIds  String[]         @db.ObjectId
+  healthConcerns    HealthConcern[]  @relation(fields: [healthConcernIds], references: [id])
+  vendors           ProductVendor[]
+  priceFeedbacks    PriceFeedback[]
+  heavilyDiscountedProducts HeavilyDiscountedProduct[]
 
   // add product features like dosage form, strength, manufacturer, etc
 }
 
 //for inputing available product, after sales, deduct the quantity
 //one to one relationship with a product, notice the unique then objectid
+model Brand {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String    @unique
+  order     Int       @default(0)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  version   Int       @default(0)
+
+  @@index([order])
+}
+
+model Vendor {
+  id        String            @id @default(auto()) @map("_id") @db.ObjectId
+  name      String            @unique
+  address   String?
+  products  ProductVendor[]
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  version   Int               @default(0)
+}
+
+model ProductVendor {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId       String   @db.ObjectId
+  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendorId        String   @db.ObjectId
+  costPrice       Float
+  isDefault       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([productId, vendorId])
+  @@index([productId])
+  @@index([vendorId])
+}
+
+model ActiveIngredient {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  name             String    @unique
+  productIds       String[]  @db.ObjectId
+  products         Product[] @relation(fields: [productIds], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model HealthConcern {
+  id               String    @id @default(auto()) @map("_id") @db.ObjectId
+  name             String    @unique
+  productIds       String[]  @db.ObjectId
+  products         Product[] @relation(fields: [productIds], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model PriceFeedback {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String   @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String   @db.ObjectId
+  feedback  String
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Affiliate {
+  id            String               @id @default(auto()) @map("_id") @db.ObjectId
+  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String               @db.ObjectId @unique
+  affiliateId   String               @unique
+  name          String               @unique
+  earnings      Float                @default(0.0)
+  referrals     AffiliateReferral[]
+  payouts       AffiliatePayout[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+}
+
+model AffiliateReferral {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  affiliate           Affiliate @relation(fields: [affiliateIdFk], references: [id], onDelete: Cascade)
+  affiliateIdFk       String   @db.ObjectId
+  referredUserId      String?  @db.ObjectId
+  cartId              String?  @db.ObjectId
+  orderId             String
+  totalAmount         Float
+  affiliateCommission Float
+  referredBonus       Float
+  status              String   @default("pending")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model AffiliatePayout {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  affiliate     Affiliate @relation(fields: [affiliateIdFk], references: [id], onDelete: Cascade)
+  affiliateIdFk String   @db.ObjectId
+  amount        Float
+  status        String   @default("requested")
+  requestedAt   DateTime @default(now())
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Advertext {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  text      String
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HeavilyDiscountedProduct {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String   @db.ObjectId
+  creator   User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  creatorId String   @db.ObjectId
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  model     String
+  operation String
+  userId    String
+  recordId  String
+  changes   Json?
+  timestamp DateTime @default(now())
+
+  @@index([model, recordId])
+  @@index([userId, timestamp])
+  @@index([timestamp])
+}
+
 model Stock {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -623,120 +735,3 @@ model ChatMessage {
 
   @@index([threadId, createdAt])
 }
-
-// model Comment {
-//   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-//   ministryId String?   @db.ObjectId @default("684f74ca135dd6d0efeab37d")
-//   contentId  String   @db.ObjectId
-//   userId     String   @db.ObjectId
-//   username     String
-//   comment  String?
-//   isArchived Boolean  @default(false)
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @updatedAt
-//   reply      Boolean  @default(false)
-//   // replyId   String       @db.ObjectId
-// }
-
-// model Sale {
-//   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-//   product   Product  @relation(fields: [productId], references: [id])
-//   productId String
-//   quantity  Int
-//   total     Float
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
-// model Order {
-//   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-//   user      User     @relation(fields: [userId], references: [id])
-//   userId    String    @db.ObjectId
-//   products  CartItem[]
-//   total     Float
-//   payment Payment?
-//   status    String   @default("pending")
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
-// //same as cartitem, a cartitem converted after cart becomes an order
-// model OrderItem {
-//   id        String   @id @default(auto()) @map("_id") @db.ObjectId
-//   order     Order    @relation(fields: [orderId], references: [id])
-//   orderId   String    @db.ObjectId
-//   product   Product  @relation(fields: [productId], references: [id])
-//   productId String    @db.ObjectId
-//   quantity  Int
-//   createdAt DateTime @default(now())
-//   updatedAt DateTime @updatedAt
-// }
-
-//function also performed by review.rating
-// model Like {
-//   id         String   @id @default(auto()) @map("_id") @db.ObjectId
-//   //storeId String?   @db.ObjectId @default("684f74ca135dd6d0efeab37d")
-//   contentId  String   @db.ObjectId
-//   userId     String   @db.ObjectId
-//   // isArchived   Boolean      @default(false)
-//   createdAt  DateTime @default(now())
-//   updatedAt  DateTime @updatedAt
-// }
-
-//  $ prisma [command]
-
-//     Commands
-
-//                 init   Set up Prisma for your app
-//             generate   Generate artifacts (e.g. Prisma Client)
-//                   db   Manage your database schema and lifecycle
-//              migrate   Migrate your database
-//               studio   Browse your data with Prisma Studio
-//             validate   Validate your Prisma schema
-//               format   Format your Prisma schema
-//              version   Displays Prisma version info
-//                debug   Displays Prisma debug info
-//                  mcp   Starts an MCP server to use with AI development tools
-
-//     Flags
-
-//          --preview-feature   Run Preview Prisma commands
-//          --help, -h          Show additional information about a command
-
-// ┌──────────────────────────────────────────────────────────────────────────────────────┐
-// │  Optimize performance through connection pooling and caching with Prisma Accelerate  │
-// │  and capture real-time events from your database with Prisma Pulse.                  │
-// │  Learn more at https://pris.ly/cli/pdp                                               │
-// └──────────────────────────────────────────────────────────────────────────────────────┘
-
-//     Examples
-
-//       Set up a new Prisma project
-//       $ npx prisma init
-
-//       Generate artifacts (e.g. Prisma Client)
-//       $ prisma generate
-
-//       Browse your data
-//       $ prisma studio
-
-//       Create migrations from your Prisma schema, apply them to the database, generate artifacts (e.g. Prisma Client)
-//       $ prisma migrate dev
-
-//       Pull the schema from an existing database, updating the Prisma schema
-//       $ prisma db pull
-
-//       Push the Prisma schema state to the database
-//       $ prisma db push
-
-//       Validate your Prisma schema
-//       $ prisma validate
-
-//       Format your Prisma schema
-//       $ prisma format
-
-//       Display Prisma version info
-//       $ prisma version
-
-//       Display Prisma debug info
-//       $ prisma debug

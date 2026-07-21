@@ -1,14 +1,12 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { AdminFormContainer } from "@/components/utility/AdminFormContainer";
-import { useAppContext } from "@/hooks/useAppContext";
+import { Edit3, Trash2 } from "lucide-react";
 
 interface CategoriesFormProps {
   initialCategory?: any;
@@ -16,7 +14,6 @@ interface CategoriesFormProps {
 }
 
 export default function CategoriesForm({ initialCategory, hideList = false }: CategoriesFormProps) {
-  const { currentBusiness } = useAppContext();
   const [categories, setCategories] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     id: initialCategory?.id || "",
@@ -28,38 +25,34 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
   const [preview, setPreview] = useState<string | null>(null);
   const [editId, setEditId] = useState<string | null>(initialCategory?.id || null);
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(0);
-  const ITEMS_PER_PAGE = 10;
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileKey, setFileKey] = useState("file-0"); // Unique key to reset input
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
-      const res = await axios.get(`/api/dbhandler?model=category&businessId=${currentBusiness?.id}`);
+      const res = await axios.get("/api/dbhandler?model=category");
       setCategories(res.data);
     } catch (err) {
       console.error("Failed to fetch categories:", err);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] || null;
-    setErrorMsg("");
 
     if (!selected) return;
 
+    // Maximum allowed size in KB
     const maxSizeKB = 300;
     const maxSizeBytes = maxSizeKB * 1024;
 
     if (selected.size > maxSizeBytes) {
-      setErrorMsg(`Image must be smaller than ${maxSizeKB}KB.`);
+      toast.warning(`Image must be smaller than ${maxSizeKB}KB.`);
       return;
     }
 
@@ -67,9 +60,9 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
     setPreview(URL.createObjectURL(selected));
   };
 
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg("");
     setLoading(true);
 
     try {
@@ -77,14 +70,10 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
       data.append("name", formData.name);
       data.append("description", formData.description);
 
-      if (!editId && currentBusiness?.id) {
-        data.append("businessId", currentBusiness.id);
-      }
-
       if (file) {
-        data.append("file", file);
+        data.append("file", file); // new upload
       } else if (editId && formData.image) {
-        data.append("image", formData.image);
+        data.append("image", formData.image); // keep existing image
       }
 
       if (editId) data.append("id", editId);
@@ -119,8 +108,7 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
     setFile(null);
     setPreview(null);
-    setErrorMsg("");
-    setFileKey(`file-${Date.now()}`);
+    setFileKey(`file-${Date.now()}`); // Reset input key
   };
 
   const handleDelete = async (id: string) => {
@@ -131,6 +119,7 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
       fetchCategories();
     } catch (err) {
       toast.error("Failed to delete category");
+      console.error("Failed to delete category:", err);
     }
   };
 
@@ -139,202 +128,130 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
     setFile(null);
     setPreview(null);
     setEditId(null);
-    setErrorMsg("");
-    setFileKey(`file-${Date.now()}`);
+    setFileKey(`file-${Date.now()}`); // Reset input key
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto">
-      <AdminFormContainer 
-        title="Product Categories" 
-        description="Organize your products into easy-to-browse collections."
+    <div className="flex flex-col items-center max-h-[72vh] overflow-y-auto">
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col w-full max-w-sm gap-3 p-4 border-2 border-secondary-foreground rounded-md m-2"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {errorMsg && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm font-medium">
-              {errorMsg}
-            </div>
-          )}
+        <h2 className="font-semibold text-lg">Manage Product Categories</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="cat-name">Category Name</Label>
-                <Input
-                  id="cat-name"
-                  placeholder="e.g. Health & Beauty"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="h-11"
-                />
-              </div>
+        <div className="w-full space-y-1">
+          <Label htmlFor="cat-name">Category Name</Label>
+          <Input
+            id="cat-name"
+            type="text"
+            placeholder="Name of category"
+            value={formData.name}
+            onChange={(e) =>
+              setFormData({ ...formData, name: e.target.value })
+            }
+          />
+        </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="cat-desc">Description</Label>
-                <Input
-                  id="cat-desc"
-                  placeholder="Short summary of this group"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="h-11"
-                />
-              </div>
+        <div className="w-full space-y-1">
+          <Label htmlFor="cat-desc">Description</Label>
+          <Input
+            id="cat-desc"
+            type="text"
+            placeholder="Short description"
+            value={formData.description}
+            onChange={(e) =>
+              setFormData({ ...formData, description: e.target.value })
+            }
+          />
+        </div>
 
-              <div className="space-y-1.5">
-                <Label htmlFor="cat-image">Category Banner</Label>
-                <div className="flex items-center gap-4">
-                  <Input
-                    id="cat-image"
-                    ref={fileInputRef}
-                    key={fileKey}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="h-11 pt-2"
-                  />
-                </div>
-                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Max 300KB • Square or Wide</p>
-              </div>
-            </div>
+        <div className="w-full space-y-1">
+          <Label htmlFor="cat-image">Category Image</Label>
+          <Input
+            id="cat-image"
+            ref={fileInputRef}
+            key={fileKey}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+          />
+        </div>
 
-            <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-3xl bg-muted/20">
-              {preview || formData.image ? (
-                <div className="relative group">
-                  <img
-                    src={preview || formData.image}
-                    alt="Preview"
-                    className="w-40 h-40 object-cover rounded-2xl shadow-xl border-4 border-white"
-                  />
-                  <div className="absolute inset-0 bg-black/40 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold">
-                    PREVIEW
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center space-y-2">
-                  <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto">
-                    <svg className="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                  </div>
-                  <p className="text-sm font-medium text-muted-foreground">Image Preview</p>
-                </div>
-              )}
-            </div>
-          </div>
+        {preview ? (
+          <img
+            src={preview}
+            alt="Preview"
+            className="w-20 h-20 rounded-md mt-2 border"
+          />
+        ) : formData.image ? (
+          <img
+            src={formData.image}
+            alt="Category"
+            className="w-20 h-20 rounded-md mt-2 border"
+          />
+        ) : null}
 
-          <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
-            <Button type="submit" disabled={loading} className="flex-1 h-12 text-lg font-bold shadow-lg shadow-primary/20">
-              {loading ? "Processing..." : editId ? "Update Category" : "Build Category"}
-            </Button>
-            {editId && (
-              <Button type="button" onClick={resetForm} variant="outline" className="flex-1 h-12 font-bold border-2">
-                Discard Changes
-              </Button>
-            )}
-          </div>
-        </form>
+        <Button type="submit" disabled={loading}>
+          {loading ? "Saving..." : editId ? "Update" : "Create"}
+        </Button>
+
+        {editId && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={resetForm}
+            className="text-sm underline"
+          >
+            Cancel Edit
+          </Button>
+        )}
 
         {!hideList && (
-          <div className="mt-12 space-y-6">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                 <h3 className="font-black text-lg uppercase tracking-widest text-primary/60">Live Collections</h3>
-                 <Badge variant="secondary" className="h-6 font-bold">{categories.length}</Badge>
-              </div>
-              
-              {/* Search Input */}
-              {categories.length > 0 && (
-                <div className="relative">
-                  <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                  <Input
-                    placeholder="Search categories..."
-                    value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value);
-                      setCurrentPage(0);
-                    }}
-                    className="pl-10 h-11 rounded-2xl border-2"
-                  />
-                </div>
-              )}
-            </div>
-            
-            {/* Filtered & Paginated Categories */}
-            {(() => {
-              const filtered = categories.filter(cat => 
-                cat.name.toLowerCase().includes(searchTerm.toLowerCase())
-              );
-              const start = currentPage * ITEMS_PER_PAGE;
-              const end = start + ITEMS_PER_PAGE;
-              const paginated = filtered.slice(start, end);
-              const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-              
-              return (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[600px] overflow-y-auto pr-2 scroll-smooth" style={{ scrollBehavior: 'smooth' }}>
-                    {paginated.map((item) => (
-                      <div
-                        key={item.id}
-                        className="group relative flex flex-col p-4 bg-muted/30 hover:bg-white rounded-3xl border-2 border-transparent hover:border-accent/10 transition-all duration-300 shadow-sm hover:shadow-xl"
-                      >
-                        <div className="flex items-center gap-4 mb-4">
-                          <img
-                            src={item.image || "/logo.png"}
-                            className="w-14 h-14 rounded-xl object-cover border-2 shadow-inner"
-                            alt={item.name}
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-black text-sm truncate uppercase tracking-tight">{item.name}</p>
-                            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{item.productCount || 0} Products</p>
-                          </div>
-                        </div>
+          <ul className="w-full mt-4">
+            {categories.map((item, index) => (
+              <li
+                key={item.id}
+                className="flex flex-col items-center gap-2 my-2 bg-secondary rounded-md w-full p-3"
+              >
+                <p className="font-medium">
+                  {index + 1}. {item.name}
+                </p>
 
-                        <div className="flex gap-2">
-                          <Button size="sm" onClick={() => handleEdit(item)} className="flex-1 h-9 font-bold">Edit</Button>
-                          <Button
-                            size="sm"
-                            onClick={() => handleDelete(item.id)}
-                            variant="ghost"
-                            className="flex-1 h-9 border-2 border-destructive/20 text-destructive hover:bg-destructive hover:text-white font-bold"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                    {paginated.length === 0 && (
-                      <div className="col-span-full py-10 text-center text-muted-foreground italic text-sm">No categories found.</div>
-                    )}
-                  </div>
-                  
-                  {/* Pagination Controls */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between pt-4 border-t">
-                      <Button
-                        variant="outline"
-                        onClick={() => setCurrentPage(p => Math.max(0, p - 1))}
-                        disabled={currentPage === 0}
-                        className="h-10 font-bold"
-                      >
-                        ← Previous
-                      </Button>
-                      <span className="text-sm font-bold text-muted-foreground">
-                        Page {currentPage + 1} of {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        onClick={() => setCurrentPage(p => Math.min(totalPages - 1, p + 1))}
-                        disabled={currentPage === totalPages - 1}
-                        className="h-10 font-bold"
-                      >
-                        Next →
-                      </Button>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-          </div>
+                {item.image && (
+                  <img
+                    src={item.image}
+                    className="w-16 h-16 rounded-md border"
+                    alt="category"
+                  />
+                )}
+
+                <div className="flex flex-row gap-2 w-full">
+                  <Button
+                    type="button"
+                    size="icon"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleEdit(item)}
+                    aria-label={`Edit ${item.name}`}
+                  >
+                    <Edit3 className="h-4 w-4" />
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="destructive"
+                    className="h-8 w-8 p-0"
+                    onClick={() => handleDelete(item.id)}
+                    aria-label={`Delete ${item.name}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
-      </AdminFormContainer>
+      </form>
     </div>
   );
 }

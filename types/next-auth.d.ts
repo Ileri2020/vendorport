@@ -1,41 +1,54 @@
-// types/next-auth.d.ts
-import "next-auth";
-import "next-auth/jwt";
+import NextAuth, { DefaultSession } from "next-auth"
 
 declare module "next-auth" {
+  /**
+   * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
+   */
   interface Session {
     user: {
-      id: string;
-      name?: string | null;
-      email?: string | null;
-      role: string;
-      contact?: string | null;
-      image?: string | null;
-      providerid?: string | null;
-      addresses?: any[];
-      shippingAddress?: any;
-    };
+      id?: string
+      role?: string
+      avatarUrl?: string
+      addresses?: any[]
+      isAffiliate?: boolean
+      affiliate?: {
+        id: string
+        affiliateId: string
+        name: string
+        earnings?: number
+      } | null
+    } & DefaultSession["user"]
   }
 
   interface User {
-    id: string;
-    name?: string | null;
-    email: string;
-    role: string;
-    contact?: string | null;
-    image?: string | null;
-    providerid?: string | null;
+    id?: string
+    role?: string
+    avatarUrl?: string
+    addresses?: any[]
+    isAffiliate?: boolean
+    affiliate?: {
+      id: string
+      affiliateId: string
+      name: string
+      earnings?: number
+    } | null
   }
 }
 
 declare module "next-auth/jwt" {
+  /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
   interface JWT {
-    id: string;
-    name?: string | null;
-    email?: string | null;
-    role: string;
-    contact?: string | null;
-    image?: string | null;
-    providerid?: string | null;
+    /** OpenID ID Token */
+    id?: string
+    role?: string
+    avatarUrl?: string
+    addresses?: any[]
+    isAffiliate?: boolean
+    affiliate?: {
+      id: string
+      affiliateId: string
+      name: string
+      earnings?: number
+    } | null
   }
 }

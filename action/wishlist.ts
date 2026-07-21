@@ -55,3 +55,16 @@ export async function checkWishlisStatus(productId: string) {
     });
     return !!existing;
 }
+
+export async function getUserWishlist() {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return [];
+    }
+    const userId = session.user.id;
+    const items = await prisma.wishlist.findMany({
+        where: { userId },
+        select: { productId: true }
+    });
+    return items.map(i => i.productId);
+}

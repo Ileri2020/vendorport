@@ -12,7 +12,7 @@ export function HeroBadge() {
         inline-flex items-center rounded-lg bg-primary/10 px-3 py-1 text-sm
         font-semibold text-primary
       `}
-      href={ "/store" }
+      href={ "/products"}
       rel={"noopener noreferrer"}
       target={"_blank"}
     >

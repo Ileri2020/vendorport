@@ -1,27 +1,24 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  reactStrictMode: false,
-
-  turbopack: {
-    root: "./",
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "res.cloudinary.com",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+    ],
   },
-
-  // async redirects() {
-  //   return [
-  //     {
-  //       source: '/:path*',
-  //       has: [
-  //         {
-  //           type: 'host',
-  //           value: '.*\\.vercel\\.app',
-  //         },
-  //       ],
-  //       destination: 'https://www.succo.vercel.app/:path*',
-  //       permanent: true,
-  //     },
-  //   ]
-  // },
+  // Explicitly set Turbopack root to suppress the "multiple lockfiles" warning
+  // caused by the parent commerce/package-lock.json being detected
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
 };
 
 export default nextConfig;

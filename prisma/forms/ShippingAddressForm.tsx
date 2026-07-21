@@ -15,13 +15,8 @@ export default function ShippingAddressForm() {
     country: '',
     phone: '',
   });
-  const [editId, setEditId] = useState<any>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]); // Added to store users for the select input
-
-  useEffect(() => {
-    fetchShippingAddresses();
-    fetchUsers();
-  }, []);
 
   const fetchShippingAddresses = async () => {
     const res = await axios.get('/api/dbhandler?model=shippingAddress');
@@ -32,6 +27,11 @@ export default function ShippingAddressForm() {
     const res = await axios.get('/api/dbhandler?model=user');
     setUsers(res.data);
   };
+
+  useEffect(() => {
+    fetchShippingAddresses();
+    fetchUsers();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -71,7 +71,8 @@ export default function ShippingAddressForm() {
     <div>
       <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-sm gap-2 justify-center items-center p-3 border-2 border-secondary-foreground rounded-sm m-2'>
         <h2 className='font-semibold text-lg'>Manage Shipping Addresses</h2>
-        <select value={formData.userId} onChange={(e) => setFormData({ ...formData, userId: e.target.value })}>
+        <label className="sr-only" htmlFor="shipping-address-user">User</label>
+        <select id="shipping-address-user" title="Select user" value={formData.userId} onChange={(e) => setFormData({ ...formData, userId: e.target.value })}>
           <option value="">Select User</option>
           {users.map((user) => (
             <option key={user.id} value={user.id}>
@@ -86,7 +87,7 @@ export default function ShippingAddressForm() {
         <Input type="text" placeholder="Country" value={formData.country} onChange={(e) => setFormData({ ...formData, country: e.target.value })} />
         <Input type="text" placeholder="Phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
         <Button type="submit">{editId ? 'Update' : 'Create'}</Button>
-        {editId && <Button onClick={resetForm}>Cancel</Button>}
+        {editId && <button onClick={resetForm}>Cancel</button>}
         <ul className='w-full'>
           {shippingAddresses.length > 0 ? (
             shippingAddresses.map((item , index) => (
@@ -101,8 +102,8 @@ export default function ShippingAddressForm() {
                 <p>Country : {item.country || <em>No country</em>}</p>
                 <p>Phone : {item.phone || <em>No phone</em>}</p>
                 <div className='flex flex-row gap-2 p-1 w-full'>
-                  <Button type='button' onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
-                  <Button type='button' onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
+                  <Button onClick={() => handleEdit(item)} className='flex-1'>Edit</Button>
+                  <Button onClick={() => handleDelete(item.id)} variant='ghost' className='flex-1 border-2 border-accent'>Delete</Button>
                 </div>
               </li>
             ))

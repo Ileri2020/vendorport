@@ -6,28 +6,49 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* Shimmer animation for skeleton loaders */
+@keyframes shimmer {
+  -100% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@layer utilities {
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+    background-size: 200% 100%;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --foreground: 222 47% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 222 47% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
+    --popover-foreground: 222 47% 10%;
+    /* Deep medical blue as primary */
+    --primary: 212 100% 45%;
     --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 30 98% 50%;
-    --accent-secondary: 107 77% 50%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
+    /* Soft blue-gray surfaces */
+    --secondary: 210 40% 97%;
+    --secondary-foreground: 222 47% 15%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    /* Lemon accent inspired by logo */
+    --accent: 8365 100% 37%;
+    /* Supporting sky blue accent for contrast */
+    --accent-secondary: 199 89% 48%;
+    --accent-foreground: 222 47% 12%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 214 32% 92%;
+    --input: 214 32% 92%;
+    --ring: 212 100% 45%;
     --radius: 0.5rem;
     --chart-1: 12 76% 61%;
     --chart-2: 173 58% 39%;
@@ -37,26 +58,28 @@ body {
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222 47% 7%;
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 222 47% 9%;
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 222 47% 9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    /* Invert: primary becomes lighter blue on dark */
+    --primary: 212 100% 65%;
+    --primary-foreground: 222 47% 12%;
+    --secondary: 217 33% 16%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 30 98% 50%;
-    --accent-secondary: 107 77% 76%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --muted: 217 33% 16%;
+    --muted-foreground: 215 20% 70%;
+    /* Lemon accent slightly softened for dark */
+    --accent: 8365 100% 59%;
+    --accent-secondary: 199 89% 66%;
+    --accent-foreground: 222 47% 10%;
+    --destructive: 0 65% 40%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --border: 217 33% 18%;
+    --input: 217 33% 18%;
+    --ring: 212 100% 65%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -64,8 +87,6 @@ body {
     --chart-5: 340 75% 55%;
   }
 }
-
-
 
 @font-face {
   font-family: dance;
@@ -75,7 +96,8 @@ body {
 }
 @font-face {
   font-family: roboto_mono;
-  src: url("./fonts/Roboto_Mono/static/AnyConv.com__RobotoMono-Medium.woff2") format("woff2");
+  src: url("./fonts/Roboto_Mono/static/AnyConv.com__RobotoMono-Medium.woff2")
+    format("woff2");
   font-weight: normal;
   font-style: normal;
 }
@@ -107,78 +129,83 @@ body {
   -webkit-text-stroke: 0px hsl(var(--accent));
 }
 
-
-.bg-blur{
-  backdrop-filter: blur(2px);
+.bg-blur {
   -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
 }
 
-.glass{
+.glass {
   background: rgba(255, 255, 255, 0.31);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(5px);
   -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.glass-outline{
+.glass-outline {
   background: rgba(255, 255, 255, 0.3);
   border-radius: 16px;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(8.6px);
   -webkit-backdrop-filter: blur(8.6px);
+  backdrop-filter: blur(8.6px);
   border: 1px solid rgba(255, 255, 255, 1);
 }
 
-.glass-green{
+.glass-green {
   background: rgba(0, 255, 80, 0.1);
   border-radius: 16px;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(11.4px);
   -webkit-backdrop-filter: blur(11.4px);
+  backdrop-filter: blur(11.4px);
   border: 1px solid rgba(0, 255, 80, 0.4);
 }
 
-.glow-green{
-  -webkit-box-shadow:0px 0px 72px 22px rgba(45,255,196,0.55);
-  -moz-box-shadow: 0px 0px 72px 22px rgba(45,255,196,0.55);
-  box-shadow: 0px 0px 72px 22px rgba(45,255,196,0.55);
+.glow-green {
+  -webkit-box-shadow: 0px 0px 72px 22px rgba(45, 255, 196, 0.55);
+  -moz-box-shadow: 0px 0px 72px 22px rgba(45, 255, 196, 0.55);
+  box-shadow: 0px 0px 72px 22px rgba(45, 255, 196, 0.55);
 }
 
-.glow-text{
-  text-shadow: rgba(255,162,0,0.77) 0px 0px 39px;
+.glow-text {
+  text-shadow: rgba(255, 162, 0, 0.77) 0px 0px 39px;
 }
 
-.gradient-text{
+.gradient-text {
   background: linear-gradient(90deg, hsl(var(--accent)), hsl(var(--primary)));
   /*font-family: Poppins;*/
   /*text-transform: uppercase;*/
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-.animated-bg-gradient{
-  background: linear-gradient(45deg, rgba(217, 217, 217, 0.327), hsl(var(--background)), rgb(217, 217, 217, 0.327), hsl(var(--background)));
+.animated-bg-gradient {
+  background: linear-gradient(
+    45deg,
+    rgba(217, 217, 217, 0.327),
+    hsl(var(--background)),
+    rgb(217, 217, 217, 0.327),
+    hsl(var(--background))
+  );
   /*background: linear-gradient(45deg, #d2001a, #7462ff, #f48e21, #23d5ab);*/
   background-size: 300%;
   opacity: 2;
   animation: color 12s ease-in-out infinite;
 }
 
-@keyframes color
-{
-  0%{
+@keyframes color {
+  0% {
     background-position: 0% 50%;
   }
-  50%{
+  50% {
     background-position: 100% 50%;
   }
-  100%{
+  100% {
     background-position: 0% 50%;
   }
 }
 
-.circle{
+.circle {
   position: relative;
   width: 200px;
   height: 200px;
@@ -186,7 +213,7 @@ body {
   background-color: #f0f0f0;
 }
 
-.s-div{
+.s-div {
   position: absolute;
   width: 50px;
   height: 50px;
@@ -194,7 +221,6 @@ body {
   background-color: #007bff;
   animation: move 2s infinite;
 }
-
 
 @keyframes move {
   0% {
@@ -219,12 +245,24 @@ body {
   transform: translateY(-20%);
 }
 
-.ani-shadow{
+.ani-shadow {
   content: " ";
   position: absolute;
   top: -4px;
   left: -4px;
-  background: linear-gradient(45deg, #fb0094, #0000ff, #00ff00, #ffff00, #ff0000, #fb0094, #0000ff, #00ff00, #ffff00, #ff0000);
+  background: linear-gradient(
+    45deg,
+    #fb0094,
+    #0000ff,
+    #00ff00,
+    #ffff00,
+    #ff0000,
+    #fb0094,
+    #0000ff,
+    #00ff00,
+    #ffff00,
+    #ff0000
+  );
   background-size: 400%;
   width: calc(100% + 5px);
   height: calc(100% + 5px);
@@ -237,17 +275,50 @@ body {
 }
 
 @keyframes bganimate {
-  0%{
+  0% {
     background-position: 0% 0%;
   }
-  50%{
+  50% {
     background-position: 400% 0%;
   }
-  100%{
+  100% {
     background-position: 0% 0%;
   }
 }
 
-.grad-trans{
-  background: linear-gradient(to right, hsl(var(--secondary)) 0%, rgba(0, 0, 0, 0) 50% 100%);
+.grad-trans {
+  background: linear-gradient(
+    to right,
+    hsl(var(--secondary)) 0%,
+    rgba(0, 0, 0, 0) 50% 100%
+  );
+}
+
+/* ─── Smooth infinite marquee for brand carousel ─── */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+@keyframes marquee-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+.animate-marquee {
+  animation: marquee var(--marquee-duration, 30s) linear infinite;
+}
+.animate-marquee-reverse {
+  animation: marquee-reverse var(--marquee-duration, 30s) linear infinite;
+}
+/* Pause on hover for accessibility */
+.group\/row:hover .animate-marquee,
+.group\/row:hover .animate-marquee-reverse {
+  animation-play-state: paused;
 }

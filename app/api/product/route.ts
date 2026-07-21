@@ -35,14 +35,23 @@ export async function POST(req , res) {
   const postRes = await dbHandler({
     model: 'product',
     method: 'POST',
-    // profileImage : Formdata.get("productImage")==="true",
     body: {
       description: Formdata.get("description"),
       name: Formdata.get("name"),
       categoryId: Formdata.get("categoryId"),
-      //category: Formdata.get("category"),
-      price: parseFloat(Formdata.get("price")),
-      costPrice: Formdata.get("costPrice") ? parseFloat(Formdata.get("costPrice")) : null,
+      price: parseFloat(Formdata.get("price") as string),
+      brand: Formdata.get("brand"),
+      scarce: Formdata.get("scarce") === "true",
+      activeIngredients: Formdata.get("activeIngredients")
+        ? (Formdata.get("activeIngredients") as string).split(",").map((s: string) => s.trim()).filter(Boolean)
+        : [],
+      healthConcerns: Formdata.get("healthConcerns")
+        ? (Formdata.get("healthConcerns") as string).split(",").map((s: string) => s.trim()).filter(Boolean)
+        : [],
+      regulatoryClassification: Formdata.get("regulatoryClassification") || "OTC",
+      requiresPrescription: Formdata.get("requiresPrescription") === "true",
+      weight: Formdata.get("weight"),
+      bulkPrices: Formdata.get("bulkPrices") ? JSON.parse(Formdata.get("bulkPrices") as string) : [],
       url: cldRes.url,
     },
   });
@@ -90,7 +99,7 @@ export async function POST(req , res) {
   //   return NextResponse.json({ message: error.message });
   // }
   
-}
+};
 
 
 

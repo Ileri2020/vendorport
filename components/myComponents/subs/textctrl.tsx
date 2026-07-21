@@ -225,15 +225,3 @@ export const ZoomInText = ({
     </AnimatePresence>
   );
 };
-
-
-
-
-// <RiseAndFadeText
-//   texts={[
-//     "Freshly Sourced Ingredients",
-//     "Naturally Processed Spices",
-//     "Quality You Can Trust",
-//   ]}
-//   className="text-2xl font-semibold text-muted-foreground overflow-hidden"
-// />
