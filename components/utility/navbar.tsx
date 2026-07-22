@@ -36,7 +36,7 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
   const { setUser, user } = useAppContext();
   const { data: session, status, update } = useSession();
   const homeHref = basePath || "/";
-  const brandName = business?.name || "Health Clique";
+  const brandName = business?.name || "Vendor Hub";
   const brandSubtitle = business?.siteSettings?.aboutText || "Your one stop shop for health needs";
 
   useEffect(() => {

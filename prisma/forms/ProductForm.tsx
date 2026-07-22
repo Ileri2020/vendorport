@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Search, ChevronLeft, ChevronRight, ArrowUpDown, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useAppContext } from '@/hooks/useAppContext';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -99,6 +100,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   }, [products]);
 
   const [healthConcernInput, setHealthConcernInput] = useState("");
+  const { currentBusiness } = useAppContext();
 
 
   const fetchProducts = useCallback(async () => {
@@ -220,7 +222,10 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     pformData.append("activeIngredients", formData.activeIngredients);
     pformData.append("regulatoryClassification", formData.regulatoryClassification);
     pformData.append("requiresPrescription", String(formData.requiresPrescription));
-    
+    if (currentBusiness?.id) {
+      pformData.append("businessId", currentBusiness.id);
+    }
+
     if (formData.costPrice) {
       pformData.append("costPrice", String(formData.costPrice));
     }
@@ -247,6 +252,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
             requiresPrescription: formData.requiresPrescription,
             weight: formData.weight,
             bulkPrices: formData.bulkPrices,
+            ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
           }
         );
       } else {

@@ -122,6 +122,7 @@ export async function GET(req: NextRequest) {
               include: { 
                 category: true, 
                 stock: !minimal, 
+                business: true,
                 reviews: false // Never load reviews for lists
               } 
             } 
@@ -148,7 +149,8 @@ export async function GET(req: NextRequest) {
           where,
           include: { 
             products: { take: 3, select: { images: true } },
-            _count: { select: { products: true } }
+            _count: { select: { products: true } },
+            business: true,
           }
         }));
       }
@@ -219,6 +221,9 @@ export async function GET(req: NextRequest) {
         } else {
           include.category = true;
         }
+
+        // Always include business data so UI can render ownership badges correctly.
+        include.business = true;
 
         const query = {
           where,
@@ -324,6 +329,11 @@ export async function GET(req: NextRequest) {
         include.healthConcerns = true;
         include.bulkPrices = true;
         include.reviews = { include: { user: { select: { name: true, avatarUrl: true } } } };
+        include.business = true;
+      }
+
+      if (model === "category") {
+        include.business = true;
       }
 
       if (model === "cart") {

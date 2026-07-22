@@ -23,6 +23,15 @@ import ProductForm from "@/prisma/forms/ProductForm";
 
 const ITEMS_PER_PAGE = 30;
 
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const copy = [...array];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
+};
+
 const Stocks = () => {
   const searchParams = useSearchParams();
   const categoryFilter = searchParams.get("category");
@@ -80,13 +89,20 @@ const Stocks = () => {
           data = data.filter((p: any) => discIds.has(p.id));
         }
 
-        setProducts(data);
-        setTotalProducts(data.length);
+        const shuffled = shuffleArray(data);
+        setProducts(shuffled);
+        setTotalProducts(shuffled.length);
       } else {
-        url += `&pagination=true&limit=${ITEMS_PER_PAGE}&offset=${(currentPage - 1) * ITEMS_PER_PAGE}`;
+        // Load up to 5000 matching products, then randomize order on the client.
+        // This ensures the platform and store product page show a different mix each load.
+        url += `&limit=5000`;
         const res = await axios.get(url);
-        setProducts(res.data.data);
-        setTotalProducts(res.data.total);
+        const fetchedProducts = res.data.data || res.data;
+        const shuffled = shuffleArray(fetchedProducts);
+
+        const pagedProducts = shuffled.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+        setProducts(pagedProducts);
+        setTotalProducts(fetchedProducts.length);
       }
     } catch (err) {
       console.error("Failed to fetch products", err);

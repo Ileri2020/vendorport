@@ -2,10 +2,12 @@
 
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { Button } from "@/components/ui/button";
-import { Plus, Edit3, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Plus, Edit3, Trash2, Home } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -24,6 +26,16 @@ import {
 import Autoplay from "embla-carousel-autoplay";
 
 // Fetch categories from backend (optionally scoped to a business)
+
+
+
+
+import { useAppContext } from "@/hooks/useAppContext";
+
+interface FeaturedCategoriesProps {
+  fetchAll?: boolean;
+  businessId?: string;
+}
 async function getCategories(businessId?: string) {
   const url = businessId
     ? `/api/dbhandler?model=category&businessId=${businessId}`
@@ -31,23 +43,40 @@ async function getCategories(businessId?: string) {
   const res = await fetch(url);
   if (!res.ok) return [];
   const categories = await res.json();
-  return categories.map((cat: any) => {
+    return categories.map((cat: any) => {
     // Collect up to 3 images from related products
     const productImages = cat.products?.flatMap((p: any) => p.images).slice(0, 3) || [];
     const images = productImages.length > 0 ? productImages : [cat.image || "/logo.png"];
     
+    const businessNameRaw = cat.business?.name || null;
+    const businessSlugDerived = businessNameRaw ? businessNameRaw.toString().trim().toLowerCase().replace(/\s+/g, '-') : null;
+
     return {
       id: cat.id,
       images: images,
       name: cat.name,
       description: cat.description || "",
       productCount: cat._count?.products || 0,
+      businessName: cat.business?.name || "HCVP",
+      businessSlug: cat.business?.slug || businessSlugDerived || null,
     };
   });
 }
 
+
+
+
+
+
+
+
+
+
 const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin: boolean, onRefresh: () => void }) => {
+  const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const businessName = category.businessName || category.business?.name || "HCVP";
+  const badgeSlug = category.businessSlug || (businessName && businessName !== "HCVP" ? businessName.toString().trim().toLowerCase().replace(/\s+/g, '-') : null);
 
   useEffect(() => {
     if (category.images.length > 1) {
@@ -72,7 +101,20 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
   };
 
   return (
-    <div className="group relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-300 hover:shadow-lg h-full">
+    <div className="group w-full max-w-xl mx-auto relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-300 hover:shadow-lg h-full">
+      <div className="absolute left-2 top-2 z-20">
+        {badgeSlug ? (
+          <Link href={`/${badgeSlug}`}>
+              <Badge variant="secondary" className="rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]">
+                {businessName}
+              </Badge>
+          </Link>
+        ) : (
+          <Badge variant="secondary" className="rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]">
+            {businessName}
+          </Badge>
+        )}
+      </div>
       {isAdmin && (
         <div className="absolute top-2 right-2 flex gap-2 z-30">
           <Dialog onOpenChange={(open) => !open && onRefresh()}>
@@ -98,9 +140,14 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
           </Button>
         </div>
       )}
-      <Link
-        href={`/store?category=${encodeURIComponent(category.name)}`}
-        className="flex flex-col h-full"
+      {badgeSlug ? (
+        <Link href={`/${badgeSlug}`}>
+            <Home className="h-4 w-4" />
+        </Link>
+      ) : null}
+      <div
+        className="flex flex-col h-full cursor-pointer"
+        onClick={() => router.push(`/store?category=${encodeURIComponent(category.name)}`)}
       >
         <div className="relative aspect-square overflow-hidden bg-muted/20">
           {category.images.map((img: string, idx: number) => (
@@ -122,14 +169,31 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
             {category.productCount} Products
           </div>
         </div>
-      </Link>
+      </div>
     </div>
   );
 };
 
-import { useAppContext } from "@/hooks/useAppContext";
 
-const FeaturedCategories = () => {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }: FeaturedCategoriesProps) => {
   const { user, currentBusiness } = useAppContext();
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,7 +204,7 @@ const FeaturedCategories = () => {
 
   const fetchCategories = async () => {
     setLoading(true);
-    const businessId = (currentBusiness as any)?.id;
+    const businessId = fetchAll ? undefined : explicitBusinessId ?? (currentBusiness as any)?.id;
     const cats = await getCategories(businessId);
     // Filter out categories with 0 products if not admin/staff
     const activeCats = isAdmin ? cats : cats.filter((c: any) => c.productCount > 0);
@@ -159,7 +223,7 @@ const FeaturedCategories = () => {
   const bottomRow = carouselCategories.slice(midPoint);
 
   return (
-    <section className="py-12 md:py-16 bg-muted/30 overflow-hidden">
+    <section className="py-12 md:py-16 bg-muted/30 overflow-hidden w-full max-w-xl  lg:max-w-4xl">
       <div className="container mx-auto max-w-7xl px-4">
         <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="text-left">
@@ -207,13 +271,13 @@ const FeaturedCategories = () => {
             <div className="space-y-6">
             {/* Top Row Carousel */}
             <Carousel
-                opts={{ align: "start", loop: true }}
+                opts={{ align: "start", loop: true, dragFree: true, containScroll: "trimSnaps" }}
                 plugins={[autoplay1.current]}
                 className="w-full"
             >
                 <CarouselContent className="-ml-4">
                 {topRow.map((category) => (
-                    <CarouselItem key={category.id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6">
+                    <CarouselItem key={category.id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/4">
                     <CategoryCard category={category} isAdmin={isAdmin} onRefresh={fetchCategories} />
                     </CarouselItem>
                 ))}
@@ -222,13 +286,13 @@ const FeaturedCategories = () => {
 
             {/* Bottom Row Carousel */}
             <Carousel
-                opts={{ align: "start", loop: true }}
+                opts={{ align: "start", loop: true, dragFree: true, containScroll: "trimSnaps" }}
                 plugins={[autoplay2.current]}
                 className="w-full"
             >
                 <CarouselContent className="-ml-4">
                 {bottomRow.map((category) => (
-                    <CarouselItem key={category.id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/6">
+                    <CarouselItem key={category.id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/4">
                     <CategoryCard category={category} isAdmin={isAdmin} onRefresh={fetchCategories} />
                     </CarouselItem>
                 ))}

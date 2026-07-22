@@ -9,8 +9,9 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { getProductPrice, isProductInStock, PRICE_MARKUPS, formatPrice } from "@/lib/stock-pricing";
 import Link from "next/link";
+import { useRouter, usePathname } from "next/navigation";
 import * as React from "react";
-import { MessageCircle, ShoppingCart, Heart, Star, Edit3, Trash2, Eye, FileText, Link as LinkIcon } from "lucide-react";
+import { MessageCircle, ShoppingCart, Heart, Star, Edit3, Trash2, Eye, FileText, Home, Link as LinkIcon } from "lucide-react";
 import { InlinePriceFeedback } from "@/components/myComponents/subs/priceFeedback";
 import { useAppContext } from "@/hooks/useAppContext";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -99,6 +100,8 @@ export function ProductCard({
     }
   };
 
+  const router = useRouter();
+  const pathname = usePathname();
   const { user } = useAppContext();
   const isAffiliate = user?.isAffiliate || false;
 
@@ -131,6 +134,9 @@ export function ProductCard({
   const image = product?.images?.[0] || "/placeholder.png";
   const regClass = product?.regulatoryClassification || "OTC";
   const isPrescription = regClass === "Prescription Medicine";
+  const businessName = product?.business?.name || "HCVP";
+  const businessSlug = product?.business?.slug || (product?.business?.name ? product.business.name.toString().trim().toLowerCase().replace(/\s+/g, '-') : null);
+  const badgeSlug = businessSlug || (businessName && businessName !== "HCVP" ? businessName.toString().trim().toLowerCase().replace(/\s+/g, '-') : null);
   const isControlled = regClass === "Controlled Medicine";
 
   // For wholesalers: show first bulk price if available
@@ -198,6 +204,19 @@ export function ProductCard({
 
   return (
     <div className={cn("group relative", className)} {...props}>
+      <div className="absolute left-2 top-2 z-20">
+          {badgeSlug && !(pathname && badgeSlug && pathname.startsWith(`/${badgeSlug}`)) ? (
+            <Link href={`/${badgeSlug}`}>
+                <Badge variant="secondary" className="rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]">
+                  {businessName}
+                </Badge>
+            </Link>
+          ) : (
+          <Badge variant="secondary" className="rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]">
+            {businessName}
+          </Badge>
+        )}
+      </div>
       {/* ℹ️ Info / Description Action (Floating Right) */}
       <div className="absolute top-2 right-2 z-30 flex flex-col gap-2">
           <Sheet open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
@@ -215,6 +234,7 @@ export function ProductCard({
                 <Eye className="h-4 w-4" />
               </Button>
             </SheetTrigger>
+
             <SheetContent side="right" className="w-[400px] sm:w-[540px] overflow-y-auto z-[100]" onClick={(e) => e.stopPropagation()}>
               <SheetHeader>
                 <SheetTitle className="text-xl">{product?.name || "Product Details"}</SheetTitle>
@@ -238,6 +258,11 @@ export function ProductCard({
               </div>
             </SheetContent>
           </Sheet>
+          {badgeSlug ? (
+            <Link href={`/${badgeSlug}`}>
+                <Home className="h-4 w-4" />
+            </Link>
+          ) : null}
       </div>
 
       {/* Admin Actions (Floating Left) */}
@@ -273,7 +298,10 @@ export function ProductCard({
         </div>
       )}
 
-      <Link href={`/products/${product.id}`}>
+      <div
+        className="cursor-pointer"
+        onClick={() => router.push(`/products/${product.id}`)}
+      >
         <Card
           className={cn(
             `
@@ -511,7 +539,7 @@ export function ProductCard({
             )}
           </div>
         </Card>
-      </Link>
+      </div>
     </div>
   );
 }

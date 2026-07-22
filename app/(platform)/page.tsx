@@ -2,12 +2,15 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { useRouter } from 'next/navigation'
+import useEmblaCarousel from 'embla-carousel-react'
+import Autoplay from 'embla-carousel-autoplay'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { ArrowRight, PlusCircle, Star, ExternalLink, Shield, Zap, Globe, User, Sparkles, Trash2, Archive, AlertTriangle, Loader2, Search, ShoppingBag } from 'lucide-react'
 import { AiOutlineRobot } from 'react-icons/ai'
 import { useAppContext } from '@/hooks/useAppContext'
 import StatsSection from '@/components/myComponents/subs/StatsSection'
+import FeaturedCategories from '@/components/myComponents/subs/featuredCategories'
 import Login from '@/components/myComponents/subs/login'
 import { SnapPrescription } from '@/components/myComponents/subs/SnapPrescription'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -33,46 +36,70 @@ interface Business {
 type HeroRocket = {
   key: string
   startX: string
+  waypointX: string
   endX: string
   endY: string
+  midY: string
   delay: number
   duration: number
-  rotation: number
-  finalRotation: number
+  rotationPath: number[]
   opacity: number
   fontSize: string
 }
 
 const heroRocketEndpoints: Array<Pick<HeroRocket, 'endX' | 'endY'>> = [
-  { endX: '10vw', endY: '-20vh' },
-  { endX: '25vw', endY: '-30vh' },
-  { endX: '40vw', endY: '-25vh' },
-  { endX: '55vw', endY: '-18vh' },
-  { endX: '70vw', endY: '-28vh' },
-  { endX: '85vw', endY: '-22vh' },
-  { endX: '20vw', endY: '20vh' },
-  { endX: '80vw', endY: '15vh' },
+  { endX: '10vw', endY: '-45vh' },
+  { endX: '25vw', endY: '-50vh' },
+  { endX: '40vw', endY: '-48vh' },
+  { endX: '55vw', endY: '-42vh' },
+  { endX: '70vw', endY: '-55vh' },
+  { endX: '85vw', endY: '-50vh' },
+  { endX: '20vw', endY: '-35vh' },
+  { endX: '80vw', endY: '-38vh' },
 ]
+
+const possibleRocketStarts = ['8vw', '25vw', '42vw', '60vw', '77vw', '92vw']
 
 const randomBetween = (min: number, max: number) => Math.random() * (max - min) + min
 
-const createHeroRockets = (count = 3): HeroRocket[] =>
-  Array.from({ length: count }, (_, index) => {
-    const endpoint = heroRocketEndpoints[Math.floor(Math.random() * heroRocketEndpoints.length)]
-    const rotation = randomBetween(-25, 25)
+const pickUnique = <T,>(items: T[], count: number): T[] => {
+  const copy = [...items]
+  const picked: T[] = []
+  while (picked.length < count && copy.length > 0) {
+    const index = Math.floor(Math.random() * copy.length)
+    picked.push(copy.splice(index, 1)[0])
+  }
+  return picked
+}
+
+const createHeroRockets = (count = 3): HeroRocket[] => {
+  const endpoints = pickUnique(heroRocketEndpoints, count)
+  const starts = pickUnique(possibleRocketStarts, count)
+
+  return Array.from({ length: count }, (_, index) => {
+    const endpoint = endpoints[index]
+    const startX = starts[index]
+    const waypointX = `${Math.max(5, Math.min(95, parseFloat(startX) + randomBetween(-12, 12)))}vw`
+    const midY = `${randomBetween(12, 28)}vh`
+    const firstRotation = randomBetween(-20, 20)
+    const secondRotation = firstRotation + randomBetween(-8, 8)
+    const finalRotation = firstRotation + randomBetween(-15, 15)
+
     return {
       key: `hero-rocket-${index}`,
-      startX: `${randomBetween(10, 90)}vw`,
+      startX,
+      waypointX,
       endX: endpoint.endX,
       endY: endpoint.endY,
+      midY,
       delay: randomBetween(0.2, 1.5),
-      duration: randomBetween(6, 10),
-      rotation,
-      finalRotation: rotation + randomBetween(-10, 10),
+      duration: randomBetween(7, 11),
+      rotationPath: [firstRotation, secondRotation, finalRotation],
       opacity: randomBetween(0.18, 0.45),
       fontSize: `${randomBetween(5.5, 7.2)}rem`,
     }
   })
+}
 
 const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], isAdmin?: boolean }) => {
   const { user } = useAppContext();
@@ -158,6 +185,8 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
   // Order by ratings double-check (already done in page.tsx but safety)
   const sortedBusinesses = [...businessList].sort((a, b) => b.ratings - a.ratings);
 
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay({ delay: 2200, stopOnInteraction: false, stopOnMouseEnter: true })]);
+
   const handleArchiveBusiness = async (businessId: string, businessName: string) => {
     if (!window.confirm(`Are you sure you want to archive "${businessName}"? This business will be suspended but data will be preserved.`)) {
       return;
@@ -219,13 +248,13 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
         {heroRockets.map((rocket) => (
           <motion.div
             key={rocket.key}
-            initial={{ x: rocket.startX, y: '110vh', opacity: 0, rotate: rocket.rotation, scale: 0.85 }}
+            initial={{ x: rocket.startX, y: '110vh', opacity: 0, rotate: rocket.rotationPath[0], scale: 0.85 }}
             animate={isHeroInView ? {
-              x: rocket.endX,
-              y: rocket.endY,
+              x: [rocket.startX, rocket.waypointX, rocket.endX],
+              y: ['110vh', rocket.midY, rocket.endY],
               opacity: [0, rocket.opacity, rocket.opacity, 0],
               scale: [0.85, 1, 1.05, 0.85],
-              rotate: rocket.finalRotation,
+              rotate: rocket.rotationPath,
             } : {}}
             transition={{
               duration: rocket.duration,
@@ -310,6 +339,11 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
 
       {/* Stats Section */}
       <StatsSection />
+
+      {/* Global Categories Carousel */}
+      <div className='w-full max-w-xl lg:max-w-4xl mx-auto py-5'>
+        <FeaturedCategories fetchAll />
+      </div>
 
       {/* AI Assistant Section */}
       <section className="w-full py-32 px-2 md:px-6 relative overflow-hidden bg-accent/20 rounded-xl m-2 max-w-6xl shadow-lg shadow-accent/60">
@@ -441,139 +475,95 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
       </section>
 
       {/* Featured Businesses */}
-      <section id="businesses" className="w-full max-w-7xl py-24 px-6 space-y-16">
-        <div className="space-y-4 max-w-3xl">
+      <section id="businesses" className="w-full max-w-7xl py-24 px-6">
+        <div className="space-y-4 max-w-3xl mx-auto mb-2">
           <h2 className="text-4xl md:text-5xl font-black tracking-tight">Top Rated Websites <br /><span className="text-accent underline decoration-primary/20">on VendorPort</span></h2>
           <p className="text-xl text-muted-foreground font-medium">Join the elite businesses using our platform to dominate their local markets.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-          {sortedBusinesses.map((biz) => (
-            <motion.div
-              key={biz.id}
-              whileHover={{ y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card className="h-full flex flex-col overflow-hidden border-2 hover:border-accent transition-all shadow-xl rounded-3xl group">
-                <div className="h-56 bg-muted relative overflow-hidden">
-                   <div className="absolute inset-0 flex items-center justify-center bg-accent/5 group-hover:bg-accent/10 transition-colors">
-                      <Globe className="h-20 w-20 text-accent/10 group-hover:scale-120 transition-transform duration-700" />
-                   </div>
-                   <div className="absolute top-4 right-4 bg-white/95 dark:bg-black/95 px-3 py-1.5 rounded-full flex items-center gap-1.5 text-sm font-black shadow-lg border-2 border-accent/20">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      {biz.ratings.toFixed(1)} <span className="opacity-40 font-bold">({biz.numReviews})</span>
-                   </div>
-                   <div className="absolute bottom-4 left-4">
-                      <div className="bg-black/80 backdrop-blur-md text-white px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest border border-white/20">
-                         {biz.template}
-                      </div>
-                   </div>
+        {businessList.length === 0 ? (
+          <div className="col-span-full py-32 text-center rounded-3xl border-4 border-dashed border-muted flex flex-col items-center justify-center space-y-6">
+             <div className="h-24 w-24 bg-muted rounded-full flex items-center justify-center">
+                <Globe className="h-12 w-12 opacity-20" />
+             </div>
+             <div className="space-y-2">
+                <h3 className="text-3xl font-black">No Business Websites Yet</h3>
+                <p className="text-muted-foreground max-w-sm mx-auto">The digital frontier is open. Be the first entrepreneur to launch a top-rated site on VendorPort!</p>
+             </div>
+             <Link href="/create-store">
+                <Button className="h-14 px-10 bg-accent text-slate-400 text-xl animate-pulse dark:text-background font-bold rounded-xl shadow-xl">Start Building Today</Button>
+             </Link>
+          </div>
+        ) : (
+          <div className="mt-8">
+            <div className="overflow-hidden py-4" data-embla="">
+              <div ref={emblaRef} className="w-full">
+                <div className="flex gap-6">
+                  {sortedBusinesses.map((biz) => (
+                    <div key={biz.id} className="max-w-[300px] flex-none">
+                      <motion.div whileHover={{ y: -6 }} transition={{ duration: 0.25 }}>
+                        <Card className="h-full shadow-md shadow-accent flex flex-col overflow-hidden border-2 hover:border-accent transition-all rounded-3xl group">
+                          <div className="h-24 bg-muted relative overflow-hidden">
+                             <div className="absolute inset-0 flex items-center justify-center bg-accent/5 group-hover:bg-accent/10 transition-colors">
+                                <Globe className="h-14 w-14 text-accent/10 group-hover:scale-120 transition-transform duration-700" />
+                             </div>
+                             <div className="absolute top-3 right-3 bg-white/95 dark:bg-black/95 px-3 py-1 rounded-full flex items-center gap-1 text-sm font-black shadow-lg border-2 border-accent/20">
+                                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                                {biz.ratings.toFixed(1)}
+                             </div>
+                          </div>
+                          <CardHeader>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <CardTitle className="text-xl md:text-2xl font-black tracking-tight">{biz.name}</CardTitle>
+                                {biz.isArchived && (
+                                  <div className="inline-flex items-center gap-1 mt-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs font-bold">
+                                    <AlertTriangle className="h-3 w-3" />
+                                    ARCHIVED
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3 pt-2">
+                              <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border-2 border-primary/5 overflow-hidden">
+                                 {biz.owner.image ? (
+                                   // eslint-disable-next-line @next/next/no-img-element
+                                   <img src={biz.owner.image} alt={biz.owner.name || ""} title={biz.owner.name || ""} className="h-full w-full rounded-xl object-cover" />
+                                 ) : (
+                                   <User className="h-5 w-5 text-primary" />
+                                 )}
+                              </div>
+                              <div className="flex flex-col">
+                                 <span className="text-sm font-black">{biz.owner.name || 'Anonymous User'}</span>
+                                 <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Business Owner</span>
+                              </div>
+                           </div>
+                          </CardHeader>
+                          <CardContent className="flex-1">
+                             <p className="text-muted-foreground line-clamp-2 font-medium">The official digital presence for {biz.name}, powered by VendorPort infrastructure.</p>
+                          </CardContent>
+                          <CardFooter className="pt-0 pb-4 px-4 flex flex-col gap-3">
+                            {!biz.isArchived ? (
+                              <Link href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`} className="w-full">
+                                <Button className="w-full h-12 gap-3 border-2 rounded-2xl group-hover:bg-accent group-hover:text-white transition-all font-black text-sm" variant="outline">
+                                  Visit Experience <ArrowRight className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Button disabled className="w-full h-12 gap-3 border-2 rounded-2xl bg-muted text-muted-foreground font-black text-sm" variant="outline">
+                                Archived - Cannot Access
+                              </Button>
+                            )}
+                          </CardFooter>
+                        </Card>
+                      </motion.div>
+                    </div>
+                  ))}
                 </div>
-                <CardHeader>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <CardTitle className="text-3xl font-black tracking-tight">{biz.name}</CardTitle>
-                      {biz.isArchived && (
-                        <div className="inline-flex items-center gap-1 mt-2 px-2 py-1 bg-yellow-100 text-yellow-800 rounded-lg text-xs font-bold">
-                          <AlertTriangle className="h-3 w-3" />
-                          ARCHIVED - SUSPENDED
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 pt-2">
-                      <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border-2 border-primary/5 overflow-hidden">
-                         {biz.owner.image ? (
-                           // eslint-disable-next-line @next/next/no-img-element
-                           <img src={biz.owner.image} alt={biz.owner.name || ""} title={biz.owner.name || ""} className="h-full w-full rounded-xl object-cover" />
-                         ) : (
-                           <User className="h-5 w-5 text-primary" />
-                         )}
-                      </div>
-                      <div className="flex flex-col">
-                         <span className="text-sm font-black">{biz.owner.name || 'Anonymous User'}</span>
-                         <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Business Owner</span>
-                      </div>
-                   </div>
-                </CardHeader>
-                <CardContent className="flex-1">
-                   <p className="text-muted-foreground line-clamp-2 font-medium">The official digital presence for {biz.name}, powered by VendorPort infrastructure.</p>
-                </CardContent>
-                <CardFooter className="pt-0 pb-4 px-6 flex flex-col gap-3">
-                  {!biz.isArchived ? (
-                    <Link href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`} className="w-full">
-                      <Button className="w-full h-14 gap-3 border-2 rounded-2xl group-hover:bg-accent group-hover:text-white transition-all font-black text-lg" variant="outline">
-                        Visit Experience <ArrowRight className="h-5 w-5" />
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Button disabled className="w-full h-14 gap-3 border-2 rounded-2xl bg-muted text-muted-foreground font-black text-lg" variant="outline">
-                      Archived - Cannot Access
-                    </Button>
-                  )}
-                  
-                  {isAdmin && (
-                    <div className="flex gap-2 w-full">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleArchiveBusiness(biz.id, biz.name)}
-                        disabled={loadingId === biz.id || biz.isArchived}
-                        className="flex-1 gap-2 font-bold text-xs border-orange-200 hover:bg-orange-50"
-                      >
-                        {loadingId === biz.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <Archive className="h-3 w-3" />
-                            {biz.isArchived ? 'Archived' : 'Archive'}
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDeleteBusiness(biz.id, biz.name)}
-                        disabled={loadingId === biz.id}
-                        className="flex-1 gap-2 font-bold text-xs"
-                      >
-                        {loadingId === biz.id ? (
-                          <>
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            Deleting...
-                          </>
-                        ) : (
-                          <>
-                            <Trash2 className="h-3 w-3" />
-                            Delete
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </CardFooter>
-              </Card>
-            </motion.div>
-          ))}
-          
-          {businessList.length === 0 && (
-            <div className="col-span-full py-32 text-center rounded-3xl border-4 border-dashed border-muted flex flex-col items-center justify-center space-y-6">
-               <div className="h-24 w-24 bg-muted rounded-full flex items-center justify-center">
-                  <Globe className="h-12 w-12 opacity-20" />
-               </div>
-               <div className="space-y-2">
-                  <h3 className="text-3xl font-black">No Business Websites Yet</h3>
-                  <p className="text-muted-foreground max-w-sm mx-auto">The digital frontier is open. Be the first entrepreneur to launch a top-rated site on VendorPort!</p>
-               </div>
-               <Link href="/create-store">
-                  <Button className="h-14 px-10 bg-accent text-slate-400 text-xl animate-pulse dark:text-background font-bold rounded-xl shadow-xl">Start Building Today</Button>
-               </Link>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </section>
 
       {/* CTA Registration Section */}
