@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { auth } from '@/auth'
 
 /**
  * Subdomain routing proxy
@@ -111,14 +110,8 @@ export async function proxy(request: NextRequest) {
     return subdomainResponse
   }
 
-  // Apply auth middleware if needed
-  try {
-    const authHandler = await auth()
-    return authHandler || NextResponse.next()
-  } catch (error) {
-    console.error('Auth proxy error:', error)
-    return NextResponse.next()
-  }
+  // Continue with next handler
+  return NextResponse.next()
 }
 
 export const config = {

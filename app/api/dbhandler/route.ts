@@ -49,6 +49,80 @@ const modelMap: Record<string, any> = {
   deliveryFee: prisma.deliveryFee,
 };
 
+/** Returns sensible SiteSettings defaults based on the chosen store template */
+function getSiteSettingsDefaults(businessName: string, template: string) {
+  const isPharmacy = template === "pharmacy";
+
+  if (isPharmacy) {
+    return {
+      aboutText: `${businessName} is a licensed pharmacy dedicated to providing safe, effective, and affordable medicines. We operate in full compliance with NAFDAC regulations.`,
+      heroTitle: "Welcome to our Pharmacy",
+      heroSubtitle: "Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.",
+      heroCTA: "Shop Medications",
+      heroCTALink: "/store",
+      headerCTA: "Order Now",
+      footerText: `${businessName} — Your trusted pharmacy partner.`,
+      badgeText: "NAFDAC Approved Pharmacy",
+      preHeroText: "With a click, get your",
+      heroHighlight: "Premium Medical Supplies",
+      promoTitle: "Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.",
+      promoBannerText: "Authentic medical supplies at clearance prices. Limited quantities available — move fast!",
+      helpText: "How can we assist you today?",
+      newsletterTitle: "Join our Health Newsletter",
+      newsletterText: "Be the first to know about new medications, health tips, and exclusive pharmacy offers.",
+      animatedTexts: [
+        "Order authentic medications online",
+        "Consult with expert pharmacists",
+        "NAFDAC Approved Pharmacy Products",
+        "Track your medical supplies delivery",
+        "24/7 Professional Health Support",
+        "Manage your prescriptions easily",
+      ],
+      aboutSub: `We believe that access to safe, effective, and affordable medicines should never be a privilege. ${businessName} is a forward-thinking pharmacy dedicated to solving the complex challenges surrounding medicine access.`,
+      whoWeAreText: `${businessName} is owned and managed by licensed Pharmacists with deep expertise in pharmaceutical care, supply chain management, and patient-centered service delivery.`,
+      visionText: "To become a trusted digital pharmacy, transforming how medicines are accessed and delivered—one community at a time.",
+      promiseText: "From the moment you place an order to the time it arrives at your doorstep, we are committed to delivering a smooth, secure, and memorable experience.",
+      whatWeDoText: "We leverage technology to bridge the gap between patients, healthcare professionals, and essential medicines.",
+      aiSystemText: "With our AI-powered system, accessing medications has never been easier. Simply upload your prescription and our platform handles verification, sourcing, and fulfillment.",
+      integrityText: "Integrity is the foundation of everything we do. Our mission aligns closely with the Nigerian National Drug Policy.",
+    };
+  }
+
+  // E-store (general) defaults
+  return {
+    aboutText: `${businessName} is an online store dedicated to bringing you the best products at competitive prices. We are committed to quality, value, and excellent customer service.`,
+    heroTitle: `Welcome to ${businessName}`,
+    heroSubtitle: "Browse our products and enjoy great deals — delivered right to your door.",
+    heroCTA: "Start Shopping",
+    heroCTALink: "/store",
+    headerCTA: "Shop Now",
+    footerText: `${businessName} — Your trusted online store.`,
+    badgeText: "Verified Online Store",
+    preHeroText: "Discover",
+    heroHighlight: "Premium Products",
+    promoTitle: "Shop the best products at the best prices, with fast delivery directly to your doorstep.",
+    promoBannerText: "Amazing deals on top products. Limited time offer — don't miss out!",
+    helpText: "How can we help you today?",
+    newsletterTitle: "Join our Newsletter",
+    newsletterText: "Be the first to know about new arrivals, restocks, and exclusive offers.",
+    animatedTexts: [
+      "Shop premium products online",
+      "Fast delivery to your doorstep",
+      "Exclusive deals every day",
+      "Verified quality products",
+      "Easy returns and exchanges",
+      "24/7 customer support",
+    ],
+    aboutSub: `At ${businessName}, we are passionate about connecting you with quality products that fit your lifestyle and budget. Every item we stock is carefully selected for quality and value.`,
+    whoWeAreText: `${businessName} is a team of passionate individuals dedicated to building the best online shopping experience. We put our customers first in everything we do.`,
+    visionText: "To be the most trusted and loved online store in our community, making quality products accessible to everyone.",
+    promiseText: "We promise a smooth, secure, and enjoyable shopping experience from the moment you browse to the moment your order arrives.",
+    whatWeDoText: "We curate and deliver quality products across a wide range of categories, making it easy for you to find exactly what you need.",
+    aiSystemText: "Our smart shopping platform learns your preferences and helps you discover products you'll love, with lightning-fast checkout and delivery tracking.",
+    integrityText: "We operate with full transparency and integrity, ensuring every product we sell meets strict quality standards.",
+  };
+}
+
 // =====================
 // Utilities
 // =====================
@@ -201,7 +275,6 @@ export async function GET(req: NextRequest) {
           stock: { stock: true },
           activeIngredients: { activeIngredientRefs: true },
           healthConcerns: { healthConcerns: true },
-          bulkPrices: { bulkPrices: true },
         };
 
         if (includeParams) {
@@ -217,7 +290,6 @@ export async function GET(req: NextRequest) {
           include.brandData = true;
           include.activeIngredientRefs = true;
           include.healthConcerns = true;
-          include.bulkPrices = true;
         } else {
           include.category = true;
         }
@@ -324,10 +396,9 @@ export async function GET(req: NextRequest) {
       if (model === "product") {
         include.category = true;
         include.stock = true;
-        include.brand = true;
-        include.activeIngredients = true;
+        include.brandData = true;
+        include.activeIngredientRefs = true;
         include.healthConcerns = true;
-        include.bulkPrices = true;
         include.reviews = { include: { user: { select: { name: true, avatarUrl: true } } } };
         include.business = true;
       }
@@ -413,7 +484,10 @@ export async function POST(req: NextRequest) {
           data: { businessId: business.id, currency: "NGN", exchangeRate: 1.0 },
         }),
         prisma.siteSettings.create({
-          data: { businessId: business.id },
+          data: {
+            businessId: business.id,
+            ...getSiteSettingsDefaults(businessName, business.template),
+          },
         }),
       ]);
 

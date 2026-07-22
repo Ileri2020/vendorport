@@ -26,8 +26,9 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-const Hero = () => {
+const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
   const { user } = useAppContext();
+  const isPharmacy = storeTemplate === "pharmacy";
   const thingsToDo = [
     "Order authentic medications online",
     "Consult with expert pharmacists",
@@ -53,10 +54,12 @@ const Hero = () => {
           {/* Left Column: Text & Search */}
           <div className="flex flex-col space-y-8 animate-in fade-in slide-in-from-left duration-700">
             <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                <ShieldCheck className="w-4 h-4" />
-                NAFDAC Approved Pharmacy
-              </div>
+              {isPharmacy && (
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                  <ShieldCheck className="w-4 h-4" />
+                  NAFDAC Approved Pharmacy
+                </div>
+              )}
               
               <RiseAndFadeText 
                 texts={thingsToDo}
@@ -85,21 +88,31 @@ const Hero = () => {
             <div className="flex flex-wrap gap-4">
               <Link href="/store">
                 <Button size="lg" className="h-14 px-8 rounded-xl text-lg bg-accent hover:bg-accent/90">
-                  Shop All Meds
+                  {isPharmacy ? "Shop All Meds" : "Start Shopping"}
                 </Button>
               </Link>
 
-              <SnapPrescription>
+              {isPharmacy && (
+                <SnapPrescription>
+                  <Button size="lg" variant="outline" className="h-14 px-8 rounded-xl text-lg gap-2 border-2 border-accent text-accent hover:bg-accent hover:text-white transition-all">
+                    <Camera className="w-5 h-5" />
+                    Snap or List Prescription
+                  </Button>
+                </SnapPrescription>
+              )}
+
+              {!isPharmacy && (
                 <Button size="lg" variant="outline" className="h-14 px-8 rounded-xl text-lg gap-2 border-2 border-accent text-accent hover:bg-accent hover:text-white transition-all">
                   <Camera className="w-5 h-5" />
-                  Snap or List Prescription
+                  Snap and List What You Want
                 </Button>
-              </SnapPrescription>
+              )}
+              
               {user?.email !== "nil" ? (
                 <Link href="/contact">
                   <Button size="lg" variant="outline" className="h-14 px-8 rounded-xl text-lg gap-2 border-2">
                     <MessageCircle className="w-5 h-5 text-primary" />
-                    Speak to the Pharmacist
+                    {isPharmacy ? "Speak to the Pharmacist" : "Chat Us"}
                   </Button>
                 </Link>
               ) : (
@@ -107,7 +120,7 @@ const Hero = () => {
                   <DialogTrigger asChild>
                     <Button size="lg" variant="outline" className="h-14 px-8 rounded-xl text-lg gap-2 border-2">
                       <MessageCircle className="w-5 h-5 text-primary" />
-                      Speak to the Pharmacist
+                      {isPharmacy ? "Speak to the Pharmacist" : "Chat us"}
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-md rounded-2xl">
@@ -116,7 +129,7 @@ const Hero = () => {
                     </DialogHeader>
                     <div className="flex flex-col items-center justify-center py-6 text-center">
                        <MessageCircle className="h-16 w-16 text-primary mb-4 opacity-50" />
-                       <p className="text-muted-foreground mb-6">You need to log in to chat directly with our expert pharmacists.</p>
+                       <p className="text-muted-foreground mb-6">{isPharmacy ? "You need to log in to chat directly with our expert pharmacists." : "You need to log in to chat with us."}</p>
                        <Link href="/account" className="w-full">
                          <Button size="lg" className="rounded-xl w-full text-lg h-14">Sign In to Continue</Button>
                        </Link>
@@ -124,12 +137,15 @@ const Hero = () => {
                   </DialogContent>
                 </Dialog>
               )}
-              <SpecialOrderForm>
-                <Button size="lg" variant="secondary" className="h-14 px-8 rounded-xl text-lg gap-2 bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white border-2 border-amber-500/20 group transition-all">
-                  <FlaskConical className="w-5 h-5 group-hover:animate-bounce" />
-                  Order Scarce / Special Meds
-                </Button>
-              </SpecialOrderForm>
+
+              {isPharmacy && (
+                <SpecialOrderForm>
+                  <Button size="lg" variant="secondary" className="h-14 px-8 rounded-xl text-lg gap-2 bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white border-2 border-amber-500/20 group transition-all">
+                    <FlaskConical className="w-5 h-5 group-hover:animate-bounce" />
+                    Order Scarce / Special Meds
+                  </Button>
+                </SpecialOrderForm>
+              )}
             </div>
 
             {/* Value Badges */}
@@ -140,7 +156,9 @@ const Hero = () => {
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <HeartPulse className="w-5 h-5 text-primary" />
-                <Link href="/contact" className="hover:text-primary transition-colors">Talk to a Pharmacist</Link>
+                <Link href="/contact" className="hover:text-primary transition-colors">
+                  {isPharmacy ? "Talk to a Pharmacist" : "Chat Us"}
+                </Link>
               </div>
             </div>
           </div>

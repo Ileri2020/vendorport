@@ -65,8 +65,8 @@ const RecentProductsCarousel = () => {
   }
 
   return (
-    <section className="w-full py-12 px-4 md:px-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <section className="w-full md:max-w-xl lg:max-w-6xl py-12 px-4 md:px-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl md:text-4xl font-black tracking-tight">Recent Products</h2>
@@ -74,9 +74,9 @@ const RecentProductsCarousel = () => {
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-2">
           <div className="overflow-hidden rounded-lg" ref={emblaRef}>
-            <div className="flex gap-6">
+            <div className="flex gap-2">
               {recentProducts.map((product) => (
                 <div key={product.id} className="min-w-[280px] flex-none">
                   <ProductCard
@@ -87,8 +87,8 @@ const RecentProductsCarousel = () => {
                       rating: 5,
                       categoryName: product.category?.name || "Product",
                     }}
-                    orientation="horizontal"
-                    className="w-full"
+                    orientation="vertical"
+                    className="w-full max-w-[200px]"
                   />
                 </div>
               ))}

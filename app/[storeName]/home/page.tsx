@@ -14,7 +14,12 @@ import { MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { HeavilyDiscountedCarousel } from "@/components/myComponents/subs/HeavilyDiscountedCarousel"
 import RecentProductsCarousel from "@/components/myComponents/subs/recentProductsCarousel"
+import { useAppContext } from "@/hooks/useAppContext"
+
 const Home = () => {
+  const { currentBusiness } = useAppContext();
+  const isPharmacy = currentBusiness?.template === "pharmacy";
+
   return (
     <motion.section
       initial = {{ opacity: 0 }}
@@ -25,22 +30,25 @@ const Home = () => {
       className="w-[100vw] min-h-full overflow-clip flex flex-col"
     >
       {/* <Filters /> */}
-      <Hero />
-      <CommonMedications />
+      <Hero storeTemplate={currentBusiness?.template} />
+
+      {/* Pharmacy-only sections */}
+      {isPharmacy && <CommonMedications />}
+
       <HeavilyDiscountedCarousel />
       <PartnerBrands />
-      <ConcernGrid />
+
+      {/* Pharmacy-only sections */}
+      {isPharmacy && <ConcernGrid />}
+
       <FeaturedCategories />
       <RecentProductsCarousel />
-      <FeaturedIngredients />
+
+      {/* Pharmacy-only sections */}
+      {isPharmacy && <FeaturedIngredients />}
+
       <FeaturedProducts />
       <Features />
-
-      {/* converted to a do you know section */}
-      {/* <div className="flex-1 flex justify-center items-center w-full md:w-[85%] overflow-clip mx-auto">
-        <Gallery />
-      </div> */}
-      {/* <ECommerceSalesPage /> */}
 
       {/* Fixed Contact Button */}
       <Link href="/contact" className="fixed bottom-6 left-6 z-50">
