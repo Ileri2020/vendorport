@@ -69,7 +69,7 @@ export default async function RootLayout({
               <CartProvider businessSlug="platform">
                 <ThemeProvider
                     attribute="class"
-                    defaultTheme="light"
+                    defaultTheme="dark"
                     enableSystem
                     disableTransitionOnChange
                   >
