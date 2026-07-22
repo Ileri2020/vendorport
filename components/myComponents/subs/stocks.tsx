@@ -162,8 +162,8 @@ const Stocks = () => {
 
   if (loading) {
     return (
-      <div className="w-full flex flex-col items-center py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 max-w-7xl w-full">
+      <div className="w-full flex flex-col items-center py-8 px-1">
+        <div className={`grid ${cardOrientation === 'horizontal' ? 'grid-cols-1' : 'grid-cols-2'} md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 px-2 md:px-4 max-w-7xl w-full`}>
           {[...Array(8)].map((_, index) => (
             <div key={index} className="flex flex-col space-y-4 w-full p-2 border rounded-xl shadow-sm">
               <Skeleton className="h-48 md:h-64 w-full rounded-lg" />
@@ -183,7 +183,7 @@ const Stocks = () => {
   }
 
   return (
-    <div className="w-full flex flex-col items-center py-8">
+    <div className="w-full flex flex-col items-center justify-center py-8">
 
       {/* 📦 Fixed Floating Add Product Button (Admin Only) */}
       {isAdmin && (
@@ -223,11 +223,11 @@ const Stocks = () => {
       )}
 
       {currentItems.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-4 max-w-7xl w-full">
+        <div className={`grid ${cardOrientation === 'horizontal' ? 'grid-cols-1' : 'grid-cols-2'} md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 px-1 md:px-4 max-w-7xl w-full`}>
           {currentItems.map((product) => (
             <ProductCard
               key={product.id}
-              className="w-full group"
+              className="w-full group mx-auto shadow-md shadow-accent"
               orientation={cardOrientation}
               product={{ 
                 ...product, 

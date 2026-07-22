@@ -203,7 +203,7 @@ export function ProductCard({
   };
 
   return (
-    <div className={cn("group relative", className)} {...props}>
+    <div className={cn("relative", className)} {...props}>
       <div className="absolute left-2 top-2 z-20">
           {badgeSlug && !(pathname && badgeSlug && pathname.startsWith(`/${badgeSlug}`)) ? (
             <Link href={`/${badgeSlug}`}>
@@ -306,7 +306,7 @@ export function ProductCard({
           className={cn(
             `
               relative w-full overflow-clip rounded-lg py-0 transition-all
-              duration-200 ease-in-out shadow-md m-1 flex
+              duration-200 ease-in-out shadow-md mx-auto flex 
             `,
             // horizontal on mobile, switches to vertical at md+
             orientation === "horizontal" ? "flex-row md:flex-col" : "flex-col",

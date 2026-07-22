@@ -14,10 +14,10 @@ const Store = () => {
         opacity : 1,
         transition : { delay: 0.5, duration: 0.6, ease: "easeIn"}
       }}
-      className="w-[100vw] overflow-clip p-2 md:p-4"
+      className="w-full relative overflow-x-clip px-0 max-w-[435px] md:max-w-full md:p-4 justify-center items-center"
     >
-      <div className="w-full md:container md:mx-auto max-w-7xl">
-        <div className="flex flex-col md:flex-row justify-between items-stretch bg-accent/10 p-2 md:p-3 rounded-2xl mb-3 gap-3">
+      <div className="w-full overflow-x-clip justify-center items-center mx-auto max-w-7xl">
+        <div className="flex flex-col mx-auto w-screen max-w-sm md:max-w-full overflow-clip md:flex-row justify-between items-stretch bg-accent/10 p-2 md:p-3 rounded-2xl mb-3 gap-3">
           <div className="flex-1 flex items-center gap-3 md:gap-4 bg-background/50 p-3 rounded-xl border border-accent/20">
             <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center shrink-0">
               <MessageCircle className="text-accent w-5 h-5" />
@@ -45,11 +45,11 @@ const Store = () => {
           </div>
         </div>
 
-        <div className="mb-2 w-full p-1 max-w-2xl mx-auto">
+        <div className="mb-2 p-1 mx-auto w-screen max-w-sm overflow-clip justify-center items-center">
           <GlobalSearch placeholder="Search more products in our store..." />
         </div>
         
-        <div className="relative w-full h-full flex flex-col justify-center items-center">
+        <div className="relative h-full w-screen max-w-[400px] md:max-w-full overflow-clip flex flex-col mx-auto justify-center items-center">
           {/* <Filters /> */}
           <Stocks />
         </div>

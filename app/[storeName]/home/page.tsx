@@ -12,7 +12,8 @@ import PartnerBrands from "@/components/myComponents/subs/partner-brands"
 import FeaturedIngredients from "@/components/myComponents/subs/featuredIngredients"
 import { MessageCircle } from "lucide-react"
 import Link from "next/link"
-import { HeavilyDiscountedCarousel } from "@/components/myComponents/subs/HeavilyDiscountedCarousel";
+import { HeavilyDiscountedCarousel } from "@/components/myComponents/subs/HeavilyDiscountedCarousel"
+import RecentProductsCarousel from "@/components/myComponents/subs/recentProductsCarousel"
 const Home = () => {
   return (
     <motion.section
@@ -30,6 +31,7 @@ const Home = () => {
       <PartnerBrands />
       <ConcernGrid />
       <FeaturedCategories />
+      <RecentProductsCarousel />
       <FeaturedIngredients />
       <FeaturedProducts />
       <Features />

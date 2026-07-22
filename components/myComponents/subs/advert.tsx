@@ -12,7 +12,11 @@ interface Advertext {
   active: boolean;
 }
 
-const Advert = () => {
+interface AdvertProps {
+  businessName?: string;
+}
+
+const Advert = ({ businessName = "VendorPort" }: AdvertProps) => {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "admin";
   const [adverts, setAdverts] = useState<Advertext[]>([]);
@@ -143,7 +147,7 @@ const Advert = () => {
           fade ? "opacity-100" : "opacity-0"
         }`}
       >
-        {adverts.length > 0 ? adverts[currentIndex].text : "Welcome to HealthClique!"}
+        {adverts.length > 0 ? adverts[currentIndex].text : `Welcome to ${businessName}!`}
       </div>
       {isAdmin && (
         <button

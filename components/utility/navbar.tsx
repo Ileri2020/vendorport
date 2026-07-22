@@ -15,7 +15,7 @@ import {
   AiOutlineContacts,
 } from "react-icons/ai";
 import { Advert } from "@/components/myComponents/subs";
-import logo from "@/public/whitelogo.png";
+import logo from "@/public/greenlogo.png";
 import greenlogo from "@/public/greenlogo.png";
 import Image from "next/image";
 import { Cart } from "../myComponents/subs/cart";
@@ -50,24 +50,24 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
   }, [status, session, user.email, setUser]);
 
   return (
-    <div className="sticky top-0 z-30 w-[100vw] overflow-visible flex flex-col m-0 p-0">
-      <header className="w-[100%] py-4 bg-background sticky top-0 z-10 shadow-md shadow-accent/40">
-        <div className="container mx-auto flex justify-between items-center h-[50px] overflow-visible">
+    <div className="sticky top-0 z-30 w-screen overflow-clip justify-center items-center flex flex-col m-0 p-0">
+      <header className="w-[100%] bg-background sticky top-0 z-10 border-0 border-b-2 border-foreground/50">
+        <div className="px-2 py-2 shadow-foreground mx-auto flex justify-between items-center max-h-[90px] overflow-visible">
           <div className="lg:hidden">
             <Sidenav basePath={basePath} />
           </div>
           <Link
             href={homeHref}
-            className="flex dark:hidden flex-1 md:flex-none max-h-[43px] md:max-h-[50px] overflow-clip justify-center items-center py-5 /rounded-full"
+            className="flex mx-4 my-1 flex-1 md:flex-none max-h-[65px] bg-accent/10 max-w-[65px] overflow-clip border-1 border-accent shadow-md rounded-md shadow-accent justify-center items-center py-5 /rounded-full"
           >
-            <Image src={greenlogo} alt="" className="w-[100px] h-auto" />
+            <Image src={greenlogo} alt="" className="h-[63px] w-auto m-1" />
           </Link>
-          <Link
+          {/* <Link
             href={homeHref}
             className="hidden dark:flex flex-1 md:flex-none max-h-[43px] md:max-h-[50px] overflow-clip justify-center items-center py-5 /rounded-full"
           >
             <Image src={logo} alt="" className="w-[100px] h-auto" />
-          </Link>
+          </Link> */}
 
           {/* Business name badge — commented out
           {business && (
@@ -115,7 +115,8 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
             <ModeToggle />
           </div>
         </div>
-        <Advert />
+        {/* Show Advert section only on store pages (when business prop is provided) */}
+        {business && <Advert businessName={business.name} />}
       </header>
     </div>
   );
