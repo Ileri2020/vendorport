@@ -5,6 +5,7 @@ import type { NextRequest } from 'next/server'
  * Subdomain routing proxy
  * Handles rewriting subdomain requests to internal routes
  * E.g., storename.hcvp.com/about → /storename/about
+ * E.g., storename.vendorport.vercel.app → /storename
  */
 async function handleSubdomainRouting(request: NextRequest): Promise<NextResponse | null> {
   const url = request.nextUrl
@@ -16,14 +17,22 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
 
   // Parse production base domains dynamically
   const baseDomains = ['hcvp.com']
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_ORIGIN_URL || ''
   if (siteUrl) {
     try {
-      const parsedBase = new URL(siteUrl).hostname.toLowerCase()
+      const parsedBase = new URL(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`).hostname.toLowerCase()
       if (parsedBase && parsedBase !== 'localhost' && !baseDomains.includes(parsedBase)) {
         baseDomains.push(parsedBase)
       }
     } catch {}
+  }
+
+  const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || ''
+  if (vercelUrl) {
+    const cleanVercel = vercelUrl.replace(/^https?:\/\//, '').split(':')[0].toLowerCase()
+    if (cleanVercel && !baseDomains.includes(cleanVercel)) {
+      baseDomains.push(cleanVercel)
+    }
   }
 
   // Exclude common non-business subdomains
@@ -72,28 +81,47 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
     return null
   }
 
-  // Production handling (subdomain check for baseDomains)
+  // Production handling (subdomain check for baseDomains & wildcard .vercel.app)
+  let subdomain: string | null = null
+
   for (const base of baseDomains) {
     if (hostWithoutPort.endsWith(`.${base}`)) {
-      const subdomain = hostWithoutPort.replace(`.${base}`, '')
+      subdomain = hostWithoutPort.slice(0, hostWithoutPort.length - base.length - 1)
+      break
+    }
+  }
 
-      if (!excludedSubdomains.includes(subdomain)) {
-        const pathname = url.pathname === '/' ? '' : url.pathname
-        const search = url.search
+  // If host is like <subdomain>.<project>.vercel.app (e.g. itech3.vendorport.vercel.app)
+  if (!subdomain && hostWithoutPort.endsWith('.vercel.app')) {
+    const parts = hostWithoutPort.split('.')
+    if (parts.length >= 4) {
+      subdomain = parts[0]
+    }
+  }
 
-        // If path already starts with /{subdomain}, strip it and redirect for clean URLs
-        if (pathname.startsWith(`/${subdomain}/`)) {
-          const cleanPath = pathname.slice(`/${subdomain}`.length)
-          const cleanUrl = new URL(`${cleanPath}${search}`, request.url)
-          return NextResponse.redirect(cleanUrl, { status: 308 })
-        }
+  // Fallback for custom domains: <subdomain>.<domain>.<tld>
+  if (!subdomain) {
+    const parts = hostWithoutPort.split('.')
+    if (parts.length > 2 && parts[0] !== 'www') {
+      subdomain = parts[0]
+    }
+  }
 
-        // Otherwise rewrite to add subdomain for internal routing
-        if (pathname !== `/${subdomain}`) {
-          const rewriteUrl = new URL(`/${subdomain}${pathname}${search}`, request.url)
-          return NextResponse.rewrite(rewriteUrl)
-        }
-      }
+  if (subdomain && !excludedSubdomains.includes(subdomain)) {
+    const pathname = url.pathname === '/' ? '' : url.pathname
+    const search = url.search
+
+    // If path already starts with /{subdomain}, strip it and redirect for clean URLs
+    if (pathname.startsWith(`/${subdomain}/`)) {
+      const cleanPath = pathname.slice(`/${subdomain}`.length)
+      const cleanUrl = new URL(`${cleanPath}${search}`, request.url)
+      return NextResponse.redirect(cleanUrl, { status: 308 })
+    }
+
+    // Otherwise rewrite to add subdomain for internal routing
+    if (pathname !== `/${subdomain}`) {
+      const rewriteUrl = new URL(`/${subdomain}${pathname}${search}`, request.url)
+      return NextResponse.rewrite(rewriteUrl)
     }
   }
 
@@ -114,9 +142,11 @@ export async function proxy(request: NextRequest) {
   return NextResponse.next()
 }
 
+export const middleware = proxy
+
 export const config = {
   matcher: [
     // Match all routes except static assets and API routes
     '/((?!_next/static|_next/image|favicon.ico|public|api/).*)',
   ],
-}
+}

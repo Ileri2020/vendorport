@@ -29,11 +29,13 @@ interface Brand {
   };
 }
 
-import useEmblaCarousel from "embla-carousel-react";
-import Autoplay from "embla-carousel-autoplay";
+// import useEmblaCarousel from "embla-carousel-react";
+// import Autoplay from "embla-carousel-autoplay";
+// import { useAppContext } from "@/hooks/useAppContext";
 
 const PartnerBrands = () => {
-  const { user } = useAppContext();
+  const { user, currentBusiness } = useAppContext();
+  const isPharmacy = currentBusiness?.template === "pharmacy";
   const isAdmin = user?.role === "admin" || user?.role === "staff";
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
@@ -244,12 +246,14 @@ const PartnerBrands = () => {
     );
   }
 
+  if (!isPharmacy && brands.length === 0) return null;
+
   return (
     <section className="py-20 bg-muted/20 relative group overflow-hidden">
       <div className="container mx-auto max-w-7xl px-4 relative z-10">
         <div className="flex flex-col items-center mb-16">
           <h3 className="text-sm font-bold uppercase tracking-widest text-primary/60 mb-2">Our Global Network</h3>
-          <h2 className="text-4xl font-black text-foreground text-center">Elite Pharmaceutical Partners</h2>
+          <h2 className="text-4xl font-black text-foreground text-center">{isPharmacy ? "Elite Pharmaceutical Partners" : "Brands"}</h2>
           <div className="w-24 h-1.5 bg-primary rounded-full mt-6 shadow-sm shadow-primary/20"></div>
         </div>
 

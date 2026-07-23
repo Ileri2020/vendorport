@@ -37,23 +37,34 @@ const staggerContainer = {
 
 const About = () => {
   const { currentBusiness } = useAppContext();
+  const isPharmacy = currentBusiness?.template === "pharmacy";
   const settings = currentBusiness?.siteSettings || {};
 
   const brandName = currentBusiness?.name || "Healthclique";
 
-  const aboutSub = settings.aboutSub !== undefined ? settings.aboutSub : "We believe that access to safe, effective, and affordable medicines should never be a privilege—it should be a standard. We are a forward-thinking healthcare company dedicated to solving the complex challenges surrounding medicine access in Nigeria and across underserved African communities.";
-  
-  const whoWeAreText = settings.whoWeAreText !== undefined ? settings.whoWeAreText : `${brandName} Limited is owned and managed by licensed Pharmacists with deep expertise in pharmaceutical care, supply chain management, and patient-centered service delivery. We operate in full compliance with all regulatory requirements governing the pharmaceutical sector, ensuring that every product and service we provide meets the highest standards of safety, quality, and authenticity.`;
-  
-  const visionText = settings.visionText !== undefined ? settings.visionText : "To become Africa’s most trusted digital healthcare platform, transforming how medicines are accessed and delivered—one community at a time.";
-  
-  const promiseText = settings.promiseText !== undefined ? settings.promiseText : `From the moment you place an order to the time it arrives at your doorstep, we are committed to delivering a smooth, secure, and memorable experience. At ${brandName} Limited, your health is not just our business—it is our purpose.`;
-  
-  const whatWeDoText = settings.whatWeDoText !== undefined ? settings.whatWeDoText : "We leverage a holistic, technology-driven approach to bridge the gap between patients, healthcare professionals, and essential medicines. Our robust platform is designed to serve:";
-  
-  const aiSystemText = settings.aiSystemText !== undefined ? settings.aiSystemText : "With our advanced AI-powered system, accessing medications has never been easier. Simply upload your prescription or request, and our intelligent platform handles verification, sourcing, and fulfillment—delivering a seamless, stress-free experience from start to finish.";
-  
-  const integrityText = settings.integrityText !== undefined ? settings.integrityText : "Integrity is the foundation of everything we do. Our mission aligns closely with the Nigerian National Drug Policy.";
+  const aboutSub = settings.aboutSub !== undefined ? settings.aboutSub : (isPharmacy
+    ? "We believe that access to safe, effective, and affordable medicines should never be a privilege—it should be a standard. We are a forward-thinking healthcare company dedicated to solving the complex challenges surrounding medicine access in Nigeria and across underserved African communities."
+    : "We make it easy to shop trusted health, wellness, and everyday care products online. Our focus is on quality, convenience, and fast delivery for every customer.");
+
+  const whoWeAreText = settings.whoWeAreText !== undefined ? settings.whoWeAreText : (isPharmacy
+    ? `${brandName} Limited is owned and managed by licensed Pharmacists with deep expertise in pharmaceutical care, supply chain management, and patient-centered service delivery. We operate in full compliance with all regulatory requirements governing the pharmaceutical sector, ensuring that every product and service we provide meets the highest standards of safety, quality, and authenticity.`
+    : `${brandName} is a modern online health marketplace connecting customers to trusted brands, everyday wellness essentials, and fast delivery. We simplify shopping for care products with a clean, reliable, and customer-first experience.`);
+
+  const visionText = settings.visionText !== undefined ? settings.visionText : (isPharmacy
+    ? "To become Africa’s most trusted digital healthcare platform, transforming how medicines are accessed and delivered—one community at a time."
+    : "To be the preferred digital destination for customers seeking reliable health and wellness products online.");
+
+  const promiseText = settings.promiseText !== undefined ? settings.promiseText : (isPharmacy
+    ? `From the moment you place an order to the time it arrives at your doorstep, we are committed to delivering a smooth, secure, and memorable experience. At ${brandName} Limited, your health is not just our business—it is our purpose.`
+    : `From browsing to checkout, we are committed to delivering quality products, clear pricing, and a smooth online shopping experience. At ${brandName}, your wellbeing and convenience always come first.`);
+
+  const aiSystemText = settings.aiSystemText !== undefined ? settings.aiSystemText : (isPharmacy
+    ? "With our advanced AI-powered system, accessing medications has never been easier. Simply upload your prescription or request, and our intelligent platform handles verification, sourcing, and fulfillment—delivering a seamless, stress-free experience from start to finish."
+    : "Our smart platform helps you find the right product fast, compare trusted brands, and complete your order with confidence.");
+
+  const integrityText = settings.integrityText !== undefined ? settings.integrityText : (isPharmacy
+    ? "Integrity is the foundation of everything we do. Our mission aligns closely with the Nigerian National Drug Policy."
+    : "We make product quality, dependable delivery, and honest pricing the foundation of every order.");
 
   return (
     <div className="min-h-screen bg-muted/20 py-12 px-4 md:px-8">
@@ -129,98 +140,6 @@ const About = () => {
 
         <Separator />
 
-        {/* What We Do Section */}
-        <motion.div variants={fadeUp} className="space-y-8">
-          <div className="text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold mb-4">What We Do</h2>
-            <p className="text-muted-foreground">
-              {whatWeDoText}
-            </p>
-          </div>
-          
-          <div className="grid sm:grid-cols-3 gap-6">
-             <Card className="bg-background/60 backdrop-blur-sm border-primary/10">
-               <CardHeader className="text-center pb-2">
-                 <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-                   <Users className="h-6 w-6 text-primary" />
-                 </div>
-                 <CardTitle className="text-lg">Individuals & Families</CardTitle>
-               </CardHeader>
-               <CardContent className="text-center text-sm text-muted-foreground">
-                 Who need to conveniently fill prescriptions safely and affordably.
-               </CardContent>
-             </Card>
-
-             <Card className="bg-background/60 backdrop-blur-sm border-primary/10">
-               <CardHeader className="text-center pb-2">
-                 <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-                   <Activity className="h-6 w-6 text-primary" />
-                 </div>
-                 <CardTitle className="text-lg">Healthcare Professionals</CardTitle>
-               </CardHeader>
-               <CardContent className="text-center text-sm text-muted-foreground">
-                 Sourcing authentic medications for personal use or for their patients.
-               </CardContent>
-             </Card>
-
-             <Card className="bg-background/60 backdrop-blur-sm border-primary/10">
-               <CardHeader className="text-center pb-2">
-                 <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-                   <Building className="h-6 w-6 text-primary" />
-                 </div>
-                 <CardTitle className="text-lg">Organizations</CardTitle>
-               </CardHeader>
-               <CardContent className="text-center text-sm text-muted-foreground">
-                 Institutions requiring bulk or highly specialized medicine supply.
-               </CardContent>
-             </Card>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-6 items-stretch">
-            <Card className="bg-primary/5 border-primary/20 h-full">
-              <CardContent className="flex flex-col items-start gap-4 p-8 h-full justify-center">
-                <div className="bg-primary/10 p-4 rounded-full">
-                  <BrainCircuit className="h-10 w-10 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold mb-3">AI-Powered System</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    {aiSystemText}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ----- GRAPHS SECTION ----- */}
-            <Card className="border shadow-sm h-full flex flex-col">
-              <CardHeader className="pb-0">
-                <CardTitle className="text-lg">Our Growth Impact (2026)</CardTitle>
-                <CardDescription>Monthly Prescriptions Processed</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 pb-4 pt-4 h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorFills" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                      itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
-                    />
-                    <Area type="monotone" dataKey="prescriptions" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorFills)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-        </motion.div>
-
         {/* Quality & Integrity */}
         <motion.div variants={fadeUp} className="bg-card border rounded-2xl p-8 shadow-sm">
            <div className="flex flex-col md:flex-row gap-10">
@@ -250,48 +169,6 @@ const About = () => {
                </div>
              </div>
            </div>
-        </motion.div>
-
-        {/* Why Choose Us */}
-        <motion.div variants={fadeUp} className="space-y-6 pb-10">
-          <h2 className="text-3xl font-bold text-center mb-8">Why Choose {brandName}?</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-             <Card>
-               <CardHeader>
-                 <ShieldCheck className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Trusted Expertise</CardTitle>
-                 <CardDescription>Led by qualified Pharmacists who understand your healthcare needs.</CardDescription>
-               </CardHeader>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <Pill className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Convenience</CardTitle>
-                 <CardDescription>Easy prescription uploads and fast processing.</CardDescription>
-               </CardHeader>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <BrainCircuit className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Innovation</CardTitle>
-                 <CardDescription>AI-driven solutions for smarter, faster access to medicines.</CardDescription>
-               </CardHeader>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <MapPin className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Wide Coverage</CardTitle>
-                 <CardDescription>Serving both individuals and healthcare providers anywhere.</CardDescription>
-               </CardHeader>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <Truck className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Reliable Delivery</CardTitle>
-                 <CardDescription>A robust supply chain that ensures prompt doorstep delivery.</CardDescription>
-               </CardHeader>
-             </Card>
-          </div>
         </motion.div>
 
         {/* Footer Note */}

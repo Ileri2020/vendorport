@@ -78,20 +78,6 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
           */}
 
           <div className="flex items-center gap-2 lg:hidden">
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className="relative flex justify-center items-center rounded-full w-[35px] h-[35px] overflow-clip text-accent text-xl"
-                >
-                  <AiOutlineSearch />
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="p-0 border-none bg-transparent shadow-none w-11/12 overflow-visible translate-y-[-30vh]">
-                <DialogTitle className="sr-only">Search</DialogTitle>
-                <GlobalSearch placeholder="Search medications..." className="w-full" />
-              </DialogContent>
-            </Dialog>
             <Cart />
             <NotificationBell />
           </div>
