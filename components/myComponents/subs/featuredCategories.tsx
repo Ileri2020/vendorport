@@ -223,7 +223,7 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
   const bottomRow = carouselCategories.slice(midPoint);
 
   return (
-    <section className="py-12 md:py-16 bg-muted/30 overflow-hidden w-full max-w-xl  lg:max-w-4xl">
+    <section className="py-12 md:py-16 bg-muted/30 overflow-hidden w-full mx-auto max-w-xl  lg:max-w-4xl">
       <div className="container mx-auto max-w-7xl px-4">
         <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div className="text-left">

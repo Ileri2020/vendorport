@@ -9,7 +9,6 @@ import { ShieldCheck, HeartPulse, BrainCircuit, Activity, Pill, Users, Building,
 import { useAppContext } from "@/hooks/useAppContext";
 
 import Countup from "react-countup";
-import Stats from "@/data/stats";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 const chartData = [
@@ -37,10 +36,12 @@ const staggerContainer = {
 
 const About = () => {
   const { currentBusiness } = useAppContext();
-  const isPharmacy = currentBusiness?.template === "pharmacy";
+  const templateName = (currentBusiness?.template || "estore").toString().toLowerCase();
+  const isPharmacy = templateName === "pharmacy";
   const settings = currentBusiness?.siteSettings || {};
 
   const brandName = currentBusiness?.name || "Healthclique";
+  const brandDisplayName = isPharmacy ? `${brandName} Limited` : brandName;
 
   const aboutSub = settings.aboutSub !== undefined ? settings.aboutSub : (isPharmacy
     ? "We believe that access to safe, effective, and affordable medicines should never be a privilege—it should be a standard. We are a forward-thinking healthcare company dedicated to solving the complex challenges surrounding medicine access in Nigeria and across underserved African communities."
@@ -66,6 +67,41 @@ const About = () => {
     ? "Integrity is the foundation of everything we do. Our mission aligns closely with the Nigerian National Drug Policy."
     : "We make product quality, dependable delivery, and honest pricing the foundation of every order.");
 
+  const introHeading = isPharmacy ? "About Us" : "About Our Store";
+  const whoWeAreHeading = isPharmacy ? "Who We Are" : "Who We Are";
+  const visionHeading = isPharmacy ? "Our Vision & Promise" : "Our Mission & Promise";
+  const visionLabel = isPharmacy ? "Vision" : "Mission";
+  const qualityHeading = isPharmacy ? "Commitment to Quality & Integrity" : "Quality, Value & Trust";
+  const footerNote = isPharmacy
+    ? `${brandDisplayName} — Simplifying access to quality medicines through innovation, integrity, and care.`
+    : `${brandDisplayName} — Making everyday shopping simple, fast, and rewarding.`;
+  const qualityBullets = isPharmacy
+    ? [
+        "Medicines are safe, effective, and of the highest quality.",
+        "Pricing remains fair and accessible.",
+        "Supply chains are secure, transparent, and reliable.",
+        "Sourcing highly specialized and extemporaneous medications tailored to patient needs.",
+      ]
+    : [
+        "Products are selected for quality, value, and reliability.",
+        "Pricing stays clear, competitive, and customer-friendly.",
+        "Fulfillment is fast, transparent, and dependable.",
+        "We help customers find the right products with confidence.",
+      ];
+  const counterStats = isPharmacy
+    ? [
+        { num: 15400, text: "Prescriptions Filled" },
+        { num: 120, text: "Partner Clinics" },
+        { num: 50, text: "Expert Pharmacists" },
+        { num: 98, text: "Delivery Success Rate (%)" },
+      ]
+    : [
+        { num: 18000, text: "Orders Delivered" },
+        { num: 240, text: "Trusted Brands" },
+        { num: 5000, text: "Happy Customers" },
+        { num: 97, text: "Delivery Success Rate (%)" },
+      ];
+
   return (
     <div className="min-h-screen bg-muted/20 py-12 px-4 md:px-8">
       <motion.div 
@@ -76,14 +112,14 @@ const About = () => {
       >
         {/* Header Section */}
         <motion.div variants={fadeUp} className="text-center space-y-4 max-w-3xl mx-auto">
-          <Badge variant="outline" className="px-4 py-1 text-sm border-primary/30 text-primary">About Us</Badge>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground">
+          <div className="text-xl font-semibold text-primary">{introHeading}</div>
+          {/* <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground">
             {currentBusiness?.name ? (
               currentBusiness.name
             ) : (
               <>Healthclique <span className="text-primary">Limited</span></>
             )}
-          </h1>
+          </h1> */}
           <p className="text-lg text-muted-foreground leading-relaxed">
             {aboutSub}
           </p>
@@ -94,7 +130,7 @@ const About = () => {
           <Card className="border-t-4 border-t-primary shadow-sm hover:shadow-md transition-shadow">
             <CardHeader>
               <Users className="h-8 w-8 text-primary mb-2" />
-              <CardTitle className="text-2xl">Who We Are</CardTitle>
+              <CardTitle className="text-2xl">{whoWeAreHeading}</CardTitle>
             </CardHeader>
             <CardContent className="text-muted-foreground leading-relaxed">
               {whoWeAreText}
@@ -104,11 +140,11 @@ const About = () => {
           <Card className="border-t-4 border-t-indigo-500 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader>
               <HeartPulse className="h-8 w-8 text-indigo-500 mb-2" />
-              <CardTitle className="text-2xl">Our Vision & Promise</CardTitle>
+              <CardTitle className="text-2xl">{visionHeading}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 text-muted-foreground leading-relaxed">
               <p>
-                <strong>Vision:</strong> {visionText}
+                <strong>{visionLabel}:</strong> {visionText}
               </p>
               <p>
                 <strong>Promise:</strong> {promiseText}
@@ -120,7 +156,7 @@ const About = () => {
         {/* ----- COUNTUP STATS SECTION ----- */}
         <motion.div variants={fadeUp} className="py-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {Stats.stats.map((stat, index) => (
+            {counterStats.map((stat, index) => (
               <div key={index} className="bg-card border rounded-2xl p-6 shadow-sm text-center flex flex-col justify-center items-center hover:shadow-md transition-all">
                 <Countup 
                   end={stat.num}
@@ -145,28 +181,18 @@ const About = () => {
            <div className="flex flex-col md:flex-row gap-10">
              <div className="md:w-1/3 space-y-4">
                <ShieldCheck className="h-12 w-12 text-primary" />
-               <h2 className="text-2xl font-bold">Commitment to Quality & Integrity</h2>
+               <h2 className="text-2xl font-bold">{qualityHeading}</h2>
                <p className="text-muted-foreground text-sm">
                  {integrityText}
                </p>
              </div>
              <div className="md:w-2/3 grid sm:grid-cols-2 gap-4 auto-rows-min">
-               <div className="flex gap-3">
-                 <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                 <p className="text-sm">Medicines are safe, effective, and of the highest quality.</p>
-               </div>
-               <div className="flex gap-3">
-                 <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                 <p className="text-sm">Pricing remains fair and accessible.</p>
-               </div>
-               <div className="flex gap-3">
-                 <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                 <p className="text-sm">Supply chains are secure, transparent, and reliable.</p>
-               </div>
-               <div className="flex gap-3">
-                 <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                 <p className="text-sm">Sourcing highly specialized and extemporaneous medications tailored to patient needs.</p>
-               </div>
+               {qualityBullets.map((bullet) => (
+                 <div key={bullet} className="flex gap-3">
+                   <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                   <p className="text-sm">{bullet}</p>
+                 </div>
+               ))}
              </div>
            </div>
         </motion.div>
@@ -174,7 +200,7 @@ const About = () => {
         {/* Footer Note */}
         <motion.div variants={fadeUp} className="text-center pt-8 border-t border-primary/10">
            <p className="text-primary font-bold text-lg mb-6">
-             {brandName} Limited — Simplifying access to quality medicines through innovation, integrity, and care.
+             {footerNote}
            </p>
 
            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm font-medium">

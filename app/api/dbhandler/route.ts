@@ -470,12 +470,14 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Business name is required" }, { status: 400 });
       }
 
+      const normalizedTemplate = (body.template || "estore").toString().toLowerCase() === "pharmacy" ? "pharmacy" : "estore";
+
       const business = await prisma.business.create({
         data: {
           name: businessName,
           description: (body.description || `Welcome to ${businessName}`).toString(),
           ownerId: body.ownerId,
-          template: body.template || "estore",
+          template: normalizedTemplate,
         },
       });
 
@@ -486,7 +488,7 @@ export async function POST(req: NextRequest) {
         prisma.siteSettings.create({
           data: {
             businessId: business.id,
-            ...getSiteSettingsDefaults(businessName, business.template),
+            ...getSiteSettingsDefaults(businessName, normalizedTemplate),
           },
         }),
       ]);

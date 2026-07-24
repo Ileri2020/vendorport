@@ -27,7 +27,7 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
     } catch {}
   }
 
-  const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || ''
+  const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://vendorport.vercel.app/'
   if (vercelUrl) {
     const cleanVercel = vercelUrl.replace(/^https?:\/\//, '').split(':')[0].toLowerCase()
     if (cleanVercel && !baseDomains.includes(cleanVercel)) {
@@ -149,4 +149,4 @@ export const config = {
     // Match all routes except static assets and API routes
     '/((?!_next/static|_next/image|favicon.ico|public|api/).*)',
   ],
-}
+}

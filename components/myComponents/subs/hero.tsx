@@ -27,20 +27,45 @@ import {
 } from "@/components/ui/dialog";
 
 const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
-  const { user } = useAppContext();
+  const { user, currentBusiness } = useAppContext();
   const isPharmacy = storeTemplate === "pharmacy";
-  const thingsToDo = [
-    "Order authentic medications online",
-    "Consult with expert pharmacists",
-    "Track your medical supplies delivery",
-    "Access wholesale healthcare products",
-    "Read the latest clinical insights",
-    "Manage your prescriptions easily",
-    "NAFDAC Approved Pharmacy Products",
-    "24/7 Professional Health Support",
-    "Direct Supply for Wholesalers",
-    "Verified Medical Research & News"
-  ];
+  const settings = currentBusiness?.siteSettings || {};
+  const businessName = currentBusiness?.name || "Business";
+  const storeRoute = currentBusiness?.slug || currentBusiness?.name?.toLowerCase().replace(/\s+/g, "-") || "store";
+  const heroHeadingPrefix = typeof settings.heroTitle === "string" && settings.heroTitle.trim()
+    ? settings.heroTitle.trim()
+    : (isPharmacy ? "Welcome to our Pharmacy" : `Welcome to ${businessName}`);
+  const heroHeadingHighlight = typeof settings.heroHighlight === "string" && settings.heroHighlight.trim()
+    ? settings.heroHighlight.trim()
+    : (isPharmacy ? "Premium Medical Supplies" : "Premium Products");
+  const heroSubtitle = typeof settings.heroSubtitle === "string" && settings.heroSubtitle.trim()
+    ? settings.heroSubtitle.trim()
+    : (isPharmacy
+        ? "Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep."
+        : "Browse our products and enjoy great deals — delivered right to your door.");
+  const animatedTexts = typeof settings.animatedTexts === "object" && Array.isArray(settings.animatedTexts) && settings.animatedTexts.length > 0
+    ? settings.animatedTexts.filter((text): text is string => typeof text === 'string' && text.trim().length > 0)
+    : (isPharmacy
+        ? [
+            "Order authentic medications online",
+            "Consult with expert pharmacists",
+            "Track your medical supplies delivery",
+            "Access wholesale healthcare products",
+            "Read the latest clinical insights",
+            "Manage your prescriptions easily",
+            "NAFDAC Approved Pharmacy Products",
+            "24/7 Professional Health Support",
+            "Direct Supply for Wholesalers",
+            "Verified Medical Research & News"
+          ]
+        : [
+            "Shop premium products online",
+            "Fast delivery to your doorstep",
+            "Exclusive deals every day",
+            "Verified quality products",
+            "Easy returns and exchanges",
+            "24/7 customer support"
+          ]);
 
   return (
     <div className="relative bg-background">
@@ -57,22 +82,30 @@ const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
               {isPharmacy && (
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
                   <ShieldCheck className="w-4 h-4" />
-                  NAFDAC Approved Pharmacy
+                  certified
                 </div>
               )}
               
+              
+
               <RiseAndFadeText 
-                texts={thingsToDo}
+                texts={animatedTexts}
                 className="text-xl md:text-2xl font-bold text-accent italic h-8 overflow-hidden" 
               />
 
               <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-foreground leading-[1.1]">
-                With a click, get your <br />
-                <span className="text-accent text-5xl md:text-6xl font-black underline decoration-accent/30">Premium Medical Supplies</span>
+                {heroHeadingPrefix} <br />
+                <p className="text-3xl md:text-5xl font-bold italic text-accent">
+                  <span>{businessName}</span> 
+                  {/* / <span className="font-extrabold">{storeRoute}</span> */}
+                </p>
+                <p className="text-accent text-5xl md:text-6xl font-black underline decoration-accent/30">{heroHeadingHighlight}</p>
               </h1>
+
+            
               
               <p className="text-lg text-muted-foreground max-w-xl">
-                Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.
+                {heroSubtitle}
               </p>
             </div>
 
@@ -138,14 +171,14 @@ const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
                 </Dialog>
               )}
 
-              {isPharmacy && (
+              {/* {isPharmacy && (
                 <SpecialOrderForm>
                   <Button size="lg" variant="secondary" className="h-14 px-8 rounded-xl text-lg gap-2 bg-amber-500/10 text-amber-600 hover:bg-amber-500 hover:text-white border-2 border-amber-500/20 group transition-all">
                     <FlaskConical className="w-5 h-5 group-hover:animate-bounce" />
                     Order Scarce / Special Meds
                   </Button>
                 </SpecialOrderForm>
-              )}
+              )} */}
             </div>
 
             {/* Value Badges */}
@@ -154,16 +187,16 @@ const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
                 <Clock className="w-5 h-5 text-primary" />
                 <span>Doorstep Delivery (1-4 hrs)</span>
               </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
+              {/* <div className="flex items-center gap-2 text-muted-foreground">
                 <HeartPulse className="w-5 h-5 text-primary" />
                 <Link href="/contact" className="hover:text-primary transition-colors">
                   {isPharmacy ? "Talk to a Pharmacist" : "Chat Us"}
                 </Link>
-              </div>
+              </div> */}
             </div>
           </div>
 
-          {/* Right Column: Visuals */}
+          {/* Right Column: Visuals
           <div className="relative hidden lg:block animate-in fade-in slide-in-from-right duration-700">
             <div className="relative aspect-square w-full max-w-lg mx-auto overflow-hidden rounded-3xl border-8 border-background shadow-2xl rotate-2 hover:rotate-0 transition-transform duration-500">
                <img
@@ -173,7 +206,7 @@ const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
               />
             </div>
             
-            {/* Float Cards */}
+            
             <div className="absolute -bottom-6 -left-6 bg-card p-4 rounded-2xl shadow-xl border animate-bounce-slow">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
@@ -185,7 +218,7 @@ const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
         </div>
       </div>

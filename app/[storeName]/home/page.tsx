@@ -32,7 +32,8 @@ const Home = () => {
       {/* <Filters /> */}
       <Hero storeTemplate={currentBusiness?.template} />
 
-      {/* Pharmacy-only sections */}
+     <div className="mx-auto w-full">
+       {/* Pharmacy-only sections */}
       {isPharmacy && <CommonMedications />}
 
       <HeavilyDiscountedCarousel />
@@ -49,6 +50,7 @@ const Home = () => {
 
       <FeaturedProducts />
       <Features />
+     </div>
 
       {/* Fixed Contact Button */}
       <Link href="/contact" className="fixed bottom-6 left-6 z-50">

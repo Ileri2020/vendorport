@@ -65,7 +65,7 @@ const RecentProductsCarousel = () => {
   }
 
   return (
-    <section className="w-full md:max-w-xl lg:max-w-6xl py-12 px-4 md:px-6">
+    <section className="w-full md:max-w-xl lg:max-w-6xl py-12 px-4 md:px-6 mx-auto">
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>

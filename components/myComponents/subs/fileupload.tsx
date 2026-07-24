@@ -192,7 +192,7 @@ export const ProfileImg = () => {
 
 
 export const PostButton = () => {
-  const { user } = useAppContext();
+  const { user, currentBusiness } = useAppContext();
   const isAdmin = user.role === "admin";
 
   const [file, setFile] = useState<File | null>(null);
@@ -255,6 +255,9 @@ export const PostButton = () => {
       data.append("category", formData.category);
       data.append("type", formData.type);
       data.append("authorId", user.id);
+      if (currentBusiness?.id) {
+        data.append("businessId", currentBusiness.id);
+      }
 
       await axios.post("/api/dbhandler?model=post", data, {
         headers: { "Content-Type": "multipart/form-data" },

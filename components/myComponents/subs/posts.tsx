@@ -4,12 +4,16 @@ import React, { useEffect, useState } from 'react';
 import Post from './post';
 import axios from 'axios';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useAppContext } from '@/hooks/useAppContext';
 
 interface PostsProps {
   category: string;
 }
 
 const Posts = ({ category }: PostsProps) => {
+  const { currentBusiness } = useAppContext();
+  const templateName = (currentBusiness?.template || 'estore').toString().toLowerCase();
+  const isPharmacy = templateName === 'pharmacy';
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -19,8 +23,9 @@ const Posts = ({ category }: PostsProps) => {
     const fetchPosts = async () => {
       setLoading(true);
       try {
+        const businessId = currentBusiness?.id;
         const res = await axios.get('/api/dbhandler', { 
-          params: { model: 'post' } // Using 'post' instead of 'posts' as per dbhandler route mapping
+          params: { model: 'post', businessId } 
         });
         let data = res.data;
         
@@ -49,7 +54,7 @@ const Posts = ({ category }: PostsProps) => {
       }
     };
     fetchPosts();
-  }, [category, sortOrder, types]);
+  }, [category, sortOrder, types, currentBusiness?.id]);
 
   const toggleType = (type: keyof typeof types) => {
     setTypes(prev => ({ ...prev, [type]: !prev[type] }));
@@ -102,9 +107,9 @@ const Posts = ({ category }: PostsProps) => {
         </div>
       ) : (
         <div className='flex flex-col items-center justify-center py-20 text-center opacity-40'>
-          <div className="text-6xl mb-4">🩺</div>
-          <div className='font-black text-2xl'>No {category} Records Found</div>
-          <p className='text-sm mt-2'>Be the first to share clinical insights in this category.</p>
+          <div className="text-6xl mb-4">{isPharmacy ? '🩺' : '🛍️'}</div>
+          <div className='font-black text-2xl'>No Records Found</div>
+          <p className='text-sm mt-2'>share business media here.</p>
         </div>
       )}
     </div>
