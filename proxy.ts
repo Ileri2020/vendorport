@@ -70,6 +70,11 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
     return null
   }
 
+  // If host is exactly one of the base domains, it is the main platform landing page
+  if (baseDomains.includes(hostWithoutPort)) {
+    return null
+  }
+
   // Production handling (subdomain check for baseDomains & wildcard .vercel.app)
   let subdomain: string | null = null
 
@@ -92,6 +97,10 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
   if (!subdomain) {
     const parts = hostWithoutPort.split('.')
     if (parts.length > 2 && parts[0] !== 'www') {
+      // Vercel URLs with 3 parts (e.g. project.vercel.app) are apex domains
+      if (hostWithoutPort.endsWith('.vercel.app')) {
+        return null
+      }
       subdomain = parts[0]
     }
   }
