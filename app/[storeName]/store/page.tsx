@@ -1,6 +1,8 @@
 "use client"
+import { useCallback, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Filters, Stocks, GlobalSearch, SpecialOrderForm } from "@/components/myComponents/subs"
+import StoreSetupPrompt from "@/components/myComponents/subs/StoreSetupPrompt"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { MessageCircle, FlaskConical } from "lucide-react"
@@ -10,9 +12,45 @@ import { useAppContext } from "@/hooks/useAppContext"
 
 
 const Store = () => {
-  const { currentBusiness } = useAppContext();
-  const settings = currentBusiness?.siteSettings || {};
-  const isPharmacy = currentBusiness?.template === "pharmacy";
+  const { currentBusiness, user } = useAppContext();
+  const [hasCategories, setHasCategories] = useState<boolean | undefined>(undefined)
+  const [hasProducts, setHasProducts] = useState<boolean | undefined>(undefined)
+  const [setupLoaded, setSetupLoaded] = useState(false)
+  const settings = currentBusiness?.siteSettings || {}
+  const isPharmacy = currentBusiness?.template === "pharmacy"
+  const isOwner = Boolean(currentBusiness?.ownerId && currentBusiness?.ownerId === user?.id)
+
+  const loadStoreContentState = useCallback(async () => {
+    if (!currentBusiness?.id) {
+      setHasCategories(false)
+      setHasProducts(false)
+      setSetupLoaded(true)
+      return
+    }
+
+    try {
+      const businessId = currentBusiness.id
+      const [categoryRes, productRes] = await Promise.all([
+        fetch(`/api/dbhandler?model=category&businessId=${businessId}&limit=1`),
+        fetch(`/api/dbhandler?model=product&businessId=${businessId}&limit=1`),
+      ])
+
+      const categories = categoryRes.ok ? await categoryRes.json() : []
+      const products = productRes.ok ? await productRes.json() : []
+      setHasCategories(Array.isArray(categories) && categories.length > 0)
+      setHasProducts(Array.isArray(products) && products.length > 0)
+    } catch (error) {
+      console.error("Failed to load store content state", error)
+      setHasCategories(false)
+      setHasProducts(false)
+    } finally {
+      setSetupLoaded(true)
+    }
+  }, [currentBusiness?.id])
+
+  useEffect(() => {
+    loadStoreContentState()
+  }, [loadStoreContentState])
 
   return (
     <motion.section
@@ -64,42 +102,54 @@ const Store = () => {
           <GlobalSearch placeholder={settings?.heroSubtitle || "Search more products in our store..."} />
         </div>
 
-        {/* Hero marketing block — pharmacy only */}
-        {isPharmacy && (
-          <div className="w-full mb-4">
-            <div className="max-w-7xl mx-auto p-6 rounded-2xl /bg-gradient-to-r /from-white /to-slate-50 border">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  {settings?.badgeText && <div className="text-xs font-black text-emerald-700">{settings.badgeText}</div>}
-                  {settings?.animatedTexts?.length ? (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      {settings.animatedTexts.map((text, idx) => (
-                        <span key={idx} className="text-xs md:text-xs text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1">
-                          {text}
-                        </span>
-                      ))}
+        {currentBusiness && setupLoaded && (!hasCategories || !hasProducts) ? (
+          <StoreSetupPrompt
+            businessName={currentBusiness.name}
+            isOwner={isOwner}
+            hasCategories={!!hasCategories}
+            hasProducts={!!hasProducts}
+            onRefresh={loadStoreContentState}
+          />
+        ) : (
+          <>
+            {/* Hero marketing block — pharmacy only */}
+            {isPharmacy && (
+              <div className="w-full mb-4">
+                <div className="max-w-7xl mx-auto p-6 rounded-2xl /bg-gradient-to-r /from-white /to-slate-50 border">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                      {settings?.badgeText && <div className="text-xs font-black text-emerald-700">{settings.badgeText}</div>}
+                      {settings?.animatedTexts?.length ? (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {settings.animatedTexts.map((text, idx) => (
+                            <span key={idx} className="text-xs md:text-xs text-slate-600 bg-slate-100 border border-slate-200 rounded-full px-2 py-1">
+                              {text}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      <h1 className="text-xl md:text-2xl font-bold mt-2">
+                        {settings?.preHeroText ? (<><span className="mr-2 text-lg font-semibold">{settings.preHeroText}</span></>) : null}
+                        <span className="block text-xl md:text-2xl">{settings?.heroHighlight || 'Premium Medical Supplies'}</span>
+                      </h1>
+                      <p className="mt-2 text-muted-foreground max-w-2xl">
+                        {settings?.promoTitle || 'Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.'}
+                      </p>
                     </div>
-                  ) : null}
-                  <h1 className="text-xl md:text-2xl font-bold mt-2">
-                    {settings?.preHeroText ? (<><span className="mr-2 text-lg font-semibold">{settings.preHeroText}</span></>) : null}
-                    <span className="block text-xl md:text-2xl">{settings?.heroHighlight || 'Premium Medical Supplies'}</span>
-                  </h1>
-                  <p className="mt-2 text-muted-foreground max-w-2xl">
-                    {settings?.promoTitle || 'Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.'}
-                  </p>
-                </div>
-                <div className="hidden md:block">
-                  {settings?.promoBannerText && <div className="p-3 rounded-lg bg-amber-50 border text-sm font-bold">{settings.promoBannerText}</div>}
+                    <div className="hidden md:block">
+                      {settings?.promoBannerText && <div className="p-3 rounded-lg bg-amber-50 border text-sm font-bold">{settings.promoBannerText}</div>}
+                    </div>
+                  </div>
                 </div>
               </div>
+            )}
+            
+            <div className="relative w-full h-full flex flex-col justify-center items-center">
+              {/* <Filters /> */}
+              <Stocks />
             </div>
-          </div>
+          </>
         )}
-        
-        <div className="relative w-full h-full flex flex-col justify-center items-center">
-          {/* <Filters /> */}
-          <Stocks />
-        </div>
       </div>
     </motion.section>
   )

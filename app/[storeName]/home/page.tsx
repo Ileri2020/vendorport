@@ -1,5 +1,6 @@
 "use client"
 import { motion } from "framer-motion"
+import { useCallback, useEffect, useState } from "react"
 import { Filters, Gallery} from "@/components/myComponents/subs"
 import ECommerceSalesPage from "@/components/myComponents/salestore"
 import Hero from "@/components/myComponents/subs/hero"
@@ -10,6 +11,7 @@ import Features from "@/components/myComponents/subs/features"
 import ConcernGrid from "@/components/myComponents/subs/concern-grid"
 import PartnerBrands from "@/components/myComponents/subs/partner-brands"
 import FeaturedIngredients from "@/components/myComponents/subs/featuredIngredients"
+import StoreSetupPrompt from "@/components/myComponents/subs/StoreSetupPrompt"
 import { MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { HeavilyDiscountedCarousel } from "@/components/myComponents/subs/HeavilyDiscountedCarousel"
@@ -17,8 +19,44 @@ import RecentProductsCarousel from "@/components/myComponents/subs/recentProduct
 import { useAppContext } from "@/hooks/useAppContext"
 
 const Home = () => {
-  const { currentBusiness } = useAppContext();
+  const { currentBusiness, user } = useAppContext();
+  const [hasCategories, setHasCategories] = useState<boolean | undefined>(undefined)
+  const [hasProducts, setHasProducts] = useState<boolean | undefined>(undefined)
+  const [setupLoaded, setSetupLoaded] = useState(false)
   const isPharmacy = currentBusiness?.template === "pharmacy";
+  const isOwner = Boolean(currentBusiness?.ownerId && currentBusiness?.ownerId === user?.id)
+
+  const loadStoreContentState = useCallback(async () => {
+    if (!currentBusiness?.id) {
+      setHasCategories(false)
+      setHasProducts(false)
+      setSetupLoaded(true)
+      return
+    }
+
+    try {
+      const businessId = currentBusiness.id
+      const [categoryRes, productRes] = await Promise.all([
+        fetch(`/api/dbhandler?model=category&businessId=${businessId}&limit=1`),
+        fetch(`/api/dbhandler?model=product&businessId=${businessId}&limit=1`),
+      ])
+
+      const categories = categoryRes.ok ? await categoryRes.json() : []
+      const products = productRes.ok ? await productRes.json() : []
+      setHasCategories(Array.isArray(categories) && categories.length > 0)
+      setHasProducts(Array.isArray(products) && products.length > 0)
+    } catch (error) {
+      console.error("Failed to load store content state", error)
+      setHasCategories(false)
+      setHasProducts(false)
+    } finally {
+      setSetupLoaded(true)
+    }
+  }, [currentBusiness?.id])
+
+  useEffect(() => {
+    loadStoreContentState()
+  }, [loadStoreContentState])
 
   return (
     <motion.section
@@ -32,24 +70,38 @@ const Home = () => {
       {/* <Filters /> */}
       <Hero storeTemplate={currentBusiness?.template} />
 
+      {currentBusiness && setupLoaded && (!hasCategories || !hasProducts) ? (
+        <StoreSetupPrompt
+          businessName={currentBusiness.name}
+          isOwner={isOwner}
+          hasCategories={!!hasCategories}
+          hasProducts={!!hasProducts}
+          onRefresh={loadStoreContentState}
+        />
+      ) : null}
+
      <div className="mx-auto w-full">
-       {/* Pharmacy-only sections */}
-      {isPharmacy && <CommonMedications />}
+       {currentBusiness && setupLoaded && (!hasCategories || !hasProducts) ? null : (
+         <>
+           {/* Pharmacy-only sections */}
+           {isPharmacy && <CommonMedications />}
 
-      <HeavilyDiscountedCarousel />
-      <PartnerBrands />
+           <HeavilyDiscountedCarousel />
+           <PartnerBrands />
 
-      {/* Pharmacy-only sections */}
-      {isPharmacy && <ConcernGrid />}
+           {/* Pharmacy-only sections */}
+           {isPharmacy && <ConcernGrid />}
 
-      <FeaturedCategories />
-      <RecentProductsCarousel />
+           {(!currentBusiness || hasCategories) && <FeaturedCategories />}
+           {(!currentBusiness || hasProducts) && <RecentProductsCarousel />}
 
-      {/* Pharmacy-only sections */}
-      {isPharmacy && <FeaturedIngredients />}
+           {/* Pharmacy-only sections */}
+           {isPharmacy && <FeaturedIngredients />}
 
-      <FeaturedProducts />
-      <Features />
+           {(!currentBusiness || hasProducts) && <FeaturedProducts />}
+           <Features />
+         </>
+       )}
      </div>
 
       {/* Fixed Contact Button */}

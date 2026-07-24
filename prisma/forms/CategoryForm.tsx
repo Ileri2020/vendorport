@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Edit3, Trash2 } from "lucide-react";
+import { useAppContext } from "@/hooks/useAppContext";
 
 interface CategoriesFormProps {
   initialCategory?: any;
@@ -14,6 +15,7 @@ interface CategoriesFormProps {
 }
 
 export default function CategoriesForm({ initialCategory, hideList = false }: CategoriesFormProps) {
+  const { currentBusiness } = useAppContext();
   const [categories, setCategories] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     id: initialCategory?.id || "",
@@ -31,12 +33,14 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
   const fetchCategories = useCallback(async () => {
     try {
-      const res = await axios.get("/api/dbhandler?model=category");
+      const businessId = currentBusiness?.id;
+      const url = businessId ? `/api/dbhandler?model=category&businessId=${businessId}` : "/api/dbhandler?model=category";
+      const res = await axios.get(url);
       setCategories(res.data);
     } catch (err) {
       console.error("Failed to fetch categories:", err);
     }
-  }, []);
+  }, [currentBusiness?.id]);
 
   useEffect(() => {
     fetchCategories();
@@ -79,6 +83,10 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
       if (editId) data.append("id", editId);
 
       const config = { headers: { "Content-Type": "multipart/form-data" } };
+
+      if (currentBusiness?.id) {
+        data.append("businessId", currentBusiness.id);
+      }
 
       if (editId) {
         await axios.put(`/api/dbhandler?model=category&id=${editId}`, data, config);

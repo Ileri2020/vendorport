@@ -105,24 +105,32 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await axios.get('/api/dbhandler?model=product&include=category');
+      const businessId = currentBusiness?.id;
+      const bizQ = businessId ? `&businessId=${businessId}` : "";
+      const res = await axios.get(`/api/dbhandler?model=product&include=category${bizQ}`);
       setProducts(res.data);
     } catch (err) {
       console.error('Failed to fetch products', err);
     }
-  }, []);
+  }, [currentBusiness?.id]);
 
   const fetchCategories = useCallback(async () => {
-    const res = await axios.get('/api/dbhandler?model=category');
-    setCategories(res.data);
-    if (res.data.length > 0 && !formData.categoryId) {
-      setFormData(prev => ({
-        ...prev,
-        categoryId: res.data[0].id,
-        category: res.data[0].name
-      }));
+    try {
+      const businessId = currentBusiness?.id;
+      const bizQ = businessId ? `&businessId=${businessId}` : "";
+      const res = await axios.get(`/api/dbhandler?model=category${bizQ}`);
+      setCategories(res.data);
+      if (res.data.length > 0 && !formData.categoryId) {
+        setFormData(prev => ({
+          ...prev,
+          categoryId: res.data[0].id,
+          category: res.data[0].name
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to fetch categories', err);
     }
-  }, [formData.categoryId]);
+  }, [currentBusiness?.id, formData.categoryId]);
 
   useEffect(() => {
     if (initialProduct) {
