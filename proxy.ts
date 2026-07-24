@@ -15,25 +15,14 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
   const isLocalhost = hostWithoutPort.endsWith('localhost') || hostWithoutPort.endsWith('127.0.0.1')
   const isLocalDomain = hostWithoutPort.endsWith('hcvp.local')
 
-  // Parse production base domains dynamically
-  const baseDomains = ['hcvp.com']
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_ORIGIN_URL || ''
-  if (siteUrl) {
-    try {
-      const parsedBase = new URL(siteUrl.startsWith('http') ? siteUrl : `https://${siteUrl}`).hostname.toLowerCase()
-      if (parsedBase && parsedBase !== 'localhost' && !baseDomains.includes(parsedBase)) {
-        baseDomains.push(parsedBase)
-      }
-    } catch {}
-  }
-
-  const vercelUrl = process.env.VERCEL_URL || process.env.NEXT_PUBLIC_VERCEL_URL || 'https://vendorport.vercel.app/'
-  if (vercelUrl) {
-    const cleanVercel = vercelUrl.replace(/^https?:\/\//, '').split(':')[0].toLowerCase()
-    if (cleanVercel && !baseDomains.includes(cleanVercel)) {
-      baseDomains.push(cleanVercel)
-    }
-  }
+  // Use explicit deployment hosts directly in the proxy so subdomain routing
+  // works reliably without depending on environment variables at runtime.
+  const baseDomains = [
+    'hcvp.com',
+    'www.hcvp.com',
+    'vendorport.vercel.app',
+    'www.vendorport.vercel.app',
+  ]
 
   // Exclude common non-business subdomains
   const excludedSubdomains = ['www', 'api', 'admin', 'mail', 'cdn', 'support']
