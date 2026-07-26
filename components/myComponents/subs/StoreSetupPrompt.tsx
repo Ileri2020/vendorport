@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import CategoryForm from "@/prisma/forms/CategoryForm";
 import ProductForm from "@/prisma/forms/ProductForm";
-import { BoxOpen, PlusCircle, Sparkles } from "lucide-react";
+import { PackageOpen, PlusCircle, Sparkles } from "lucide-react";
 
 interface StoreSetupPromptProps {
   businessName?: string;
@@ -73,7 +73,7 @@ export default function StoreSetupPrompt({
           {needsCategories && (
             <div className="rounded-3xl border border-primary/10 bg-white/80 p-6 shadow-sm">
               <div className="flex items-center gap-3 text-primary">
-                <BoxOpen className="h-6 w-6" />
+                <PackageOpen className="h-6 w-6" />
                 <div>
                   <h3 className="font-bold text-lg">Add your first category</h3>
                   <p className="text-sm text-muted-foreground">Organize your products into collections customers can browse easily.</p>
