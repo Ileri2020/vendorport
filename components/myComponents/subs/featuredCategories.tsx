@@ -206,9 +206,15 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
     setLoading(true);
     const businessId = fetchAll ? undefined : explicitBusinessId ?? (currentBusiness as any)?.id;
     const cats = await getCategories(businessId);
-    // Filter out categories with 0 products if not admin/staff
-    const activeCats = isAdmin ? cats : cats.filter((c: any) => c.productCount > 0);
-    setCategories(activeCats);
+
+    const visibleCats = isAdmin
+      ? cats
+      : cats.filter((c: any) => {
+          const images = Array.isArray(c.images) ? c.images.filter(Boolean) : [];
+          return c.productCount > 0 && images.length > 0;
+        });
+
+    setCategories(visibleCats);
     setLoading(false);
   };
 

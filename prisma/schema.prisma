@@ -114,6 +114,7 @@ model SiteSettings {
   heroCTA         String?  @default("Shop Now")
   heroCTALink     String?  @default("/store")
   heroImage       String?
+  logoImageUrl    String?
   iconMode        String   @default("text")
   iconText        String?
   iconFontSize    Int      @default(20)

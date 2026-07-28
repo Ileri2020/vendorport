@@ -5,6 +5,7 @@ import { Search, HeartPulse } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import axios from "axios";
+import { usePathname } from "next/navigation";
 import { useAppContext } from "@/hooks/useAppContext";
 import { getProductPrice } from "@/lib/stock-pricing";
 
@@ -26,13 +27,29 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
   const [filterPrice, setFilterPrice] = useState("All");
 
   const { user, currentBusiness } = useAppContext();
+  const pathname = usePathname();
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch products once on mount, scoped to business if available
+  const storeRouteSegments = useMemo(() => (pathname || "").split("/").filter(Boolean), [pathname]);
+  const knownPlatformRoutes = useMemo(() => new Set(["about", "account", "admin", "blog", "cart", "checkout", "contact", "create-store", "home", "login", "pricing", "privacy", "products", "signup", "store", "terms", "wishlist"]), []);
+  const isStoreScopedRoute = useMemo(() => {
+    if (!storeRouteSegments.length) return false;
+    const firstSegment = storeRouteSegments[0];
+    return !knownPlatformRoutes.has(firstSegment);
+  }, [knownPlatformRoutes, storeRouteSegments]);
+
+  const currentStoreSlug = useMemo(() => {
+    if (!storeRouteSegments.length) return "";
+    const firstSegment = storeRouteSegments[0];
+    if (knownPlatformRoutes.has(firstSegment)) return "";
+    return firstSegment;
+  }, [knownPlatformRoutes, storeRouteSegments]);
+
+  // Fetch products once on mount, scoped to business only on store-style routes
   useEffect(() => {
-    const businessId = (currentBusiness as any)?.id;
+    const businessId = isStoreScopedRoute ? (currentBusiness as any)?.id : undefined;
     const bizQ = businessId ? `&businessId=${businessId}` : "";
     setIsLoading(true);
     axios.get(`/api/dbhandler?model=product&include=category,brand,stock,activeIngredients${bizQ}`)
@@ -41,7 +58,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, [currentBusiness]);
+  }, [currentBusiness, isStoreScopedRoute]);
 
   // Memoize unique categories and brands to prevent unnecessary recalculations
   const uniqueCategories = useMemo(() => {
@@ -59,7 +76,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
     const alphabetCount = countSearchLetters(value);
     if (alphabetCount < 3) return [];
 
-    const businessId = (currentBusiness as any)?.id;
+    const businessId = isStoreScopedRoute ? (currentBusiness as any)?.id : undefined;
     const params = new URLSearchParams();
     params.set("model", "product");
     params.set("query", query);
@@ -87,7 +104,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
       console.error("Search fetch error:", error);
       return [];
     }
-  }, [filterCategory, filterBrand, filterPrice, user?.role, currentBusiness]);
+  }, [filterCategory, filterBrand, filterPrice, user?.role, currentBusiness, isStoreScopedRoute]);
 
   const handleSearch = useCallback(async (value: string, cat = filterCategory, br = filterBrand, pr = filterPrice) => {
     const alphabetCount = countSearchLetters(value);
@@ -228,13 +245,15 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
                 Matching Products
               </div>
               <div className="max-h-[300px] overflow-y-auto">
-                {searchResults.map((product: any) => (
-                  <Link 
-                    key={product.id} 
-                    href={`/products/${product.id}`}
-                    onClick={() => setIsSearchOpen(false)}
-                    className="flex items-center gap-4 p-3 hover:bg-accent/50 transition-colors group"
-                  >
+                {searchResults.map((product: any) => {
+                  const productHref = currentStoreSlug ? `/${currentStoreSlug}/products/${product.id}` : `/products/${product.id}`;
+                  return (
+                    <Link 
+                      key={product.id} 
+                      href={productHref}
+                      onClick={() => setIsSearchOpen(false)}
+                      className="flex items-center gap-4 p-3 hover:bg-accent/50 transition-colors group"
+                    >
                     <div className="w-10 h-10 rounded bg-muted flex items-center justify-center overflow-hidden">
                       {product.images?.[0] ? (
                         <img src={product.images[0]} alt={product.name} className="object-cover w-full h-full" />
@@ -246,10 +265,11 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
                       <div className="text-sm font-semibold group-hover:text-primary transition-colors">{product.name}</div>
                       <div className="text-xs text-muted-foreground">₦{getProductPrice(product, user?.role).toLocaleString()}</div>
                     </div>
-                  </Link>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
-              <Link href="/store" onClick={() => setIsSearchOpen(false)} className="block p-3 text-center text-sm font-medium text-primary hover:bg-primary/5 border-t">
+              <Link href={currentStoreSlug ? `/${currentStoreSlug}/store` : "/store"} onClick={() => setIsSearchOpen(false)} className="block p-3 text-center text-sm font-medium text-primary hover:bg-primary/5 border-t">
                 View all results
               </Link>
             </>

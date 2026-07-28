@@ -36,8 +36,10 @@ const Sidenav = ({ basePath }: SidenavProps) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                const businessId = currentBusiness?.id;
+                const categoryQuery = businessId ? `?model=category&businessId=${businessId}` : "?model=category";
                 const [catRes, concernRes] = await Promise.all([
-                    axios.get("/api/dbhandler?model=category"),
+                    axios.get(`/api/dbhandler${categoryQuery}`),
                     axios.get("/api/dbhandler?model=healthConcern")
                 ]);
                 setCategories(catRes.data);
@@ -47,7 +49,7 @@ const Sidenav = ({ basePath }: SidenavProps) => {
             }
         };
         fetchData();
-    }, []);
+    }, [currentBusiness?.id]);
 
     const closeSheet = () => setOpen(false);
 
@@ -58,6 +60,7 @@ const Sidenav = ({ basePath }: SidenavProps) => {
 
     const displayedCategories = showAllCategories ? categories : categories.slice(0, 10);
     const displayedConcerns = showAllConcerns ? concerns : concerns.slice(0, 10);
+    const isPharmacyTemplate = String(currentBusiness?.template || "estore").toLowerCase() === "pharmacy";
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
@@ -198,15 +201,17 @@ const Sidenav = ({ basePath }: SidenavProps) => {
                     <SnapPrescription>
                         <Button className="w-full flex items-center gap-3 h-12 rounded-2xl bg-accent hover:bg-accent/90 shadow-lg shadow-accent/20 font-bold">
                             <Camera className="w-5 h-5" />
-                            Snap or List Prescription
+                            {isPharmacyTemplate ? "Snap or List Prescription" : "AI Shopping"}
                         </Button>
                     </SnapPrescription>
-                    <SpecialOrderForm>
-                        <Button className="w-full flex items-center gap-3 h-12 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500 hover:text-white transition-all font-bold">
-                            <FlaskConical className="w-5 h-5" />
-                            Scarce / Special Order
-                        </Button>
-                    </SpecialOrderForm>
+                    {isPharmacyTemplate && (
+                        <SpecialOrderForm>
+                            <Button className="w-full flex items-center gap-3 h-12 rounded-2xl bg-amber-500/10 text-amber-600 border border-amber-500/20 hover:bg-amber-500 hover:text-white transition-all font-bold">
+                                <FlaskConical className="w-5 h-5" />
+                                Scarce / Special Order
+                            </Button>
+                        </SpecialOrderForm>
+                    )}
                 </div>
 
                 <div className="p-1 border-t bg-muted/30 flex flex-col gap-2">

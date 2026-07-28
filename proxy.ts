@@ -4,8 +4,8 @@ import type { NextRequest } from 'next/server'
 /**
  * Subdomain routing proxy
  * Handles rewriting subdomain requests to internal routes
- * E.g., storename.hcvp.com/about → /storename/about
- * E.g., storename.vendorport.vercel.app → /storename
+ * E.g., storename.vport.store/about → /storename/about
+ * E.g., storename.www.vport.store → /storename
  */
 async function handleSubdomainRouting(request: NextRequest): Promise<NextResponse | null> {
   const url = request.nextUrl
@@ -18,10 +18,8 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
   // Use explicit deployment hosts directly in the proxy so subdomain routing
   // works reliably without depending on environment variables at runtime.
   const baseDomains = [
-    'hcvp.com',
-    'www.hcvp.com',
-    'vendorport.vercel.app',
-    'www.vendorport.vercel.app',
+    'vport.store',
+    'www.vport.store',
   ]
 
   // Exclude common non-business subdomains

@@ -40,6 +40,18 @@ const SiteSettingsForm: React.FC = () => {
   const handleChange = (key: string, value: any) => setForm((s: any) => ({ ...s, [key]: value }));
   const valOf = (key: string, defaultValue: any = "") => form[key] !== undefined ? form[key] : defaultValue;
 
+  const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      handleChange("logoImageUrl", result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async () => {
     if (!currentBusiness?.id) return toast.error("No business selected");
     setSaving(true);
@@ -178,6 +190,25 @@ const SiteSettingsForm: React.FC = () => {
                 <div className="md:col-span-2">
                   <Label>Hero Image URL</Label>
                   <Input value={valOf("heroImage", "")} onChange={(e: any) => handleChange("heroImage", e.target.value)} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Store Logo</Label>
+                  <Input type="file" accept="image/*" onChange={handleLogoFileChange} className="mt-2" />
+                  <Input
+                    value={valOf("logoImageUrl", "")}
+                    onChange={(e: any) => handleChange("logoImageUrl", e.target.value)}
+                    placeholder="Or paste a logo image URL"
+                    className="mt-2"
+                  />
+                  {valOf("logoImageUrl", "") ? (
+                    <div className="mt-3 rounded-md border bg-white/70 p-3">
+                      <img
+                        src={valOf("logoImageUrl", "")}
+                        alt="Store logo preview"
+                        className="max-h-20 w-auto object-contain"
+                      />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </CollapsibleContent>

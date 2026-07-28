@@ -33,11 +33,22 @@ export interface NavbarProps {
 }
 
 const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element => {
-  const { setUser, user } = useAppContext();
+  const { setUser, user, currentBusiness } = useAppContext();
   const { data: session, status, update } = useSession();
   const homeHref = basePath || "/";
-  const brandName = business?.name || "Vendor Hub";
-  const brandSubtitle = business?.siteSettings?.aboutText || "Your one stop shop for health needs";
+  const brandName = business?.name || currentBusiness?.name || "Vendor Hub";
+  const brandSubtitle = business?.siteSettings?.aboutText || currentBusiness?.siteSettings?.aboutText || "Your one stop shop for health needs";
+  const customLogo = (() => {
+    const candidates = [
+      business?.siteSettings?.logoImageUrl,
+      business?.siteSettings?.logoUrl,
+      currentBusiness?.siteSettings?.logoImageUrl,
+      currentBusiness?.siteSettings?.logoUrl,
+    ];
+
+    const resolved = candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
+    return resolved || greenlogo;
+  })();
 
   useEffect(() => {
     if (status === "authenticated" && session?.user && user.email === "nil") {
@@ -60,7 +71,7 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
             href={homeHref}
             className="flex mx-4 my-1 flex-1 md:flex-none max-h-[65px] bg-accent/10 max-w-[65px] overflow-clip border-1 border-accent shadow-md rounded-md shadow-accent justify-center items-center py-5 /rounded-full"
           >
-            <Image src={greenlogo} alt="" className="h-[63px] w-auto m-1" />
+            <Image src={customLogo} alt={`${brandName} logo`} width={80} height={80} className="h-[63px] w-auto m-1" />
           </Link>
           {/* <Link
             href={homeHref}

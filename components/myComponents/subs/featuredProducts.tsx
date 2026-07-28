@@ -33,6 +33,14 @@ const FeaturedProducts = () => {
   const [oralCare, setOralCare] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const isAdmin = useIsAdmin();
+
+  const filterVisibleItems = (items: any[]) => {
+    if (isAdmin) return items;
+    return items.filter((item: any) => {
+      const images = Array.isArray(item.images) ? item.images.filter(Boolean) : [];
+      return images.length > 0;
+    });
+  };
   const { addItem } = useCart();
   const { currentBusiness } = useAppContext();
   const businessId = (currentBusiness as any)?.id;
@@ -43,19 +51,20 @@ const FeaturedProducts = () => {
       // 1. Fetch Admin Featured Products (Minimal payload)
       const featRes = await fetch(`/api/dbhandler?model=featuredProduct&minimal=true&limit=15${bizQ}`);
       const featData = await featRes.json();
-      setProducts(featData.map((item: any) => ({
+      const mappedFeatured = featData.map((item: any) => ({
         ...item.product,
         categoryName: item.product.category?.name
-      })));
+      }));
+      setProducts(filterVisibleItems(mappedFeatured));
 
       // If no featured products, fetch latest 10 products as fallback
       if (featData.length === 0) {
         const fallbackRes = await fetch(`/api/dbhandler?model=product&minimal=true&limit=10${bizQ}`);
         const fallbackData = await fallbackRes.json();
-        setProducts(fallbackData.map((p: any) => ({
+        setProducts(filterVisibleItems(fallbackData.map((p: any) => ({
             ...p,
             categoryName: p.category?.name || "New Arrival"
-        })));
+        }))));
       }
 
       // 2. Fetch Subset Sections via Server-side filtering
@@ -72,16 +81,16 @@ const FeaturedProducts = () => {
         oralCarePromise
       ]);
 
-      setBrandProducts(brandResults.flat().filter((p: any) => p.price > 0 && p.images && p.images.length > 0));
+      setBrandProducts(filterVisibleItems(brandResults.flat().filter((p: any) => p.price > 0 && p.images && p.images.length > 0)));
       
       // Still need some client-side filtering for complex logic if API isn't built for it, 
       // but now it's on a much smaller dataset (limit=50 default from API)
-      const oral = allProdData.filter((p: any) => 
+      const oral = filterVisibleItems(allProdData.filter((p: any) => 
          (p.category?.name?.toLowerCase().includes("dental") || 
          p.category?.name?.toLowerCase().includes("oral") ||
          p.name.toLowerCase().includes("toothpaste")) &&
          p.price > 0 && p.images && p.images.length > 0
-      ).slice(0, 15);
+      ).slice(0, 15));
       setOralCare(oral);
 
     } catch (err) {
