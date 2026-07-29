@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import axios from "axios";
-import { sendOrderNotification, sendPaymentConfirmationEmail } from "@/lib/nodemailer";
+import { sendOrderNotification, sendPaymentConfirmationEmail, sendStoreOwnerOrderNotifications } from "@/lib/nodemailer";
 
 
 function generateTxRef() {
@@ -87,9 +87,11 @@ export async function POST(req: NextRequest) {
             data: { method: "manual_transfer" }
           });
 
-          // Notify Admin
-          const adminEmail = process.env.GOOGLE_EMAIL ?? 'adepojuololade2020@gmail.com';
-          await sendOrderNotification(adminEmail, {
+          const businessIds = Array.from(new Set(payment.cart.products
+            .map((item: any) => item.product?.businessId)
+            .filter(Boolean) as string[]));
+
+          await sendStoreOwnerOrderNotifications(businessIds, {
             status: "unconfirmed",
             tx_ref: confirm_tx_ref,
             amount: payment.amount,
@@ -172,6 +174,24 @@ export async function POST(req: NextRequest) {
             }
           }
 
+          const businessIds = Array.from(new Set(payment.cart.products
+            .map((item: any) => item.product?.businessId)
+            .filter(Boolean) as string[]));
+
+          await sendStoreOwnerOrderNotifications(businessIds, {
+            status: "paid",
+            tx_ref: confirm_tx_ref,
+            amount: payment.amount,
+            method: method || payment.method || "Online",
+            payeeName: payment.cart.user?.name || "Customer",
+            customerName: payment.cart.user?.name || "Customer",
+            contact: payment.cart.user?.contact || "N/A",
+            address: payment.cart.deliveryAddressId || "N/A",
+            products: payment.cart.products,
+            total: payment.cart.total,
+            deliveryFee: payment.cart.deliveryFee || 0,
+          });
+
           // Send confirmation email to user
           if (payment.cart.user?.email) {
             await sendPaymentConfirmationEmail(payment.cart.user.email, {
@@ -193,14 +213,29 @@ export async function POST(req: NextRequest) {
     }
 
     // ---------------- INITIATE CHECKOUT ----------------
-    const { userId, items, cartId, deliveryFee = 0, deliveryAddressId, couponCode, discountAmount = 0, affiliateId } = body;
+    const { userId, items, cartId, deliveryFee = 0, deliveryAddressId, couponCode, discountAmount = 0, affiliateId, guestDetails } = body;
 
     if (!userId || !items?.length) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    let user;
+    if (userId === "nil" || userId === "guest") {
+      user = await prisma.user.findUnique({ where: { email: "guest@vendorport.com" } });
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            name: guestDetails?.name || "Guest Customer",
+            email: "guest@vendorport.com",
+            contact: guestDetails?.phone || "Guest",
+            role: "customer",
+          },
+        });
+      }
+    } else {
+      user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
 
     // Server-side total calculation
     const products = await prisma.product.findMany({

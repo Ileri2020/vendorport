@@ -18,6 +18,8 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
   // Use explicit deployment hosts directly in the proxy so subdomain routing
   // works reliably without depending on environment variables at runtime.
   const baseDomains = [
+    'vport.vercel.app',
+    'www.vport.vercel.app',
     'vport.store',
     'www.vport.store',
   ]

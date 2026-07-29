@@ -74,6 +74,15 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
   const [deliveryFee, setDeliveryFee] = React.useState(100);
   const [withDelivery, setWithDelivery] = React.useState(true);
   const [pendingAutoMethod, setPendingAutoMethod] = React.useState<'monnify' | 'manual' | 'test' | null>(null);
+
+  // Guest checkout state
+  const [guestName, setGuestName] = React.useState("");
+  const [guestPhone, setGuestPhone] = React.useState("");
+  const [guestEmail, setGuestEmail] = React.useState("");
+  const [guestState, setGuestState] = React.useState("Lagos");
+  const [guestCity, setGuestCity] = React.useState("");
+  const [guestAddress, setGuestAddress] = React.useState("");
+
   const [savedCartMeta, setSavedCartMeta] = React.useState<{
     cartId: string;
     snapshot: string;
@@ -301,19 +310,27 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
   }, [checkoutData, pendingAutoMethod]);
 
   const initiateCheckout = async (forcedAmount?: number) => {
-    if (!user?.id || user.id === 'nil') {
-      toast.error("Please log in to checkout");
-      return;
-    }
-    if (!selectedAddressId) {
+    const isGuest = !user?.id || user.id === 'nil';
+    if (!isGuest && !selectedAddressId) {
       toast.error("Please select a delivery address");
       return;
+    }
+
+    if (isGuest) {
+      if (!guestName.trim() || !guestPhone.trim()) {
+        toast.error("Please provide your name and phone number");
+        return;
+      }
+      if (withDelivery && (!guestAddress.trim() || !guestState.trim())) {
+        toast.error("Please provide your delivery address and state");
+        return;
+      }
     }
 
     setIsCheckingOut(true);
     try {
       const payload = {
-        userId: user.id,
+        userId: user?.id || 'nil',
         cartId: savedCartMeta?.cartId,
         items: items.map(i => ({
           productId: i.id,
@@ -323,12 +340,22 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
           customPrice: (i as any).customPrice,
           customName: (i as any).customName
         })),
-        deliveryFee,
-        deliveryAddressId: selectedAddressId,
+        deliveryFee: deliveryFeeRounded,
+        deliveryAddressId: !isGuest ? selectedAddressId : undefined,
         forcedAmount,
         couponCode: appliedCoupon?.code || null,
         discountAmount: discountAmountRounded,
-        affiliateId: getStoredAffiliateReferral()?.affiliateId || null
+        affiliateId: getStoredAffiliateReferral()?.affiliateId || null,
+        ...(isGuest ? {
+          guestDetails: {
+            name: guestName,
+            phone: guestPhone,
+            email: guestEmail,
+            address: guestAddress,
+            city: guestCity,
+            state: guestState,
+          }
+        } : {})
       };
 
       const res = await axios.post('/api/payment', payload);
@@ -540,7 +567,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
       {/* Actions Section (Now scrolls with items) */}
       {items.length > 0 && (
         <div className="border-t px-6 py-4 bg-background space-y-4 shadow-top shrink-0">
-          {/* Address */}
+          {/* Address or Guest Contact Form */}
           {user?.id !== 'nil' ? (
             <div className="space-y-2">
               <div className="flex justify-between items-center px-1">
@@ -567,12 +594,59 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
               )}
             </div>
           ) : (
-            <div className="p-4 rounded-xl bg-primary/5 border-2 border-primary/10 flex flex-col items-center gap-3">
-              <p className="text-xs font-black text-primary uppercase italic">Login to Complete Order</p>
-              <div className="flex gap-4">
-                <Login />
-                <Signup />
+            <div className="space-y-3 p-3 rounded-xl bg-secondary/10 border border-border">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black uppercase tracking-wider text-primary">Guest Contact & Delivery</span>
+                <div className="flex gap-2">
+                  <Login />
+                  <Signup />
+                </div>
               </div>
+
+              <Input
+                placeholder="Full Name *"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                className="h-9 text-xs font-bold bg-background rounded-lg"
+              />
+              <Input
+                placeholder="Phone Number *"
+                value={guestPhone}
+                onChange={(e) => setGuestPhone(e.target.value)}
+                className="h-9 text-xs font-bold bg-background rounded-lg"
+              />
+              <Input
+                placeholder="Email Address (optional)"
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                className="h-9 text-xs font-bold bg-background rounded-lg"
+              />
+
+              {withDelivery && (
+                <div className="space-y-2 pt-1 border-t border-dashed">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="State *"
+                      value={guestState}
+                      onChange={(e) => setGuestState(e.target.value)}
+                      className="h-9 text-xs font-bold bg-background rounded-lg"
+                    />
+                    <Input
+                      placeholder="City (optional)"
+                      value={guestCity}
+                      onChange={(e) => setGuestCity(e.target.value)}
+                      className="h-9 text-xs font-bold bg-background rounded-lg"
+                    />
+                  </div>
+                  <Input
+                    placeholder="Street Address *"
+                    value={guestAddress}
+                    onChange={(e) => setGuestAddress(e.target.value)}
+                    className="h-9 text-xs font-bold bg-background rounded-lg"
+                  />
+                </div>
+              )}
             </div>
           )}
 
@@ -648,12 +722,12 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
            )}
 
           {/* Buttons Block */}
-          {user?.id !== 'nil' && !isCheckingOut && (
+          {!isCheckingOut && (
             <div className="space-y-2">
               {showCheckoutButton && (
                 <Button 
                   className="w-full h-11 rounded-xl font-black shadow-lg shadow-primary/10 hover:shadow-primary/20 transition-all gap-2"
-                  disabled={!selectedAddressId || !termsAccepted}
+                  disabled={user?.id !== 'nil' ? (!selectedAddressId || !termsAccepted) : (withDelivery ? (!guestName || !guestPhone || !guestAddress) : (!guestName || !guestPhone))}
                   onClick={() => handlePaymentMethod(null)}
                 >
                     <LayoutList className="w-4 h-4" />
@@ -666,7 +740,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
                   <div className="grid grid-cols-2 gap-2">
                     <Button 
                       className="w-full h-10 rounded-xl font-black border-2 border-primary/20 hover:bg-primary/5 transition-all gap-2 text-xs"
-                      disabled={!selectedAddressId || !termsAccepted}
+                      disabled={user?.id !== 'nil' ? (!selectedAddressId || !termsAccepted) : (withDelivery ? (!guestName || !guestPhone || !guestAddress) : (!guestName || !guestPhone))}
                       onClick={() => handlePaymentMethod('monnify')}
                       variant="outline"
                     >
@@ -676,7 +750,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
 
                     <Button 
                       className="w-full h-10 rounded-xl font-black border-2 border-primary/20 hover:bg-primary/5 transition-all gap-2 text-xs"
-                      disabled={!selectedAddressId || !termsAccepted}
+                      disabled={user?.id !== 'nil' ? (!selectedAddressId || !termsAccepted) : (withDelivery ? (!guestName || !guestPhone || !guestAddress) : (!guestName || !guestPhone))}
                       onClick={() => handlePaymentMethod('manual')}
                       variant="outline"
                     >
@@ -847,6 +921,14 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
               ref={manualRef}
               tx_ref={checkoutData.tx_ref}
               userId={user.id}
+              guestDetails={{
+                name: guestName,
+                phone: guestPhone,
+                email: guestEmail,
+                address: guestAddress,
+                city: guestCity,
+                state: guestState,
+              }}
             />
           </>
         )}

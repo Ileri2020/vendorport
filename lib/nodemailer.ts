@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { prisma } from '@/lib/prisma';
 
 const email = process.env.GOOGLE_EMAIL ?? 'healthcliquespecialties@gmail.com';
 
@@ -9,6 +10,51 @@ const transporter = nodemailer.createTransport({
         pass: process.env.GOOGLE_APP_PASSWORD, 
     },
 });
+
+const isValidEmail = (value?: string | null) => Boolean(value && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
+
+export const getStoreOwnerNotificationEmails = async (businessIds: string[]) => {
+    if (!businessIds.length) return [];
+
+    const businesses = await prisma.business.findMany({
+        where: { id: { in: businessIds } },
+        select: {
+            id: true,
+            name: true,
+            owner: { select: { email: true } },
+            siteSettings: { select: { contactEmail: true } },
+        },
+    });
+
+    const recipients = new Set<string>();
+
+    for (const business of businesses) {
+        const candidates = [
+            business.siteSettings?.contactEmail,
+            business.owner?.email,
+            process.env.GOOGLE_EMAIL,
+            process.env.GMAIL,
+        ];
+
+        for (const candidate of candidates) {
+            if (isValidEmail(candidate)) {
+                recipients.add(candidate!);
+            }
+        }
+    }
+
+    return Array.from(recipients);
+};
+
+export const sendStoreOwnerOrderNotifications = async (businessIds: string[], orderDetails: any) => {
+    const recipients = await getStoreOwnerNotificationEmails(businessIds);
+
+    for (const recipient of recipients) {
+        await sendOrderNotification(recipient, orderDetails);
+    }
+
+    return recipients;
+};
 
 export const sendOrderNotification = async (to: string, orderDetails: any) => {
     try {
@@ -27,6 +73,8 @@ export const sendOrderNotification = async (to: string, orderDetails: any) => {
             </div>
             <div style="padding: 30px;">
                 <p style="font-size: 16px; color: #374151;">${isUnconfirmed ? 'A bank transfer checkout has been submitted and is awaiting confirmation.' : 'A new order has been successfully placed on HealthClique.'}</p>
+                ${orderDetails.businessName ? `<p style="font-size: 14px; color: #4b5563; margin-top: 12px;"><strong>Store:</strong> ${orderDetails.businessName}</p>` : ''}
+                ${orderDetails.customerName ? `<p style="font-size: 14px; color: #4b5563;"><strong>Customer:</strong> ${orderDetails.customerName}</p>` : ''}
                 
                 <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 25px 0;">
                     <h3 style="margin-top: 0; color: #111827; font-size: 18px;">Transaction Summary</h3>

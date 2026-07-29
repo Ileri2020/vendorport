@@ -11,6 +11,17 @@ import { useAppContext } from "@/hooks/useAppContext";
 import { toast } from "sonner";
 import { PlusCircle, Trash2, ChevronDown } from "lucide-react";
 
+const accentColorOptions = [
+  { name: "Emerald", hsl: "152 68% 38%" },
+  { name: "Sky", hsl: "199 89% 48%" },
+  { name: "Violet", hsl: "258 70% 55%" },
+  { name: "Rose", hsl: "336 78% 52%" },
+  { name: "Amber", hsl: "36 95% 53%" },
+  { name: "Cyan", hsl: "188 90% 40%" },
+  { name: "Coral", hsl: "6 84% 58%" },
+  { name: "Mint", hsl: "164 64% 42%" },
+];
+
 const SiteSettingsForm: React.FC = () => {
   const { currentBusiness } = useAppContext();
   const [loading, setLoading] = useState(false);
@@ -39,6 +50,12 @@ const SiteSettingsForm: React.FC = () => {
 
   const handleChange = (key: string, value: any) => setForm((s: any) => ({ ...s, [key]: value }));
   const valOf = (key: string, defaultValue: any = "") => form[key] !== undefined ? form[key] : defaultValue;
+  const getAccentCss = (value: string) => `hsl(${value})`;
+
+  const handleAccentSelect = (hsl: string) => {
+    handleChange("accentLight", hsl);
+    handleChange("accentDark", hsl);
+  };
 
   const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -347,6 +364,34 @@ const SiteSettingsForm: React.FC = () => {
           </div>
         </Collapsible>
 
+        {/* Bank Transfer Details */}
+        <Collapsible open={openSection === "bank"} onOpenChange={(v) => setOpenSection(v ? "bank" : null)}>
+          <div className="border rounded-md bg-accent/5">
+            <CollapsibleTrigger asChild>
+              <button className="w-full p-3 text-left font-semibold bg-accent/20 shadow-md shadow-accent/70 animate-pulse flex items-center justify-between">
+                <span>Bank Transfer Details (For Manual Payments)</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${openSection === "bank" ? "rotate-180" : ""}`} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="p-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <Label>Bank Name</Label>
+                  <Input value={valOf("bankName", "")} placeholder="e.g. Moniepoint MFB, GTBank" onChange={(e: any) => handleChange("bankName", e.target.value)} />
+                </div>
+                <div>
+                  <Label>Account Number</Label>
+                  <Input value={valOf("accountNumber", "")} placeholder="e.g. 1234567890" onChange={(e: any) => handleChange("accountNumber", e.target.value)} />
+                </div>
+                <div className="md:col-span-2">
+                  <Label>Account Name (Holder's Name)</Label>
+                  <Input value={valOf("accountName", "")} placeholder="e.g. HealthClique Limited" onChange={(e: any) => handleChange("accountName", e.target.value)} />
+                </div>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
         {/* About */}
         <Collapsible open={openSection === "about"} onOpenChange={(v) => setOpenSection(v ? "about" : null)}>
           <div className="border rounded-md bg-accent/5">
@@ -439,6 +484,51 @@ const SiteSettingsForm: React.FC = () => {
             </CollapsibleTrigger>
             <CollapsibleContent className="p-3">
               <div className="space-y-6">
+                <div className="rounded-lg border border-border/60 bg-background/70 p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <Label>Accent Preview</Label>
+                      <p className="text-xs text-muted-foreground">Tap a triangle to change the store accent.</p>
+                    </div>
+                    <div
+                      className="h-12 w-12 rounded-full border-4 border-white shadow-lg"
+                      style={{ background: getAccentCss(valOf("accentLight", "8365 100% 37%")) }}
+                    />
+                  </div>
+
+                  <div className="mx-auto flex items-center justify-center">
+                    <div className="relative h-48 w-48 rounded-full border border-border/60 bg-gradient-to-br from-background to-muted/60 p-4 shadow-inner">
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div
+                          className="h-20 w-20 rounded-full border-2 border-white/80 shadow-lg"
+                          style={{ background: getAccentCss(valOf("accentLight", "8365 100% 37%")) }}
+                        />
+                      </div>
+                      {accentColorOptions.map((option, index) => {
+                        const angle = (index / accentColorOptions.length) * Math.PI * 2 - Math.PI / 2;
+                        const x = 50 + Math.cos(angle) * 60;
+                        const y = 50 + Math.sin(angle) * 60;
+                        return (
+                          <button
+                            key={option.name}
+                            type="button"
+                            aria-label={`Select ${option.name} accent`}
+                            onClick={() => handleAccentSelect(option.hsl)}
+                            className="absolute h-16 w-16 rounded-none border border-white/40 shadow-md transition-transform hover:scale-105"
+                            style={{
+                              left: `${x}%`,
+                              top: `${y}%`,
+                              transform: "translate(-50%, -50%)",
+                              background: getAccentCss(option.hsl),
+                              clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)",
+                            }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
                 {/* Light Mode */}
                 <div>
                   <h5 className="font-semibold text-sm mb-3">Light Mode</h5>

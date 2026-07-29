@@ -154,6 +154,9 @@ model SiteSettings {
   accentSecondaryDark   String   @default("199 89% 66%")
   accentForegroundLight String   @default("222 47% 12%")
   accentForegroundDark  String   @default("222 47% 10%")  
+  bankName              String?  @default("")
+  accountNumber         String?  @default("")
+  accountName           String?  @default("")
   updatedAt       DateTime @updatedAt
 }
 
