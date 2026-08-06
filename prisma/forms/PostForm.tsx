@@ -1,9 +1,13 @@
+"use client";
+
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useAppContext } from '@/hooks/useAppContext';
 
 export default function PostForm() {
+  const { currentBusiness, user } = useAppContext();
   const [posts, setPosts] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: '',
@@ -15,9 +19,11 @@ export default function PostForm() {
   const [users, setUsers] = useState<any[]>([]); // Added to store users for the select input
 
   const fetchPosts = useCallback(async () => {
-    const res = await axios.get('/api/dbhandler?model=post');
+    const businessId = currentBusiness?.id;
+    const query = businessId ? `?model=post&businessId=${businessId}` : '?model=post';
+    const res = await axios.get(`/api/dbhandler${query}`);
     setPosts(res.data);
-  }, []);
+  }, [currentBusiness?.id]);
 
   const fetchUsers = useCallback(async () => {
     const res = await axios.get('/api/dbhandler?model=user');
@@ -31,10 +37,15 @@ export default function PostForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const payload = {
+      ...formData,
+      ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
+    };
+    const authQuery = user?.id && user.id !== 'nil' ? `&userId=${user.id}` : '';
     if (editId) {
-      await axios.put(`/api/dbhandler?model=post&id=${editId}`, formData);
+      await axios.put(`/api/dbhandler?model=post&id=${editId}${authQuery}`, payload);
     } else {
-      await axios.post('/api/dbhandler?model=post', formData);
+      await axios.post(`/api/dbhandler?model=post${authQuery}`, payload);
     }
     resetForm();
     fetchPosts();
@@ -46,7 +57,8 @@ export default function PostForm() {
   };
 
   const handleDelete = async (id) => {
-    await axios.delete(`/api/dbhandler?model=post&id=${id}`);
+    const authQuery = user?.id && user.id !== 'nil' ? `?userId=${user.id}` : '';
+    await axios.delete(`/api/dbhandler?model=post&id=${id}${authQuery}`);
     fetchPosts();
   };
 

@@ -1,10 +1,14 @@
 
-import { useEffect, useState } from 'react';
+"use client";
+
+import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useAppContext } from '@/hooks/useAppContext';
 
 export default function ShippingAddressForm() {
+  const { currentBusiness, user } = useAppContext();
   const [shippingAddresses, setShippingAddresses] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     userId: '',
@@ -18,10 +22,12 @@ export default function ShippingAddressForm() {
   const [editId, setEditId] = useState<string | null>(null);
   const [users, setUsers] = useState<any[]>([]); // Added to store users for the select input
 
-  const fetchShippingAddresses = async () => {
-    const res = await axios.get('/api/dbhandler?model=shippingAddress');
+  const fetchShippingAddresses = useCallback(async () => {
+    const businessId = currentBusiness?.id;
+    const query = businessId ? `?model=shippingAddress&businessId=${businessId}` : '?model=shippingAddress';
+    const res = await axios.get(`/api/dbhandler${query}`);
     setShippingAddresses(res.data);
-  };
+  }, [currentBusiness?.id]);
 
   const fetchUsers = async () => {
     const res = await axios.get('/api/dbhandler?model=user');
@@ -31,14 +37,19 @@ export default function ShippingAddressForm() {
   useEffect(() => {
     fetchShippingAddresses();
     fetchUsers();
-  }, []);
+  }, [currentBusiness?.id, fetchShippingAddresses]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const payload = {
+      ...formData,
+      ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
+    };
+    const authQuery = user?.id && user.id !== 'nil' ? `&userId=${user.id}` : '';
     if (editId) {
-      await axios.put(`/api/dbhandler?model=shippingAddress&id=${editId}`, formData);
+      await axios.put(`/api/dbhandler?model=shippingAddress&id=${editId}${authQuery}`, payload);
     } else {
-      await axios.post('/api/dbhandler?model=shippingAddress', formData);
+      await axios.post(`/api/dbhandler?model=shippingAddress${authQuery}`, payload);
     }
     resetForm();
     fetchShippingAddresses();
@@ -50,7 +61,8 @@ export default function ShippingAddressForm() {
   };
 
   const handleDelete = async (id) => {
-    await axios.delete(`/api/dbhandler?model=shippingAddress&id=${id}`);
+    const authQuery = user?.id && user.id !== 'nil' ? `?userId=${user.id}` : '';
+    await axios.delete(`/api/dbhandler?model=shippingAddress&id=${id}${authQuery}`);
     fetchShippingAddresses();
   };
 

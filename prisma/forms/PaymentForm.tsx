@@ -1,9 +1,13 @@
+"use client";
+
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import axios from 'axios';
+import { useAppContext } from '@/hooks/useAppContext';
 
 export default function PaymentForm() {
+  const { currentBusiness, user } = useAppContext();
   const [payments, setPayments] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     cartId: '',
@@ -13,22 +17,26 @@ export default function PaymentForm() {
   const [editId, setEditId] = useState<string | null>(null);
   const [carts, setCarts] = useState<any[]>([]); // carts to be mapped to the select input
 
+  const businessId = currentBusiness?.id;
+
   const fetchPayments = useCallback(async () => {
     try {
-      const res = await axios.get('/api/dbhandler?model=payment');
+      const query = businessId ? `?model=payment&businessId=${businessId}` : '?model=payment';
+      const res = await axios.get(`/api/dbhandler${query}`);
       setPayments(res.data);
     } catch (err) {
       console.error('Failed to fetch payments', err);
     }
-  }, []);
+  }, [businessId]);
 
   const fetchCarts = useCallback(async () => {
-    const res = await axios.get('/api/dbhandler?model=cart');
+    const query = businessId ? `?model=cart&businessId=${businessId}` : '?model=cart';
+    const res = await axios.get(`/api/dbhandler${query}`);
     setCarts(res.data);
     if (res.data.length > 0) {
       setFormData(prev => ({ ...prev, cartId: res.data[0].id }));
     }
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchPayments();
@@ -47,10 +55,15 @@ export default function PaymentForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
+      };
+      const authQuery = user?.id && user.id !== 'nil' ? `&userId=${user.id}` : '';
       if (editId) {
-        await axios.put(`/api/dbhandler?model=payment&id=${editId}`, formData);
+        await axios.put(`/api/dbhandler?model=payment&id=${editId}${authQuery}`, payload);
       } else {
-        await axios.post('/api/dbhandler?model=payment', formData);
+        await axios.post(`/api/dbhandler?model=payment${authQuery}`, payload);
       }
     } catch (error) {
       alert('Failed to save payment.');
@@ -62,7 +75,8 @@ export default function PaymentForm() {
   const handleDelete = async (id) => {
     if (!confirm('Are you sure you want to delete this payment?')) return;
     try {
-      await axios.delete(`/api/dbhandler?model=payment&id=${id}`);
+      const authQuery = user?.id && user.id !== 'nil' ? `?userId=${user.id}` : '';
+      await axios.delete(`/api/dbhandler?model=payment&id=${id}${authQuery}`);
       fetchPayments();
     } catch (err) {
       alert('Failed to delete payment.');

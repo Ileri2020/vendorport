@@ -131,20 +131,38 @@ function parseId(id: string | null, model: string) {
   return ["user", "category", "product", "brand"].includes(model) ? id : Number(id);
 }
 
-async function canManageBusinessResource(session: any, model: string | null, businessId?: string | null) {
+async function canManageBusinessResource(session: any, model: string | null, businessId?: string | null, userId?: string | null) {
   const role = (session?.user as any)?.role || "visitor";
   const sessionUserId = (session?.user as any)?.id;
+  const effectiveUserId = userId || sessionUserId;
   const isAdminOrStaff = role === "admin" || role === "staff";
 
   if (isAdminOrStaff) return true;
-  if (model !== "category" || !businessId || !sessionUserId) return false;
+
+  const businessScopedModels = new Set([
+    "category",
+    "product",
+    "coupon",
+    "featuredProduct",
+    "notification",
+    "payment",
+    "post",
+    "refund",
+    "shippingAddress",
+    "deliveryFee",
+    "cart",
+    "review",
+    "message",
+  ]);
+
+  if (!businessScopedModels.has(model || "") || !businessId || !effectiveUserId) return false;
 
   const business = await prisma.business.findUnique({
     where: { id: businessId },
     select: { ownerId: true },
   });
 
-  return Boolean(business && String(business.ownerId) === String(sessionUserId));
+  return Boolean(business && String(business.ownerId) === String(effectiveUserId));
 }
 
 async function handleUpload(file: File | string) {
@@ -169,6 +187,7 @@ export async function GET(req: NextRequest) {
   if (!model || !modelMap[model]) return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
   const prismaModel = modelMap[model];
+  const businessId = searchParams.get("businessId");
 
   try {
     if (!id) {
@@ -200,7 +219,6 @@ export async function GET(req: NextRequest) {
       }
 
       if (model === "featuredProduct") {
-        const businessId = searchParams.get("businessId");
         const where: any = {};
         if (businessId) where.businessId = businessId;
         return NextResponse.json(await prisma.featuredProduct.findMany({
@@ -221,7 +239,10 @@ export async function GET(req: NextRequest) {
       }
 
       if (model === "review" || model === "post") {
+        const where: any = {};
+        if (businessId) where.businessId = businessId;
         return NextResponse.json(await prismaModel.findMany({
+          where,
           take: limit,
           skip: offset,
           include: { user: { select: { id: true, email: true, name: true, avatarUrl: true } } },
@@ -230,7 +251,6 @@ export async function GET(req: NextRequest) {
       }
 
       if (model === "category") {
-        const businessId = searchParams.get("businessId");
         const where: any = {};
         if (businessId) where.businessId = businessId;
         return NextResponse.json(await prisma.category.findMany({
@@ -378,6 +398,9 @@ export async function GET(req: NextRequest) {
       const status = searchParams.get("status"); // CSV support
       const where: any = {};
 
+      if (businessId && ["coupon", "deliveryFee", "featuredProduct", "notification", "payment", "post", "refund", "shippingAddress", "cart", "review", "message", "product", "category"].includes(model)) {
+        where.businessId = businessId;
+      }
       if (userId) where.userId = userId;
       if (model === "coupon" && code) where.code = code;
       if (model === "deliveryFee" && state) where.state = state;
@@ -475,8 +498,9 @@ export async function POST(req: NextRequest) {
 
   const protectedModels = ["product", "category", "featuredProduct", "stock", "coupon", "brand", "post"];
   const businessId = body?.businessId || body?.business?.id || null;
+  const requestUserId = body?.userId || body?.ownerId || searchParams.get("userId") || searchParams.get("ownerId") || null;
   const canManage = protectedModels.includes(model || "")
-    ? await canManageBusinessResource(session, model, businessId)
+    ? await canManageBusinessResource(session, model, businessId, requestUserId)
     : true;
 
   if (protectedModels.includes(model || "") && !canManage) {
@@ -636,9 +660,10 @@ export async function PUT(req: NextRequest) {
   }
 
   const businessId = body?.businessId || body?.business?.id || null;
+  const requestUserId = body?.userId || body?.ownerId || searchParams.get("userId") || searchParams.get("ownerId") || null;
   const canManage = model === "user"
     ? true
-    : await canManageBusinessResource(session, model, businessId);
+    : await canManageBusinessResource(session, model, businessId, requestUserId);
 
   if (model !== "user" && !canManage) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
@@ -740,9 +765,10 @@ export async function DELETE(req: NextRequest) {
   if (!model || !modelMap[model] || !id) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
   const item = await modelMap[model].findUnique({ where: { id: String(id) }, select: { businessId: true } }).catch(() => null);
+  const userId = searchParams.get("userId") || searchParams.get("ownerId") || null;
   const canManage = model === "user"
     ? false
-    : await canManageBusinessResource(session, model, item?.businessId || null);
+    : await canManageBusinessResource(session, model, item?.businessId || null, userId);
 
   if (!canManage) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });

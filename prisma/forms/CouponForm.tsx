@@ -1,10 +1,14 @@
+"use client";
+
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAppContext } from '@/hooks/useAppContext';
 
 export default function CouponForm() {
+  const { currentBusiness, user } = useAppContext();
   const [coupons, setCoupons] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     code: '',
@@ -16,9 +20,11 @@ export default function CouponForm() {
   const [editId, setEditId] = useState<string | null>(null);
 
   const fetchCoupons = useCallback(async () => {
-    const res = await axios.get('/api/dbhandler?model=coupon');
+    const businessId = currentBusiness?.id;
+    const query = businessId ? `?model=coupon&businessId=${businessId}` : '?model=coupon';
+    const res = await axios.get(`/api/dbhandler${query}`);
     setCoupons(res.data);
-  }, []);
+  }, [currentBusiness?.id]);
 
   useEffect(() => {
     fetchCoupons();
@@ -29,11 +35,13 @@ export default function CouponForm() {
     const data = {
       ...formData,
       discount: parseFloat(formData.discount),
+      ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
     };
+    const authQuery = user?.id && user.id !== 'nil' ? `&userId=${user.id}` : '';
     if (editId) {
-      await axios.put(`/api/dbhandler?model=coupon&id=${editId}`, data);
+      await axios.put(`/api/dbhandler?model=coupon&id=${editId}${authQuery}`, data);
     } else {
-      await axios.post('/api/dbhandler?model=coupon', data);
+      await axios.post(`/api/dbhandler?model=coupon${authQuery}`, data);
     }
     resetForm();
     fetchCoupons();
@@ -51,7 +59,8 @@ export default function CouponForm() {
   };
 
   const handleDelete = async (id) => {
-    await axios.delete(`/api/dbhandler?model=coupon&id=${id}`);
+    const authQuery = user?.id && user.id !== 'nil' ? `?userId=${user.id}` : '';
+    await axios.delete(`/api/dbhandler?model=coupon&id=${id}${authQuery}`);
     fetchCoupons();
   };
 

@@ -1,11 +1,15 @@
+"use client";
+
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MapPin, Truck, Loader2 } from 'lucide-react';
+import { useAppContext } from '@/hooks/useAppContext';
 
 export default function DeliveryFeeForm() {
+  const { currentBusiness, user } = useAppContext();
     const [fees, setFees] = useState([]);
     const [formData, setFormData] = useState({
         state: '',
@@ -15,9 +19,11 @@ export default function DeliveryFeeForm() {
     const [loading, setLoading] = useState(false);
 
     const fetchFees = useCallback(async () => {
-        const res = await axios.get('/api/dbhandler?model=deliveryFee');
+        const businessId = currentBusiness?.id;
+        const query = businessId ? `?model=deliveryFee&businessId=${businessId}` : '?model=deliveryFee';
+        const res = await axios.get(`/api/dbhandler${query}`);
         setFees(res.data);
-    }, []);
+    }, [currentBusiness?.id]);
 
     useEffect(() => {
         fetchFees();
@@ -29,12 +35,14 @@ export default function DeliveryFeeForm() {
         const data = {
             ...formData,
             price: parseFloat(formData.price),
+            ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
         };
+        const authQuery = user?.id && user.id !== 'nil' ? `&userId=${user.id}` : '';
         try {
             if (editId) {
-                await axios.put(`/api/dbhandler?model=deliveryFee&id=${editId}`, data);
+                await axios.put(`/api/dbhandler?model=deliveryFee&id=${editId}${authQuery}`, data);
             } else {
-                await axios.post('/api/dbhandler?model=deliveryFee', data);
+                await axios.post(`/api/dbhandler?model=deliveryFee${authQuery}`, data);
             }
             resetForm();
             fetchFees();
@@ -54,7 +62,8 @@ export default function DeliveryFeeForm() {
     };
 
     const handleDelete = async (id: string) => {
-        await axios.delete(`/api/dbhandler?model=deliveryFee&id=${id}`);
+        const authQuery = user?.id && user.id !== 'nil' ? `?userId=${user.id}` : '';
+        await axios.delete(`/api/dbhandler?model=deliveryFee&id=${id}${authQuery}`);
         fetchFees();
     };
 

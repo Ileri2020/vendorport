@@ -1,13 +1,17 @@
+"use client";
+
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useAppContext } from '@/hooks/useAppContext';
 
 const ITEMS_PER_PAGE = 10;
 
 export default function CartForm() {
+  const { currentBusiness, user } = useAppContext();
   const [carts, setCarts] = useState([]);
   const [users, setUsers] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
@@ -25,10 +29,13 @@ export default function CartForm() {
   const [productPage, setProductPage] = useState(1);
   const [cartPage, setCartPage] = useState(1);
 
+  const businessId = currentBusiness?.id;
+
   const fetchCarts = useCallback(async () => {
-    const res = await axios.get('/api/dbhandler?model=cart');
+    const query = businessId ? `?model=cart&businessId=${businessId}` : '?model=cart';
+    const res = await axios.get(`/api/dbhandler${query}`);
     setCarts(res.data);
-  }, []);
+  }, [businessId]);
 
   const fetchUsers = useCallback(async () => {
     const res = await axios.get('/api/dbhandler?model=user');
@@ -36,9 +43,10 @@ export default function CartForm() {
   }, []);
 
   const fetchProducts = useCallback(async () => {
-    const res = await axios.get('/api/dbhandler?model=product');
+    const query = businessId ? `?model=product&businessId=${businessId}` : '?model=product';
+    const res = await axios.get(`/api/dbhandler${query}`);
     setProducts(res.data);
-  }, []);
+  }, [businessId]);
 
   useEffect(() => {
     fetchCarts();
@@ -52,11 +60,13 @@ export default function CartForm() {
       ...formData,
       quantity: +formData.quantity,
       total: +formData.total,
+      ...(businessId ? { businessId } : {}),
     };
+    const authQuery = user?.id && user.id !== 'nil' ? `&userId=${user.id}` : '';
     if (editId) {
-      await axios.put(`/api/dbhandler?model=cart&id=${editId}`, newFormData);
+      await axios.put(`/api/dbhandler?model=cart&id=${editId}${authQuery}`, newFormData);
     } else {
-      await axios.post('/api/dbhandler?model=cart', newFormData);
+      await axios.post(`/api/dbhandler?model=cart${authQuery}`, newFormData);
     }
     resetForm();
     fetchCarts();
@@ -69,7 +79,8 @@ export default function CartForm() {
 
   const handleDelete = async (id: any) => {
     if(!confirm("Remove this cart item?")) return;
-    await axios.delete(`/api/dbhandler?model=cart&id=${id}`);
+    const authQuery = user?.id && user.id !== 'nil' ? `?userId=${user.id}` : '';
+    await axios.delete(`/api/dbhandler?model=cart&id=${id}${authQuery}`);
     fetchCarts();
   };
 

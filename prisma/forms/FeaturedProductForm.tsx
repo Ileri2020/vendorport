@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { Input } from "@/components/ui/input";
@@ -5,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { useAppContext } from "@/hooks/useAppContext";
 
 interface Product {
   id: string;
@@ -27,6 +30,7 @@ interface FeaturedProductFormProps {
 }
 
 export default function FeaturedProductForm({ hideList = false }: FeaturedProductFormProps) {
+  const { currentBusiness, user } = useAppContext();
   const [featuredProduct, setFeaturedProduct] = useState<FeaturedProduct[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState("");
@@ -40,23 +44,27 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
 
   const [editId, setEditId] = useState<string | null>(null);
 
+  const businessId = currentBusiness?.id;
+
   const fetchFeaturedProduct = useCallback(async () => {
     try {
-      const res = await axios.get("/api/dbhandler?model=featuredProduct");
+      const query = businessId ? `?model=featuredProduct&businessId=${businessId}` : "?model=featuredProduct";
+      const res = await axios.get(`/api/dbhandler${query}`);
       setFeaturedProduct(res.data);
     } catch (err) {
       console.error("Failed to fetch featured products", err);
     }
-  }, []);
+  }, [businessId]);
 
   const fetchProducts = useCallback(async () => {
     try {
-      const res = await axios.get("/api/dbhandler?model=product");
+      const query = businessId ? `?model=product&businessId=${businessId}` : "?model=product";
+      const res = await axios.get(`/api/dbhandler${query}`);
       setProducts(res.data);
     } catch (err) {
       console.error("Failed to fetch products", err);
     }
-  }, []);
+  }, [businessId]);
 
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchFeaturedProduct(), fetchProducts()]);
@@ -103,8 +111,10 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
     }
 
     try {
-      await axios.post("/api/dbhandler?model=featuredProduct", {
+      const authQuery = user?.id && user.id !== "nil" ? `?userId=${user.id}` : "";
+      await axios.post(`/api/dbhandler?model=featuredProduct${authQuery}`, {
         productId: item.id,
+        ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
       });
 
       toast.success(`${item.name} featured successfully`);
@@ -121,9 +131,10 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
     if (!editId || !formData.productId) return;
 
     try {
+      const authQuery = user?.id && user.id !== "nil" ? `&userId=${user.id}` : "";
       await axios.put(
-        `/api/dbhandler?model=featuredProduct&id=${editId}`,
-        { productId: formData.productId }
+        `/api/dbhandler?model=featuredProduct&id=${editId}${authQuery}`,
+        { productId: formData.productId, ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}) }
       );
 
       toast.success("Featured product updated");
@@ -146,7 +157,8 @@ export default function FeaturedProductForm({ hideList = false }: FeaturedProduc
   const handleDelete = async (id: string) => {
     if(!confirm("Remove this product from featured list?")) return;
     try {
-      await axios.delete(`/api/dbhandler?model=featuredProduct&id=${id}`);
+      const authQuery = user?.id && user.id !== "nil" ? `?userId=${user.id}` : "";
+      await axios.delete(`/api/dbhandler?model=featuredProduct&id=${id}${authQuery}`);
       toast.success("Feature removed");
       fetchFeaturedProduct();
     } catch (err) {

@@ -15,7 +15,7 @@ interface CategoriesFormProps {
 }
 
 export default function CategoriesForm({ initialCategory, hideList = false }: CategoriesFormProps) {
-  const { currentBusiness } = useAppContext();
+  const { currentBusiness, user } = useAppContext();
   const [categories, setCategories] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     id: initialCategory?.id || "",
@@ -86,6 +86,10 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
       if (currentBusiness?.id) {
         data.append("businessId", currentBusiness.id);
+      }
+
+      if (user?.id && user.id !== "nil") {
+        data.append("userId", user.id);
       }
 
       if (editId) {

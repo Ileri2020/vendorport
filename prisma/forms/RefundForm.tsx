@@ -1,10 +1,14 @@
 
+"use client";
+
 import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { useAppContext } from '@/hooks/useAppContext';
 
 export default function RefundForm() {
+  const { currentBusiness, user } = useAppContext();
   const [refunds, setRefunds] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     cartId: '',
@@ -15,9 +19,11 @@ export default function RefundForm() {
   const [editId, setEditId] = useState<string | null>(null);
 
   const fetchRefunds = useCallback(async () => {
-    const res = await axios.get('/api/dbhandler?model=refund');
+    const businessId = currentBusiness?.id;
+    const query = businessId ? `?model=refund&businessId=${businessId}` : '?model=refund';
+    const res = await axios.get(`/api/dbhandler${query}`);
     setRefunds(res.data);
-  }, []);
+  }, [currentBusiness?.id]);
 
   useEffect(() => {
     fetchRefunds();
@@ -25,10 +31,15 @@ export default function RefundForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const payload = {
+      ...formData,
+      ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
+    };
+    const authQuery = user?.id && user.id !== 'nil' ? `&userId=${user.id}` : '';
     if (editId) {
-      await axios.put(`/api/dbhandler?model=refund&id=${editId}`, formData);
+      await axios.put(`/api/dbhandler?model=refund&id=${editId}${authQuery}`, payload);
     } else {
-      await axios.post('/api/dbhandler?model=refund', formData);
+      await axios.post(`/api/dbhandler?model=refund${authQuery}`, payload);
     }
     resetForm();
     fetchRefunds();
@@ -40,7 +51,8 @@ export default function RefundForm() {
   };
 
   const handleDelete = async (id) => {
-    await axios.delete(`/api/dbhandler?model=refund&id=${id}`);
+    const authQuery = user?.id && user.id !== 'nil' ? `?userId=${user.id}` : '';
+    await axios.delete(`/api/dbhandler?model=refund&id=${id}${authQuery}`);
     fetchRefunds();
   };
 
