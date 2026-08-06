@@ -1,5 +1,7 @@
 "use client"
 import React, { useState } from 'react'
+import { useAppContext } from '@/hooks/useAppContext'
+import { toast } from 'sonner'
 import {
   Drawer,
   DrawerClose,
@@ -27,6 +29,7 @@ interface SignupProps {
 }
 
 export const SignupForm = ({ onLoginClick }: { onLoginClick?: () => void }) => {
+  const { setUser } = useAppContext();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -60,14 +63,22 @@ export const SignupForm = ({ onLoginClick }: { onLoginClick?: () => void }) => {
   const handleSubmit = async (e: any) => {
     e.preventDefault();
     try {
+      let response;
       if (editId) {
-        await axios.put(`/api/dbhandler?model=user&id=${editId}`, formData);
+        response = await axios.put(`/api/dbhandler?model=user&id=${editId}`, formData);
       } else {
-        await axios.post('/api/auth/register', formData);
+        response = await axios.post('/api/auth/register', formData);
       }
+
+      if (response?.data?.id) {
+        setUser(response.data);
+        toast.success('Account created successfully');
+      }
+
       resetForm();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Signup error", error);
+      toast.error(error?.response?.data?.error || 'Failed to create account');
     }
   };
 

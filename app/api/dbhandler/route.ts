@@ -131,6 +131,22 @@ function parseId(id: string | null, model: string) {
   return ["user", "category", "product", "brand"].includes(model) ? id : Number(id);
 }
 
+async function canManageBusinessResource(session: any, model: string | null, businessId?: string | null) {
+  const role = (session?.user as any)?.role || "visitor";
+  const sessionUserId = (session?.user as any)?.id;
+  const isAdminOrStaff = role === "admin" || role === "staff";
+
+  if (isAdminOrStaff) return true;
+  if (model !== "category" || !businessId || !sessionUserId) return false;
+
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    select: { ownerId: true },
+  });
+
+  return Boolean(business && String(business.ownerId) === String(sessionUserId));
+}
+
 async function handleUpload(file: File | string) {
   let dataURI = typeof file === "string" ? file : "";
   if (typeof file !== "string") {
@@ -431,12 +447,6 @@ export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const model = searchParams.get("model");
   const session = await auth();
-  const role = (session?.user as any)?.role || "visitor";
-
-  const protectedModels = ["product", "category", "featuredProduct", "stock", "coupon", "brand", "post"];
-  if (protectedModels.includes(model || "") && role !== "admin" && role !== "staff") {
-    return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
-  }
 
   if (!model || !modelMap[model]) return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
@@ -461,6 +471,16 @@ export async function POST(req: NextRequest) {
     formData.forEach((value, key) => { if (key !== "file") body[key] = value; });
   } else {
     body = await req.json();
+  }
+
+  const protectedModels = ["product", "category", "featuredProduct", "stock", "coupon", "brand", "post"];
+  const businessId = body?.businessId || body?.business?.id || null;
+  const canManage = protectedModels.includes(model || "")
+    ? await canManageBusinessResource(session, model, businessId)
+    : true;
+
+  if (protectedModels.includes(model || "") && !canManage) {
+    return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 
   try {
@@ -594,11 +614,6 @@ export async function PUT(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const model = searchParams.get("model");
   const session = await auth();
-  const role = (session?.user as any)?.role || "visitor";
-
-  if (model !== "user" && role !== "admin" && role !== "staff") {
-    return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
-  }
 
   if (!model || !modelMap[model]) return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
@@ -618,6 +633,15 @@ export async function PUT(req: NextRequest) {
     formData.forEach((value, key) => { if (key !== "file") body[key] = value; });
   } else {
     body = await req.json();
+  }
+
+  const businessId = body?.businessId || body?.business?.id || null;
+  const canManage = model === "user"
+    ? true
+    : await canManageBusinessResource(session, model, businessId);
+
+  if (model !== "user" && !canManage) {
+    return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 
   // Support for bulk brand reordering
@@ -712,13 +736,17 @@ export async function DELETE(req: NextRequest) {
   const model = searchParams.get("model");
   const id = parseId(searchParams.get("id"), model || "");
   const session = await auth();
-  const role = (session?.user as any)?.role || "visitor";
-
-  if (role !== "admin" && role !== "staff") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-  }
 
   if (!model || !modelMap[model] || !id) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+
+  const item = await modelMap[model].findUnique({ where: { id: String(id) }, select: { businessId: true } }).catch(() => null);
+  const canManage = model === "user"
+    ? false
+    : await canManageBusinessResource(session, model, item?.businessId || null);
+
+  if (!canManage) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
 
   try {
     await modelMap[model].delete({ where: { id } });
