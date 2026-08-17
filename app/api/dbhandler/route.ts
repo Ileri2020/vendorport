@@ -123,6 +123,40 @@ function getSiteSettingsDefaults(businessName: string, template: string) {
   };
 }
 
+function normalizeBusinessRelation(model: string, data: any) {
+  if (!data || typeof data !== "object") return data;
+
+  const businessScopedModels = new Set([
+    "category",
+    "product",
+    "coupon",
+    "featuredProduct",
+    "notification",
+    "payment",
+    "post",
+    "refund",
+    "shippingAddress",
+    "deliveryFee",
+    "cart",
+    "review",
+    "message",
+  ]);
+
+  if (businessScopedModels.has(model) && data.businessId) {
+    data.business = { connect: { id: String(data.businessId) } };
+    delete data.businessId;
+  } else if (businessScopedModels.has(model) && data.businessId === undefined) {
+    delete data.businessId;
+  }
+
+  if (model === "category") {
+    delete data.userId;
+    delete data.ownerId;
+  }
+
+  return data;
+}
+
 // =====================
 // Utilities
 // =====================
@@ -497,7 +531,8 @@ export async function POST(req: NextRequest) {
   }
 
   const protectedModels = ["product", "category", "featuredProduct", "stock", "coupon", "brand", "post"];
-  const businessId = body?.businessId || body?.business?.id || null;
+  const businessId = body?.businessId || body?.business?.id || body?.business?.connect?.id || null;
+  body = normalizeBusinessRelation(model, body);
   const requestUserId = body?.userId || body?.ownerId || searchParams.get("userId") || searchParams.get("ownerId") || null;
   const canManage = protectedModels.includes(model || "")
     ? await canManageBusinessResource(session, model, businessId, requestUserId)
@@ -690,7 +725,8 @@ export async function PUT(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
   const { id: _, ...updatedData } = body;
-  
+  normalizeBusinessRelation(model, updatedData);
+
   if (updatedData.isRead === "true") updatedData.isRead = true;
   if (updatedData.isRead === "false") updatedData.isRead = false;
 

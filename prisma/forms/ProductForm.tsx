@@ -101,6 +101,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
   const [healthConcernInput, setHealthConcernInput] = useState("");
   const { currentBusiness } = useAppContext();
+  const isPharmacy = String(currentBusiness?.template || "estore").toLowerCase() === "pharmacy";
 
 
   const fetchProducts = useCallback(async () => {
@@ -428,117 +429,121 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
           />
         </div>
 
-        <div className="w-full space-y-1 text-center flex flex-col items-center">
-          <Label htmlFor="product-brand" className='mb-2'>Brand</Label>
+        {isPharmacy && (
+          <div className="w-full space-y-1 text-center flex flex-col items-center">
+            <Label htmlFor="product-brand" className='mb-2'>Brand</Label>
+            <div className="w-full space-y-2">
+              <Input
+                placeholder="Search brands..."
+                value={brandSearch}
+                onChange={(e) => setBrandSearch(e.target.value)}
+                className="border-primary/20 focus:border-primary h-8 text-xs"
+              />
+              <Select 
+                value={formData.brand} 
+                onValueChange={(value) => {
+                  if (value === "__create_new__") return;
+                  setFormData({ ...formData, brand: value });
+                  setBrandSearch("");
+                }}
+              >
+                <SelectTrigger id="product-brand" className="w-full border-primary/20">
+                  <SelectValue placeholder="Select a brand" />
+                </SelectTrigger>
+                <SelectContent className="max-h-48 overflow-y-auto">
+                  {allBrands
+                    .filter((brand) => 
+                      brand.toLowerCase().includes(brandSearch.toLowerCase())
+                    )
+                    .map((brand) => (
+                      <SelectItem key={brand} value={brand}>
+                        {brand}
+                      </SelectItem>
+                    ))}
+                  <SelectItem value="__create_new__" className="border-t pt-2 mt-2">
+                    <span className="text-primary font-semibold">+ Create New Brand</span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              {formData.brand === "__create_new__" && (
+                <div className="flex gap-2 w-full">
+                  <Input
+                    placeholder="Brand name"
+                    value={newBrandInput}
+                    onChange={(e) => setNewBrandInput(e.target.value)}
+                    className="border-primary/20 focus:border-primary h-8 text-xs flex-1"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      if (newBrandInput.trim()) {
+                        setFormData({ ...formData, brand: newBrandInput.trim() });
+                        setAllBrands([...new Set([...allBrands, newBrandInput.trim()])]);
+                        setNewBrandInput("");
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isPharmacy && (
           <div className="w-full space-y-2">
-            <Input
-              placeholder="Search brands..."
-              value={brandSearch}
-              onChange={(e) => setBrandSearch(e.target.value)}
-              className="border-primary/20 focus:border-primary h-8 text-xs"
-            />
-            <Select 
-              value={formData.brand} 
-              onValueChange={(value) => {
-                if (value === "__create_new__") return;
-                setFormData({ ...formData, brand: value });
-                setBrandSearch("");
-              }}
-            >
-              <SelectTrigger id="product-brand" className="w-full border-primary/20">
-                <SelectValue placeholder="Select a brand" />
-              </SelectTrigger>
-              <SelectContent className="max-h-48 overflow-y-auto">
-                {allBrands
-                  .filter((brand) => 
-                    brand.toLowerCase().includes(brandSearch.toLowerCase())
-                  )
-                  .map((brand) => (
-                    <SelectItem key={brand} value={brand}>
-                      {brand}
-                    </SelectItem>
-                  ))}
-                <SelectItem value="__create_new__" className="border-t pt-2 mt-2">
-                  <span className="text-primary font-semibold">+ Create New Brand</span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {formData.brand === "__create_new__" && (
-              <div className="flex gap-2 w-full">
-                <Input
-                  placeholder="Brand name"
-                  value={newBrandInput}
-                  onChange={(e) => setNewBrandInput(e.target.value)}
-                  className="border-primary/20 focus:border-primary h-8 text-xs flex-1"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
-                    if (newBrandInput.trim()) {
-                      setFormData({ ...formData, brand: newBrandInput.trim() });
-                      setAllBrands([...new Set([...allBrands, newBrandInput.trim()])]);
-                      setNewBrandInput("");
-                    }
-                  }}
-                >
-                  Add
-                </Button>
+            <Label>Active Ingredients</Label>
+            {formData.activeIngredients && (
+              <div className="flex gap-2 flex-wrap bg-muted/20 p-2 rounded border">
+                {formData.activeIngredients.split(",").map(i => i.trim()).filter(Boolean).map(ing => (
+                  <Badge key={ing} variant="secondary" className="flex items-center gap-1">
+                    {ing}
+                    <X className="w-3 h-3 cursor-pointer hover:text-destructive" onClick={() => removeIngredient(ing)} />
+                  </Badge>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add new ingredient & press Enter"
+                value={ingredientInput}
+                onChange={(e) => setIngredientInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addIngredient(ingredientInput);
+                  }
+                }}
+                className="border-primary/20 focus:border-primary"
+              />
+              <Button type="button" onClick={() => addIngredient(ingredientInput)}>Add</Button>
+            </div>
+            
+            {allIngredients.length > 0 && (
+              <div className="space-y-1 mt-2">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Saved Ingredients (Click to add)</p>
+                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 border rounded bg-card">
+                  {allIngredients.map(ing => {
+                    const current = formData.activeIngredients ? formData.activeIngredients.split(",").map(i => i.trim()) : [];
+                    if (current.includes(ing)) return null;
+                    return (
+                      <Badge 
+                        key={ing} 
+                        variant="outline" 
+                        className="cursor-pointer hover:bg-primary/10 transition-colors" 
+                        onClick={() => addIngredient(ing)}
+                      >
+                        {ing}
+                      </Badge>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
-        </div>
-
-        <div className="w-full space-y-2">
-          <Label>Active Ingredients</Label>
-          {formData.activeIngredients && (
-            <div className="flex gap-2 flex-wrap bg-muted/20 p-2 rounded border">
-              {formData.activeIngredients.split(",").map(i => i.trim()).filter(Boolean).map(ing => (
-                <Badge key={ing} variant="secondary" className="flex items-center gap-1">
-                  {ing}
-                  <X className="w-3 h-3 cursor-pointer hover:text-destructive" onClick={() => removeIngredient(ing)} />
-                </Badge>
-              ))}
-            </div>
-          )}
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add new ingredient & press Enter"
-              value={ingredientInput}
-              onChange={(e) => setIngredientInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addIngredient(ingredientInput);
-                }
-              }}
-              className="border-primary/20 focus:border-primary"
-            />
-            <Button type="button" onClick={() => addIngredient(ingredientInput)}>Add</Button>
-          </div>
-          
-          {allIngredients.length > 0 && (
-            <div className="space-y-1 mt-2">
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Saved Ingredients (Click to add)</p>
-              <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-2 border rounded bg-card">
-                {allIngredients.map(ing => {
-                  const current = formData.activeIngredients ? formData.activeIngredients.split(",").map(i => i.trim()) : [];
-                  if (current.includes(ing)) return null;
-                  return (
-                    <Badge 
-                      key={ing} 
-                      variant="outline" 
-                      className="cursor-pointer hover:bg-primary/10 transition-colors" 
-                      onClick={() => addIngredient(ing)}
-                    >
-                      {ing}
-                    </Badge>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
+        )}
 
         <div className="w-full space-y-1 text-center flex flex-col items-center">
           <Label htmlFor="product-category" className='mb-2'>Product Category</Label>
@@ -580,51 +585,53 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
         </div>
 
         {/* ✅ Health Concerns Multi-Select Checkboxes */}
-        <div className="w-full space-y-2">
-          <Label className="text-sm font-semibold">
-            Health Concerns / Uses
-            <span className="ml-1 text-xs font-normal text-muted-foreground">
-              ({formData.healthConcerns.length} selected)
-            </span>
-          </Label>
-          <div className="grid grid-cols-2 gap-2 p-3 border rounded-md bg-muted/30 max-h-48 overflow-y-auto">
-            {allHealthConcerns.map((concern) => (
-              <div key={concern} className="flex items-center gap-2">
-                <Checkbox
-                  id={`concern-${concern}`}
-                  checked={formData.healthConcerns.includes(concern)}
-                  onCheckedChange={() => toggleConcern(concern)}
-                />
-                <Label htmlFor={`concern-${concern}`} className="text-xs font-normal cursor-pointer line-clamp-1 py-1">
-                  {concern}
-                </Label>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Input
-              placeholder="Add new health concern..."
-              value={healthConcernInput}
-              onChange={(e) => setHealthConcernInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  if (healthConcernInput.trim() && !allHealthConcerns.includes(healthConcernInput.trim())) {
-                      toggleConcern(healthConcernInput.trim());
-                      setHealthConcernInput("");
+        {isPharmacy && (
+          <div className="w-full space-y-2">
+            <Label className="text-sm font-semibold">
+              Health Concerns / Uses
+              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                ({formData.healthConcerns.length} selected)
+              </span>
+            </Label>
+            <div className="grid grid-cols-2 gap-2 p-3 border rounded-md bg-muted/30 max-h-48 overflow-y-auto">
+              {allHealthConcerns.map((concern) => (
+                <div key={concern} className="flex items-center gap-2">
+                  <Checkbox
+                    id={`concern-${concern}`}
+                    checked={formData.healthConcerns.includes(concern)}
+                    onCheckedChange={() => toggleConcern(concern)}
+                  />
+                  <Label htmlFor={`concern-${concern}`} className="text-xs font-normal cursor-pointer line-clamp-1 py-1">
+                    {concern}
+                  </Label>
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input
+                placeholder="Add new health concern..."
+                value={healthConcernInput}
+                onChange={(e) => setHealthConcernInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (healthConcernInput.trim() && !allHealthConcerns.includes(healthConcernInput.trim())) {
+                        toggleConcern(healthConcernInput.trim());
+                        setHealthConcernInput("");
+                    }
                   }
-                }
-              }}
-              className="border-primary/20 focus:border-primary h-8 text-xs"
-            />
-            <Button size="sm" type="button" onClick={() => {
-                 if (healthConcernInput.trim() && !allHealthConcerns.includes(healthConcernInput.trim())) {
-                      toggleConcern(healthConcernInput.trim());
-                      setHealthConcernInput("");
-                 }
-            }}>New</Button>
+                }}
+                className="border-primary/20 focus:border-primary h-8 text-xs"
+              />
+              <Button size="sm" type="button" onClick={() => {
+                   if (healthConcernInput.trim() && !allHealthConcerns.includes(healthConcernInput.trim())) {
+                        toggleConcern(healthConcernInput.trim());
+                        setHealthConcernInput("");
+                   }
+              }}>New</Button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="w-full space-y-1">
           <Label htmlFor="product-price">Cost Price (₦)</Label>
@@ -642,35 +649,37 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
           </p>
         </div>
 
-        <div className="w-full space-y-1 text-center flex flex-col items-center">
-          <Label htmlFor="reg-class" className='mb-2 font-semibold'>Regulatory Classification</Label>
-          <Select 
-            value={formData.regulatoryClassification} 
-            onValueChange={(value) => {
-              setFormData({ 
-                ...formData, 
-                regulatoryClassification: value,
-                requiresPrescription: value === "Prescription Medicine"
-              });
-            }}
-          >
-            <SelectTrigger id="reg-class" className="w-full border-primary/20">
-              <SelectValue placeholder="Select classification" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="OTC">OTC (Over the Counter)</SelectItem>
-              <SelectItem value="Pharmacy Only Medicine">Pharmacy Only Medicine</SelectItem>
-              <SelectItem value="Prescription Medicine">Prescription Medicine</SelectItem>
-              <SelectItem value="Controlled Medicine">Controlled Medicine</SelectItem>
-            </SelectContent>
-          </Select>
-          {formData.regulatoryClassification === "Prescription Medicine" && (
-            <p className="text-[10px] text-destructive font-bold mt-1 uppercase">Requires Prescription Image</p>
-          )}
-          {formData.regulatoryClassification === "Controlled Medicine" && (
-            <p className="text-[10px] text-accent font-bold mt-1 uppercase text-center leading-tight">Controlled: Only accessible via official representative</p>
-          )}
-        </div>
+        {isPharmacy && (
+          <div className="w-full space-y-1 text-center flex flex-col items-center">
+            <Label htmlFor="reg-class" className='mb-2 font-semibold'>Regulatory Classification</Label>
+            <Select 
+              value={formData.regulatoryClassification} 
+              onValueChange={(value) => {
+                setFormData({ 
+                  ...formData, 
+                  regulatoryClassification: value,
+                  requiresPrescription: value === "Prescription Medicine"
+                });
+              }}
+            >
+              <SelectTrigger id="reg-class" className="w-full border-primary/20">
+                <SelectValue placeholder="Select classification" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="OTC">OTC (Over the Counter)</SelectItem>
+                <SelectItem value="Pharmacy Only Medicine">Pharmacy Only Medicine</SelectItem>
+                <SelectItem value="Prescription Medicine">Prescription Medicine</SelectItem>
+                <SelectItem value="Controlled Medicine">Controlled Medicine</SelectItem>
+              </SelectContent>
+            </Select>
+            {formData.regulatoryClassification === "Prescription Medicine" && (
+              <p className="text-[10px] text-destructive font-bold mt-1 uppercase">Requires Prescription Image</p>
+            )}
+            {formData.regulatoryClassification === "Controlled Medicine" && (
+              <p className="text-[10px] text-accent font-bold mt-1 uppercase text-center leading-tight">Controlled: Only accessible via official representative</p>
+            )}
+          </div>
+        )}
 
         <div className="w-full space-y-1">
           <Label htmlFor="product-weight">Weight (mg, ml, caps, etc.)</Label>
@@ -760,14 +769,16 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
           )}
         </div>
 
-        <div className="w-full flex items-center gap-2 border p-2 rounded-md bg-secondary/10">
-          <Checkbox 
-            id="product-scarce" 
-            checked={formData.scarce}
-            onCheckedChange={(checked) => setFormData({...formData, scarce: !!checked})}
-          />
-          <Label htmlFor="product-scarce" className="text-sm font-semibold cursor-pointer">Mark as Scarce Product</Label>
-        </div>
+        {isPharmacy && (
+          <div className="w-full flex items-center gap-2 border p-2 rounded-md bg-secondary/10">
+            <Checkbox 
+              id="product-scarce" 
+              checked={formData.scarce}
+              onCheckedChange={(checked) => setFormData({...formData, scarce: !!checked})}
+            />
+            <Label htmlFor="product-scarce" className="text-sm font-semibold cursor-pointer">Mark as Scarce Product</Label>
+          </div>
+        )}
 
         <div className="w-full space-y-1">
           <Label htmlFor="product-image">Product Image</Label>
@@ -844,13 +855,13 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
                     <div className="flex justify-between items-start gap-2">
                       <div className="flex-1 min-w-0">
                         <span className="font-bold text-sm block truncate uppercase tracking-tight">
-                          {item.scarce && <span className="text-destructive mr-1">⚠️</span>}
+                          {isPharmacy && item.scarce && <span className="text-destructive mr-1">⚠️</span>}
                           {item.name}
                         </span>
                         <div className="flex flex-col">
                           <div className="flex items-center gap-2">
                             <p className="text-xs font-bold text-primary">Cost: ₦{item.price}</p>
-                            {item.brand && <span className="text-[10px] text-muted-foreground">| {item.brand}</span>}
+                            {isPharmacy && item.brand && <span className="text-[10px] text-muted-foreground">| {item.brand}</span>}
                           </div>
                           {item.category?.name && (
                             <span className="text-[10px] text-muted-foreground italic truncate">in {item.category.name}</span>
@@ -862,7 +873,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
                         <Button type='button' size="sm" onClick={() => handleDelete(item)} variant='outline' className='h-8 w-12 text-[10px] font-bold border-destructive text-destructive hover:bg-destructive hover:text-white'>DEL</Button>
                       </div>
                     </div>
-                    {item.healthConcerns?.length > 0 && (
+                    {isPharmacy && item.healthConcerns?.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
                         {item.healthConcerns.map((hc: string) => (
                           <span key={hc} className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase">
@@ -871,7 +882,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
                         ))}
                       </div>
                     )}
-                    {item.activeIngredients?.length > 0 && (
+                    {isPharmacy && item.activeIngredients?.length > 0 && (
                       <p className="text-[10px] text-muted-foreground truncate">
                         <strong>Ingredients:</strong> {item.activeIngredients.join(", ")}
                       </p>

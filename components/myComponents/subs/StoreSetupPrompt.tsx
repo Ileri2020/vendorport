@@ -58,8 +58,8 @@ export default function StoreSetupPrompt({
 
   return (
     <section className="mx-auto max-w-6xl py-10 px-4">
-      <div className="rounded-[2.5rem] border border-primary/20 bg-primary/5 p-8 shadow-sm">
-        <div className="flex flex-col items-center justify-center gap-4 text-center">
+      <div className="rounded-[2.5rem] border border-primary/20 bg-primary/5 p-8 shadow-sm mx-auto">
+        <div className="flex flex-col items-center justify-center gap-4 text-center mx-auto">
           <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Sparkles className="h-8 w-8" />
           </div>
@@ -69,9 +69,9 @@ export default function StoreSetupPrompt({
           </div>
         </div>
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-2">
+        <div className="mt-10 grid gap-6 lg:grid-cols-2 mx-auto justify-center items-center">
           {needsCategories && (
-            <div className="rounded-3xl border border-primary/10 bg-white/80 p-6 shadow-sm">
+            <div className="rounded-3xl border border-primary/10 bg-white/80 p-6 shadow-sm mx-auto">
               <div className="flex items-center gap-3 text-primary">
                 <PackageOpen className="h-6 w-6" />
                 <div>
@@ -98,8 +98,8 @@ export default function StoreSetupPrompt({
           )}
 
           {needsProducts && (
-            <div className="rounded-3xl border border-primary/10 bg-white/80 p-6 shadow-sm">
-              <div className="flex items-center gap-3 text-primary">
+            <div className="rounded-3xl border border-primary/10 bg-white/80 p-6 shadow-sm mx-auto">
+              <div className="flex items-center gap-3 text-primary mx-auto">
                 <PlusCircle className="h-6 w-6" />
                 <div>
                   <h3 className="font-bold text-lg">Add products to your store</h3>

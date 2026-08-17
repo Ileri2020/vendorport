@@ -360,6 +360,10 @@ model Product {
   vendors           ProductVendor[]
   priceFeedbacks    PriceFeedback[]
   heavilyDiscountedProducts HeavilyDiscountedProduct[]
+  regulatoryClassification String?          @default("OTC")
+  requiresPrescription     Boolean?         @default(false)
+  weight                   String?
+  bulkPrices               BulkPrice[]
 
   // add product features like dosage form, strength, manufacturer, etc
 }
@@ -738,4 +742,17 @@ model ChatMessage {
   updatedAt  DateTime   @updatedAt
 
   @@index([threadId, createdAt])
+}
+
+model BulkPrice {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  quantity  Int
+  price     Float
+  productId String   @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
 }

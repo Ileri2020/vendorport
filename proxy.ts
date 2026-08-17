@@ -1,5 +1,45 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { auth } from '@/auth'
+
+const CACHE_TTL = 5000
+const cacheStore = new Map<string, { timestamp: number; status: number; headers: Record<string, string>; body: string }>()
+const pendingRequests = new Map<string, Promise<NextResponse>>()
+
+function getCachedResponse(key: string) {
+  const cached = cacheStore.get(key)
+  if (!cached) return null
+  if (Date.now() - cached.timestamp > CACHE_TTL) {
+    cacheStore.delete(key)
+    return null
+  }
+  return cached
+}
+
+function getRequestCacheKey(url: URL, req: Request) {
+  const search = url.searchParams.toString()
+  return `${req.method}:${url.origin}${url.pathname}${search ? `?${search}` : ''}`
+}
+
+async function fetchWithBypass(req: Request) { 
+  const clonedHeaders = new Headers(req.headers)
+  clonedHeaders.set('x-proxy-cache-bypass', '1')
+
+  return fetch(req.url, {
+    method: req.method,
+    headers: clonedHeaders,
+    body: req.method === 'GET' ? undefined : await req.clone().arrayBuffer(),
+    redirect: 'manual',
+  })
+}
+
+function shouldCacheRequest(url: URL, req: Request) {
+  if (req.method !== 'GET') return false
+  if (!url.pathname.startsWith('/api/')) return false
+  if (url.pathname.startsWith('/api/auth')) return false
+  if (req.headers.get('x-proxy-cache-bypass') === '1') return false
+  return true
+}
 
 /**
  * Subdomain routing proxy
@@ -130,6 +170,59 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
  * Main proxy handler combining auth and subdomain routing
  */
 export async function proxy(request: NextRequest) {
+  const url = new URL(request.url)
+
+  if (shouldCacheRequest(url, request)) {
+    const cacheKey = getRequestCacheKey(url, request)
+    const cached = getCachedResponse(cacheKey)
+
+    if (cached) {
+      return new NextResponse(cached.body, {
+        status: cached.status,
+        headers: cached.headers,
+      })
+    }
+
+    const pending = pendingRequests.get(cacheKey)
+    if (pending) {
+      return pending
+    }
+
+    const fetchPromise = (async () => {
+      const response = await fetchWithBypass(request)
+      const body = await response.text()
+      const responseHeaders: Record<string, string> = {}
+
+      response.headers.forEach((value, key) => {
+        responseHeaders[key] = value
+      })
+
+      const nextResponse = new NextResponse(body, {
+        status: response.status,
+        headers: responseHeaders,
+      })
+
+      if (response.ok) {
+        cacheStore.set(cacheKey, {
+          timestamp: Date.now(),
+          status: response.status,
+          headers: responseHeaders,
+          body,
+        })
+      }
+
+      return nextResponse
+    })()
+
+    pendingRequests.set(cacheKey, fetchPromise)
+
+    try {
+      return await fetchPromise
+    } finally {
+      pendingRequests.delete(cacheKey)
+    }
+  }
+
   // First handle subdomain routing
   const subdomainResponse = await handleSubdomainRouting(request)
   if (subdomainResponse) {
@@ -144,7 +237,7 @@ export const middleware = proxy
 
 export const config = {
   matcher: [
-    // Match all routes except static assets and API routes
-    '/((?!_next/static|_next/image|favicon.ico|public|api/).*)',
+    // Match all app routes, including API routes, while skipping static assets.
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 }
