@@ -32,28 +32,49 @@ export async function POST(req , res) {
   //   }
   // );
 
+  const businessId = Formdata.get("businessId") || null;
+  const productBody: any = {
+    description: Formdata.get("description"),
+    name: Formdata.get("name"),
+    categoryId: Formdata.get("categoryId"),
+    price: parseFloat(Formdata.get("price") as string),
+    weight: Formdata.get("weight") || "",
+    bulkPrices: Formdata.get("bulkPrices") ? JSON.parse(Formdata.get("bulkPrices") as string) : [],
+    url: cldRes.url,
+    ...(businessId ? { businessId: String(businessId) } : {}),
+  };
+
+  if (Formdata.get("brand") && String(Formdata.get("brand")).trim()) {
+    productBody.brand = String(Formdata.get("brand")).trim();
+  }
+
+  if (Formdata.get("scarce") !== null) {
+    productBody.scarce = Formdata.get("scarce") === "true";
+  }
+
+  const activeIngredientsValue = Formdata.get("activeIngredients");
+  if (activeIngredientsValue && String(activeIngredientsValue).trim()) {
+    productBody.activeIngredients = String(activeIngredientsValue).split(",").map((s: string) => s.trim()).filter(Boolean);
+  }
+
+  const healthConcernsValue = Formdata.get("healthConcerns");
+  if (healthConcernsValue && String(healthConcernsValue).trim()) {
+    productBody.healthConcerns = String(healthConcernsValue).split(",").map((s: string) => s.trim()).filter(Boolean);
+  }
+
+  const regClass = Formdata.get("regulatoryClassification");
+  if (regClass && String(regClass).trim()) {
+    productBody.regulatoryClassification = String(regClass).trim();
+  }
+
+  if (Formdata.get("requiresPrescription") !== null) {
+    productBody.requiresPrescription = Formdata.get("requiresPrescription") === "true";
+  }
+
   const postRes = await dbHandler({
     model: 'product',
     method: 'POST',
-    body: {
-      description: Formdata.get("description"),
-      name: Formdata.get("name"),
-      categoryId: Formdata.get("categoryId"),
-      price: parseFloat(Formdata.get("price") as string),
-      brand: Formdata.get("brand"),
-      scarce: Formdata.get("scarce") === "true",
-      activeIngredients: Formdata.get("activeIngredients")
-        ? (Formdata.get("activeIngredients") as string).split(",").map((s: string) => s.trim()).filter(Boolean)
-        : [],
-      healthConcerns: Formdata.get("healthConcerns")
-        ? (Formdata.get("healthConcerns") as string).split(",").map((s: string) => s.trim()).filter(Boolean)
-        : [],
-      regulatoryClassification: Formdata.get("regulatoryClassification") || "OTC",
-      requiresPrescription: Formdata.get("requiresPrescription") === "true",
-      weight: Formdata.get("weight"),
-      bulkPrices: Formdata.get("bulkPrices") ? JSON.parse(Formdata.get("bulkPrices") as string) : [],
-      url: cldRes.url,
-    },
+    body: productBody,
   });
   
 

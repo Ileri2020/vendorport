@@ -11,7 +11,7 @@
 // TODO: Delete after migration complete - legacy catch-all for old DB-generated URLs
 import { redirect, notFound } from "next/navigation";
 
-const STATIC_PAGES = new Set(["home", "about", "contact", "blog", "cart", "store"]);
+const STATIC_PAGES = new Set(["home", "about", "contact", "blog", "cart", "store", "help", "jobs"]);
 
 interface Props {
   params: Promise<{ storeName: string; slug: string[] }>;

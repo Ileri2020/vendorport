@@ -17,10 +17,12 @@ import Link from "next/link"
 import axios from "axios"
 import { toast } from "sonner"
 import Papa from "papaparse"
+import { cn } from "@/lib/utils"
 import { AccountUpgrade } from "@/components/myComponents/subs/AccountUpgrade"
 import { AdminUserManager } from "@/components/myComponents/subs/AdminUserManager"
 import { AdminBulkManager } from "@/components/myComponents/subs/AdminBulkManager"
 import { AffiliateDialog } from "@/components/myComponents/subs/AffiliateDialog"
+import { PortfolioCard } from "@/components/myComponents/subs/PortfolioCard"
 import { ProfileSkeleton, TableSkeleton } from "@/components/skeletons"
 import {
   User,
@@ -61,6 +63,8 @@ const Account = () => {
   const [loadingAffiliateData, setLoadingAffiliateData] = useState(true);
   const [downloadingDataOps, setDownloadingDataOps] = useState(false);
   const [affiliatePopupSeen, setAffiliatePopupSeen] = useState(false);
+  const [portfolios, setPortfolios] = useState<any[]>([]);
+  const [portfolioLoading, setPortfolioLoading] = useState(false);
   const AFFILIATE_ACCOUNT_POPUP_KEY = 'hc_affiliate_account_popup_shown';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -98,6 +102,23 @@ const Account = () => {
   }, [user?.email, affiliatePopupSeen]);
 
   useEffect(() => {
+    const fetchPortfolios = async () => {
+      if (!user?.id || user.id === 'nil') return;
+      try {
+        setPortfolioLoading(true);
+        const res = await axios.get(`/api/dbhandler?model=portfolio&userId=${user.id}`);
+        setPortfolios(Array.isArray(res.data) ? res.data : res.data ? [res.data] : []);
+      } catch (error) {
+        console.error('Failed to fetch portfolios', error);
+      } finally {
+        setPortfolioLoading(false);
+      }
+    };
+
+    fetchPortfolios();
+  }, [user?.id]);
+
+  useEffect(() => {
     if (!isAffiliate) return;
 
     const fetchReferrals = async () => {
@@ -120,6 +141,29 @@ const Account = () => {
     const newOrientation = cardOrientation === 'horizontal' ? 'vertical' : 'horizontal';
     setCardOrientation(newOrientation);
     localStorage.setItem('store-card-orientation', newOrientation);
+  };
+
+  const handlePortfolioActivation = async (portfolioId: string) => {
+    if (!user?.id || user.id === 'nil') return;
+
+    try {
+      const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+      await axios.put(`/api/dbhandler?model=portfolio&id=${portfolioId}`, {
+        activatedAt: new Date().toISOString(),
+        activationExpiresAt: expiresAt,
+      });
+
+      const updated = portfolios.map((item) =>
+        item.id === portfolioId
+          ? { ...item, activatedAt: new Date().toISOString(), activationExpiresAt: expiresAt }
+          : { ...item, activatedAt: null, activationExpiresAt: null }
+      );
+      setPortfolios(updated);
+      toast.success("Portfolio activated successfully.");
+    } catch (error) {
+      console.error("Activate portfolio failed", error);
+      toast.error("Could not activate this portfolio.");
+    }
   };
 
   const copyAffiliateId = async () => {
@@ -483,6 +527,51 @@ const Account = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="rounded-xl border bg-card shadow-sm p-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">My Portfolios</h2>
+            <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">
+              {portfolios.length}/3
+            </Badge>
+          </div>
+
+          {portfolioLoading ? (
+            <div className="text-sm text-muted-foreground">Loading portfolios...</div>
+          ) : portfolios.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No portfolios created yet.</div>
+          ) : (
+            <div className="space-y-4">
+              {portfolios.map((portfolio) => {
+                const activatedAt = portfolio.activatedAt ? new Date(portfolio.activatedAt) : null;
+                const expiresAt = portfolio.activationExpiresAt ? new Date(portfolio.activationExpiresAt) : null;
+                const active = Boolean(activatedAt && expiresAt && expiresAt.getTime() > Date.now());
+
+                return (
+                  <div key={portfolio.id} className="space-y-2">
+                    <PortfolioCard
+                      portfolio={portfolio}
+                      layout="horizontal"
+                      active={active}
+                      showActivateButton
+                      onActivate={handlePortfolioActivation}
+                    />
+                    <Button
+                      type="button"
+                      onClick={() => handlePortfolioActivation(portfolio.id)}
+                      className={cn(
+                        "w-full rounded-full text-xs font-black",
+                        active ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
+                      )}
+                    >
+                      {active ? "Active until countdown ends" : "Start 2-week activation countdown"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {isAffiliate && (

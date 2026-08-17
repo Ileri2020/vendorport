@@ -226,43 +226,51 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     pformData.append("description", formData.description);
     pformData.append("categoryId", formData.categoryId);
     pformData.append("price", String(formData.price));
-    pformData.append("brand", formData.brand);
-    pformData.append("scarce", String(formData.scarce));
-    pformData.append("activeIngredients", formData.activeIngredients);
-    pformData.append("regulatoryClassification", formData.regulatoryClassification);
-    pformData.append("requiresPrescription", String(formData.requiresPrescription));
     if (currentBusiness?.id) {
       pformData.append("businessId", currentBusiness.id);
+    }
+
+    if (isPharmacy) {
+      pformData.append("brand", formData.brand || "");
+      pformData.append("scarce", String(formData.scarce));
+      pformData.append("activeIngredients", formData.activeIngredients || "");
+      pformData.append("regulatoryClassification", formData.regulatoryClassification || "OTC");
+      pformData.append("requiresPrescription", String(formData.requiresPrescription));
+      pformData.append("healthConcerns", (formData.healthConcerns || []).join(","));
     }
 
     if (formData.costPrice) {
       pformData.append("costPrice", String(formData.costPrice));
     }
-    // Send healthConcerns as a comma-separated string in FormData
-    pformData.append("healthConcerns", formData.healthConcerns.join(","));
-    pformData.append("weight", formData.weight);
-    pformData.append("bulkPrices", JSON.stringify(formData.bulkPrices));
+    pformData.append("weight", formData.weight || "");
+    pformData.append("bulkPrices", JSON.stringify(formData.bulkPrices || []));
 
     try {
       if (editId) {
-        // For PUT (update) send JSON body
+        const productPayload: any = {
+          name: formData.name,
+          description: formData.description,
+          categoryId: formData.categoryId,
+          price: Number(formData.price),
+          weight: formData.weight || "",
+          bulkPrices: formData.bulkPrices || [],
+          ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
+        };
+
+        if (isPharmacy) {
+          productPayload.healthConcerns = formData.healthConcerns || [];
+          productPayload.brand = formData.brand || "";
+          productPayload.scarce = !!formData.scarce;
+          productPayload.activeIngredients = formData.activeIngredients
+            ? formData.activeIngredients.split(",").map((i: string) => i.trim()).filter(Boolean)
+            : [];
+          productPayload.regulatoryClassification = formData.regulatoryClassification || "OTC";
+          productPayload.requiresPrescription = !!formData.requiresPrescription;
+        }
+
         await axios.put(
           `/api/dbhandler?model=product&id=${editId}`,
-          {
-            name: formData.name,
-            description: formData.description,
-            categoryId: formData.categoryId,
-            price: Number(formData.price),
-            healthConcerns: formData.healthConcerns,
-            brand: formData.brand,
-            scarce: formData.scarce,
-            activeIngredients: formData.activeIngredients.split(",").map(i => i.trim()).filter(Boolean),
-            regulatoryClassification: formData.regulatoryClassification,
-            requiresPrescription: formData.requiresPrescription,
-            weight: formData.weight,
-            bulkPrices: formData.bulkPrices,
-            ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
-          }
+          productPayload
         );
       } else {
         await axios.post(`/api/product`, pformData);

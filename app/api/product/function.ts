@@ -57,32 +57,36 @@ async function dbHandler({
       case 'POST':
         // const data = body;  Spicy, pepperish and groundnut yaji spice blend
         console.log('post product body:', body)
-         const newItem = await prismaModel.create({
-            data: {
-              description: body.description,
-              name: body.name,
-              categoryId: body.categoryId,
-              price: parseFloat(body.price),
-              scarce: body.scarce,
-              regulatoryClassification: body.regulatoryClassification || "OTC",
-              requiresPrescription: body.requiresPrescription === true || body.requiresPrescription === "true",
-              images: [body.url],
-              brand: body.brand ? {
-                connectOrCreate: { where: { name: body.brand }, create: { name: body.brand } }
-              } : undefined,
-              activeIngredients: {
-                connectOrCreate: (Array.isArray(body.activeIngredients) ? body.activeIngredients : []).map((name: string) => ({
-                  where: { name }, create: { name }
-                }))
-              },
-              healthConcerns: {
-                connectOrCreate: (Array.isArray(body.healthConcerns) ? body.healthConcerns : []).map((name: string) => ({
-                  where: { name }, create: { name }
-                }))
-              },
-            },
+         const productData: any = {
+            description: body.description,
+            name: body.name,
+            categoryId: body.categoryId,
+            price: Number(body.price),
+            images: body.url ? [body.url] : [],
+            businessId: body.businessId ? String(body.businessId) : undefined,
+            costPrice: body.costPrice !== undefined && body.costPrice !== null && body.costPrice !== "" ? Number(body.costPrice) : undefined,
+            weight: body.weight ? String(body.weight) : undefined,
+            brand: body.brand && String(body.brand).trim() ? String(body.brand).trim() : undefined,
+            scarce: body.scarce === true || body.scarce === "true",
+            regulatoryClassification: body.regulatoryClassification || "OTC",
+            requiresPrescription: body.requiresPrescription === true || body.requiresPrescription === "true",
+            activeIngredients: Array.isArray(body.activeIngredients)
+              ? body.activeIngredients.map((name: any) => String(name).trim()).filter(Boolean)
+              : typeof body.activeIngredients === "string"
+                ? body.activeIngredients.split(",").map((name: string) => name.trim()).filter(Boolean)
+                : [],
+          };
+
+          if (Array.isArray(body.healthConcerns) && body.healthConcerns.length > 0) {
+            productData.healthConcerns = {
+              connectOrCreate: body.healthConcerns.map((name: string) => ({
+                where: { name: String(name).trim() },
+                create: { name: String(name).trim() },
+              })).filter((item: any) => item.where.name)
+            };
           }
-        );
+
+          const newItem = await prismaModel.create({ data: productData });
         if (profileImage && model === 'posts') {
           try {
             console.log("about to change user profile image")

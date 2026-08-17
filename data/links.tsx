@@ -4,6 +4,7 @@ import { CiShoppingCart, } from "react-icons/ci"
 import { IoMdHelp } from "react-icons/io";
 import { VscAccount } from "react-icons/vsc";
 import { IoFastFoodOutline } from "react-icons/io5";
+import { HiBriefcase, HiOutlineQuestionMarkCircle } from "react-icons/hi2";
 
 export default {Links : [
     {
@@ -20,6 +21,16 @@ export default {Links : [
       name: <AiOutlineInfoCircle />,
       title: "About",
       path: "/about",
+    },
+    {
+      name: <HiOutlineQuestionMarkCircle />,
+      title: "Help",
+      path: "/help",
+    },
+    {
+      name: <HiBriefcase />,
+      title: "Jobs",
+      path: "/jobs",
     },
     {
       name: <BiPhone />,

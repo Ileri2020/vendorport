@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea'
 import axios from 'axios'
 import { toast } from 'sonner'
 import { Signup } from '@/components/myComponents/subs'
+import PortfolioForm from '@/prisma/forms/PortfolioForm'
 
 interface Business {
   id: string
@@ -111,6 +112,7 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
   const [assistantResults, setAssistantResults] = useState<any[]>([]);
   const [assistantLoading, setAssistantLoading] = useState(false);
   const [assistantMessage, setAssistantMessage] = useState('Type a product or store name and I’ll search the marketplace for fast matches.');
+  const [isPortfolioDialogOpen, setIsPortfolioDialogOpen] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
   const isHeroInView = useInView(heroRef, { once: true, margin: '-100px' });
   const isSignedIn = Boolean(user?.email && user.email !== 'nil');
@@ -296,36 +298,79 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
           </p>
 
           <div className="flex flex-col gap-6 justify-center items-center pt-10">
-            {isSignedIn ? (
-              <Link href="/create-store">
-                <Button size="lg" className="py-4 px-10 bg-accent/70 hover:bg-accent/50 text-white font-black animate-pulse text-lg w-full max-w-[300] rounded-2xl shadow-2xl border-2 shadow-accent/70 transition-all hover:scale-105">
-                  Create Website <PlusCircle className="ml-3 h-6 w-6" />
-                </Button>
-              </Link>
-            ) : (
-              <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="lg" className="py-4 px-10 bg-accent/70 hover:bg-accent/50 text-white font-black animate-pulse text-lg w-full max-w-[200] rounded-2xl shadow-2xl border-2 shadow-accent/70 transition-all hover:scale-105">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-center">
+              {isSignedIn ? (
+                <Link href="/create-store">
+                  <Button size="lg" className="py-4 px-10 bg-accent/70 hover:bg-accent/50 text-white font-black animate-pulse text-lg w-full max-w-[300] rounded-2xl shadow-2xl border-2 shadow-accent/70 transition-all hover:scale-105">
                     Create Website <PlusCircle className="ml-3 h-6 w-6" />
                   </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-md rounded-3xl" aria-describedby="create-website-description">
-                  <DialogHeader>
-                    <DialogTitle className="text-2xl font-black">Start your storefront</DialogTitle>
-                    <DialogDescription>
-                      dialog to create my website. You need an account to launch your website. Choose one of the options below.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div id="create-website-description" className="space-y-4 py-2">
-                    <p className="text-sm text-muted-foreground">You need an account before you can launch your website. Choose one of the options below.</p>
-                    <div className="grid gap-3">
-                      <Login />
-                      <Signup />
+                </Link>
+              ) : (
+                <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" className="py-4 px-10 bg-accent/70 hover:bg-accent/50 text-white font-black animate-pulse text-lg w-full max-w-[200] rounded-2xl shadow-2xl border-2 shadow-accent/70 transition-all hover:scale-105">
+                      Create Website <PlusCircle className="ml-3 h-6 w-6" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md rounded-3xl" aria-describedby="create-website-description">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl font-black">Start your storefront</DialogTitle>
+                      <DialogDescription>
+                        dialog to create my website. You need an account to launch your website. Choose one of the options below.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div id="create-website-description" className="space-y-4 py-2">
+                      <p className="text-sm text-muted-foreground">You need an account before you can launch your website. Choose one of the options below.</p>
+                      <div className="grid gap-3">
+                        <Login />
+                        <Signup />
+                      </div>
                     </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            )}
+                  </DialogContent>
+                </Dialog>
+              )}
+
+              {isSignedIn ? (
+                <Dialog open={isPortfolioDialogOpen} onOpenChange={setIsPortfolioDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" variant="outline" className="py-4 px-10 font-black text-lg w-full max-w-[260] rounded-2xl border-2 border-accent bg-accent/10 hover:bg-accent/20 transition-all md:w-auto">
+                      Create Portfolio <PlusCircle className="ml-3 h-6 w-6" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-2xl rounded-3xl">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl font-black">Create your portfolio</DialogTitle>
+                      <DialogDescription>
+                        Add your job title, summary, portfolio imagery, CVs, and certifications. Each account can keep one portfolio.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <PortfolioForm onSubmitted={() => setIsPortfolioDialogOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Dialog open={isAuthDialogOpen} onOpenChange={setIsAuthDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="lg" variant="outline" className="py-4 px-10 font-black text-lg w-full max-w-[260] rounded-2xl border-2 border-accent bg-accent/10 hover:bg-accent/20 transition-all md:w-auto">
+                      Create Portfolio <PlusCircle className="ml-3 h-6 w-6" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-md rounded-3xl" aria-describedby="create-portfolio-description">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl font-black">Sign in to create your portfolio</DialogTitle>
+                      <DialogDescription>
+                        Create an account or sign in to save a single portfolio for this user.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div id="create-portfolio-description" className="space-y-4 py-2">
+                      <div className="grid gap-3">
+                        <Login />
+                        <Signup />
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
+            </div>
 
             <Link href="#businesses">
               <Button size="lg" variant="outline" className="py-4 px-10 font-black text-xl w-full max-w-[450] sm:w-auto rounded-2xl border-2 border-accent hover:bg-muted/50 transition-all bg-accent/15">

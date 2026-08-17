@@ -47,6 +47,7 @@ const modelMap: Record<string, any> = {
   // @ts-ignore
   priceFeedback: prisma.priceFeedback,
   deliveryFee: prisma.deliveryFee,
+  portfolio: prisma.portfolio,
 };
 
 /** Returns sensible SiteSettings defaults based on the chosen store template */
@@ -513,24 +514,50 @@ export async function POST(req: NextRequest) {
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await req.formData();
-    const files = formData.getAll("file") as File[];
-    if (files.length > 0) {
+    const filesByField: Record<string, File[]> = {};
+
+    ["file", "images", "cvDocuments", "certificationDocuments", "documents", "portfolioImages"]
+      .forEach((field) => {
+        const values = formData.getAll(field) as File[];
+        const validFiles = values.filter((file) => file && typeof (file as File).size === "number" && (file as File).size > 0);
+        if (validFiles.length > 0) filesByField[field] = validFiles;
+      });
+
+    for (const [field, files] of Object.entries(filesByField)) {
       const urls: string[] = [];
       for (const file of files) {
         const uploadRes = await handleUpload(file);
         urls.push(uploadRes.url);
+      }
+      if (field === "file" || field === "images" || field === "portfolioImages") {
+        body.images = [...(body.images || []), ...urls];
+      }
+      if (field === "cvDocuments") {
+        body.cvDocuments = [...(body.cvDocuments || []), ...urls];
+      }
+      if (field === "certificationDocuments" || field === "documents") {
+        body.certificationDocuments = [...(body.certificationDocuments || []), ...urls];
       }
       if (model === "product") body.images = urls;
       if (model === "user") body.image = urls[0];
       if (model === "category") body.image = urls[0];
       if (model === "post") body.contentUrl = urls[0];
     }
-    formData.forEach((value, key) => { if (key !== "file") body[key] = value; });
+
+    formData.forEach((value, key) => {
+      if (["file", "images", "cvDocuments", "certificationDocuments", "documents", "portfolioImages"].includes(key)) return;
+      body[key] = value;
+    });
   } else {
     body = await req.json();
   }
 
   const protectedModels = ["product", "category", "featuredProduct", "stock", "coupon", "brand", "post"];
+
+  if (model === "portfolio" && !body.userId && session?.user?.id) {
+    body.userId = String((session.user as any).id);
+  }
+
   const businessId = body?.businessId || body?.business?.id || body?.business?.connect?.id || null;
   body = normalizeBusinessRelation(model, body);
   const requestUserId = body?.userId || body?.ownerId || searchParams.get("userId") || searchParams.get("ownerId") || null;
@@ -631,6 +658,28 @@ export async function POST(req: NextRequest) {
       body.password = await bcrypt.hash(body.password, await bcrypt.genSalt());
     }
 
+    if (model === "portfolio") {
+      if (body.userId) {
+        const portfolioCount = await prisma.portfolio.count({
+          where: { userId: String(body.userId) },
+        });
+        if (portfolioCount >= 3) {
+          return NextResponse.json({ error: "A user can only create up to 3 portfolios." }, { status: 400 });
+        }
+      }
+
+      if (body.contactCount !== undefined) {
+        body.contactCount = Number(body.contactCount) || 0;
+      }
+
+      if (body.activatedAt) {
+        body.activatedAt = new Date(body.activatedAt);
+      }
+      if (body.activationExpiresAt) {
+        body.activationExpiresAt = new Date(body.activationExpiresAt);
+      }
+    }
+
     // Parsing
     if (body.price) body.price = parseFloat(body.price);
     ['requiresPrescription', 'scarce', 'isRead'].forEach(field => {
@@ -639,17 +688,33 @@ export async function POST(req: NextRequest) {
     });
 
     if (model === "product") {
-      if (body.brand) {
-        body.brand = { connectOrCreate: { where: { name: body.brand }, create: { name: body.brand } } };
-      } else {
+      if (typeof body.brand === "string") {
+        body.brand = body.brand.trim();
+        if (!body.brand) delete body.brand;
+      } else if (body.brand !== undefined) {
         delete body.brand;
       }
+
       if (Array.isArray(body.activeIngredients)) {
-        body.activeIngredients = { connectOrCreate: body.activeIngredients.map((name: string) => ({ where: { name }, create: { name } })) };
+        body.activeIngredients = body.activeIngredients.map((name: any) => String(name).trim()).filter(Boolean);
+      } else if (typeof body.activeIngredients === "string") {
+        body.activeIngredients = body.activeIngredients.split(",").map((name: string) => name.trim()).filter(Boolean);
+      } else {
+        delete body.activeIngredients;
       }
+
       if (Array.isArray(body.healthConcerns)) {
-        body.healthConcerns = { connectOrCreate: body.healthConcerns.map((name: string) => ({ where: { name }, create: { name } })) };
+        const concerns = body.healthConcerns.map((name: any) => String(name).trim()).filter(Boolean);
+        body.healthConcerns = concerns.length > 0
+          ? { connectOrCreate: concerns.map((name: string) => ({ where: { name }, create: { name } })) }
+          : undefined;
+      } else if (typeof body.healthConcerns === "string") {
+        const concerns = body.healthConcerns.split(",").map((name: string) => name.trim()).filter(Boolean);
+        body.healthConcerns = concerns.length > 0
+          ? { connectOrCreate: concerns.map((name: string) => ({ where: { name }, create: { name } })) }
+          : undefined;
       }
+
       if (Array.isArray(body.bulkPrices)) {
         body.bulkPrices = {
           create: body.bulkPrices.map((bp: any) => ({
@@ -682,14 +747,40 @@ export async function PUT(req: NextRequest) {
 
   if (contentType.includes("multipart/form-data")) {
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
-    if (file) {
-      const uploadRes = await handleUpload(file);
-      if (model === "category") body.image = uploadRes.url;
-      if (model === "user") body.image = uploadRes.url;
-      if (model === "product") body.images = [uploadRes.url];
+    const filesByField: Record<string, File[]> = {};
+
+    ["file", "images", "cvDocuments", "certificationDocuments", "documents", "portfolioImages"]
+      .forEach((field) => {
+        const values = formData.getAll(field) as File[];
+        const validFiles = values.filter((file) => file && typeof (file as File).size === "number" && (file as File).size > 0);
+        if (validFiles.length > 0) filesByField[field] = validFiles;
+      });
+
+    for (const [field, files] of Object.entries(filesByField)) {
+      const urls: string[] = [];
+      for (const file of files) {
+        const uploadRes = await handleUpload(file);
+        urls.push(uploadRes.url);
+      }
+
+      if (field === "file" || field === "images" || field === "portfolioImages") {
+        body.images = [...(body.images || []), ...urls];
+      }
+      if (field === "cvDocuments") {
+        body.cvDocuments = [...(body.cvDocuments || []), ...urls];
+      }
+      if (field === "certificationDocuments" || field === "documents") {
+        body.certificationDocuments = [...(body.certificationDocuments || []), ...urls];
+      }
+      if (model === "category") body.image = urls[0];
+      if (model === "user") body.image = urls[0];
+      if (model === "product") body.images = urls;
     }
-    formData.forEach((value, key) => { if (key !== "file") body[key] = value; });
+
+    formData.forEach((value, key) => {
+      if (["file", "images", "cvDocuments", "certificationDocuments", "documents", "portfolioImages"].includes(key)) return;
+      body[key] = value;
+    });
   } else {
     body = await req.json();
   }
@@ -729,6 +820,50 @@ export async function PUT(req: NextRequest) {
 
   if (updatedData.isRead === "true") updatedData.isRead = true;
   if (updatedData.isRead === "false") updatedData.isRead = false;
+
+  if (model === "portfolio") {
+    const uploadLimit = 3;
+    const normalizeArray = (value: any) => {
+      if (Array.isArray(value)) return value.map((item) => String(item).trim()).filter(Boolean);
+      if (typeof value === "string") return value.split(",").map((item) => item.trim()).filter(Boolean);
+      return [];
+    };
+
+    if (updatedData.images !== undefined) {
+      const images = normalizeArray(updatedData.images);
+      if (images.length > uploadLimit) {
+        return NextResponse.json({ error: "Portfolio images cannot exceed 3 files." }, { status: 400 });
+      }
+      updatedData.images = images;
+    }
+
+    if (updatedData.cvDocuments !== undefined) {
+      const cvDocuments = normalizeArray(updatedData.cvDocuments);
+      if (cvDocuments.length > uploadLimit) {
+        return NextResponse.json({ error: "CV documents cannot exceed 3 files." }, { status: 400 });
+      }
+      updatedData.cvDocuments = cvDocuments;
+    }
+
+    if (updatedData.certificationDocuments !== undefined) {
+      const certDocuments = normalizeArray(updatedData.certificationDocuments);
+      if (certDocuments.length > uploadLimit) {
+        return NextResponse.json({ error: "Certification documents cannot exceed 3 files." }, { status: 400 });
+      }
+      updatedData.certificationDocuments = certDocuments;
+    }
+
+    if (updatedData.contactCount !== undefined) {
+      updatedData.contactCount = Number(updatedData.contactCount) || 0;
+    }
+
+    if (updatedData.activatedAt) {
+      updatedData.activatedAt = new Date(updatedData.activatedAt);
+    }
+    if (updatedData.activationExpiresAt) {
+      updatedData.activationExpiresAt = new Date(updatedData.activationExpiresAt);
+    }
+  }
 
   if (model === "product") {
     if (updatedData.brand !== undefined) {
