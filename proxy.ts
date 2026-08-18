@@ -207,7 +207,7 @@ export async function proxy(request: NextRequest) {
 
     const pending = pendingRequests.get(cacheKey)
     if (pending) {
-      return pending
+      return createResponse(await pending)
     }
 
     const fetchPromise = (async (): Promise<CachedResponse> => {
