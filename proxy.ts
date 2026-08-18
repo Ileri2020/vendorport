@@ -1,70 +1,58 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { auth } from '@/auth'
 
-const CACHE_TTL = 5000
-type CachedResponse = {
-  timestamp: number
-  status: number
-  headers: Record<string, string>
-  body: string
-}
-
-const cacheStore = new Map<string, CachedResponse>()
-const pendingRequests = new Map<string, Promise<CachedResponse>>()
-
-function getCachedResponse(key: string) {
-  const cached = cacheStore.get(key)
-  if (!cached) return null
-  if (Date.now() - cached.timestamp > CACHE_TTL) {
-    cacheStore.delete(key)
-    return null
-  }
-  return cached
-}
-
-function getRequestCacheKey(url: URL, req: Request) {
-  const search = url.searchParams.toString()
-  return `${req.method}:${url.origin}${url.pathname}${search ? `?${search}` : ''}`
-}
-
-function createResponse(cached: CachedResponse) {
-  return new NextResponse(cached.body, {
-    status: cached.status,
-    headers: cached.headers,
-  })
-}
-
-async function fetchWithBypass(req: Request) { 
-  const clonedHeaders = new Headers(req.headers)
-  clonedHeaders.set('x-proxy-cache-bypass', '1')
-
-  return fetch(req.url, {
-    method: req.method,
-    headers: clonedHeaders,
-    body: req.method === 'GET' ? undefined : await req.clone().arrayBuffer(),
-    redirect: 'manual',
-  })
-}
-
-function shouldCacheRequest(url: URL, req: Request) {
-  if (req.method !== 'GET') return false
-  if (!url.pathname.startsWith('/api/')) return false
-  if (url.pathname.startsWith('/api/auth')) return false
-  if (req.headers.get('x-proxy-cache-bypass') === '1') return false
-  if (url.pathname !== '/api/dbhandler') return false
-
-  const model = url.searchParams.get('model')
-  return [
-    'activeIngredient',
-    'brand',
-    'business',
-    'category',
-    'featuredProduct',
-    'healthConcern',
-    'product',
-  ].includes(model || '')
-}
+// Previous middleware API cache implementation intentionally disabled.
+// It is kept here for reference, but must not run on Vercel because its
+// self-fetch reads and replays a one-shot API response stream.
+//
+// const CACHE_TTL = 5000
+// type CachedResponse = {
+//   timestamp: number
+//   status: number
+//   headers: Record<string, string>
+//   body: string
+// }
+//
+// const cacheStore = new Map<string, CachedResponse>()
+// const pendingRequests = new Map<string, Promise<CachedResponse>>()
+//
+// function getCachedResponse(key: string) {
+//   const cached = cacheStore.get(key)
+//   if (!cached) return null
+//   if (Date.now() - cached.timestamp > CACHE_TTL) {
+//     cacheStore.delete(key)
+//     return null
+//   }
+//   return cached
+// }
+//
+// function getRequestCacheKey(url: URL, req: Request) {
+//   const search = url.searchParams.toString()
+//   return `${req.method}:${url.origin}${url.pathname}${search ? `?${search}` : ''}`
+// }
+//
+// async function fetchWithBypass(req: Request) {
+//   const clonedHeaders = new Headers(req.headers)
+//   clonedHeaders.set('x-proxy-cache-bypass', '1')
+//   return fetch(req.url, {
+//     method: req.method,
+//     headers: clonedHeaders,
+//     body: req.method === 'GET' ? undefined : await req.clone().arrayBuffer(),
+//     redirect: 'manual',
+//   })
+// }
+//
+// function shouldCacheRequest(url: URL, req: Request) {
+//   if (req.method !== 'GET') return false
+//   if (!url.pathname.startsWith('/api/')) return false
+//   if (url.pathname.startsWith('/api/auth')) return false
+//   if (req.headers.get('x-proxy-cache-bypass') === '1') return false
+//   if (url.pathname !== '/api/dbhandler') return false
+//   return [
+//     'activeIngredient', 'brand', 'business', 'category',
+//     'featuredProduct', 'healthConcern', 'product',
+//   ].includes(url.searchParams.get('model') || '')
+// }
 
 /**
  * Subdomain routing proxy
@@ -197,53 +185,8 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
 export async function proxy(request: NextRequest) {
   const url = new URL(request.url)
 
-  if (shouldCacheRequest(url, request)) {
-    const cacheKey = getRequestCacheKey(url, request)
-    const cached = getCachedResponse(cacheKey)
-
-    if (cached) {
-      return createResponse(cached)
-    }
-
-    const pending = pendingRequests.get(cacheKey)
-    if (pending) {
-      return createResponse(await pending)
-    }
-
-    const fetchPromise = (async (): Promise<CachedResponse> => {
-      const response = await fetchWithBypass(request)
-      const body = await response.text()
-      const responseHeaders: Record<string, string> = {}
-
-      response.headers.forEach((value, key) => {
-        responseHeaders[key] = value
-      })
-
-      const responseData: CachedResponse = {
-        timestamp: Date.now(),
-        status: response.status,
-        headers: responseHeaders,
-        body,
-      }
-
-      if (response.ok) {
-        cacheStore.set(cacheKey, responseData)
-      }
-
-      return responseData
-    })()
-
-    pendingRequests.set(cacheKey, fetchPromise)
-
-    try {
-      return createResponse(await fetchPromise)
-    } finally {
-      pendingRequests.delete(cacheKey)
-    }
-  }
-
-  // Internal API routes must not be intercepted by subdomain routing.
-  // Cacheable API requests have already been handled above.
+  // API routes must pass through natively. The browser-side cache handles
+  // duplicate public reads without making middleware self-fetch the API.
   if (url.pathname.startsWith('/api/')) {
     return NextResponse.next()
   }
