@@ -39,12 +39,14 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
   const brandName = business?.name || currentBusiness?.name || "Vendor Hub";
   const brandSubtitle = business?.siteSettings?.aboutText || currentBusiness?.siteSettings?.aboutText || "Your one stop shop for health needs";
   const customLogo = (() => {
-    const candidates = [
-      business?.siteSettings?.logoImageUrl,
-      business?.siteSettings?.logoUrl,
-      currentBusiness?.siteSettings?.logoImageUrl,
-      currentBusiness?.siteSettings?.logoUrl,
-    ];
+    const candidates = basePath
+      ? [
+          business?.siteSettings?.logoImageUrl,
+          business?.siteSettings?.logoUrl,
+          currentBusiness?.siteSettings?.logoImageUrl,
+          currentBusiness?.siteSettings?.logoUrl,
+        ]
+      : [];
 
     const resolved = candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
     return resolved || greenlogo;

@@ -57,16 +57,38 @@ const SiteSettingsForm: React.FC = () => {
     handleChange("accentDark", hsl);
   };
 
-  const handleLogoFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
-      handleChange("logoImageUrl", result);
-    };
-    reader.readAsDataURL(file);
+    if (file.size > 100 * 1024) {
+      event.target.value = "";
+      toast.error("Logo image must be 100 KB or smaller");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      event.target.value = "";
+      toast.error("Please select an image file");
+      return;
+    }
+
+    const uploadData = new FormData();
+    uploadData.append("businessId", currentBusiness?.id || "");
+    uploadData.append("file", file);
+
+    try {
+      const response = await fetch("/api/file/logo", {
+        method: "POST",
+        body: uploadData,
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Logo upload failed");
+      handleChange("logoImageUrl", result.url);
+      toast.success("Logo uploaded. Save settings to apply it.");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Logo upload failed");
+    }
   };
 
   const handleSave = async () => {
@@ -211,12 +233,7 @@ const SiteSettingsForm: React.FC = () => {
                 <div className="md:col-span-2">
                   <Label>Store Logo</Label>
                   <Input type="file" accept="image/*" onChange={handleLogoFileChange} className="mt-2" />
-                  <Input
-                    value={valOf("logoImageUrl", "")}
-                    onChange={(e: any) => handleChange("logoImageUrl", e.target.value)}
-                    placeholder="Or paste a logo image URL"
-                    className="mt-2"
-                  />
+                  <p className="mt-1 text-xs text-muted-foreground">Image files must be 100 KB or smaller and are uploaded to Cloudinary.</p>
                   {valOf("logoImageUrl", "") ? (
                     <div className="mt-3 rounded-md border bg-white/70 p-3">
                       <img
@@ -227,6 +244,45 @@ const SiteSettingsForm: React.FC = () => {
                     </div>
                   ) : null}
                 </div>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
+        {/* Pricing */}
+        <Collapsible open={openSection === "pricing"} onOpenChange={(v) => setOpenSection(v ? "pricing" : null)}>
+          <div className="border rounded-md bg-accent/5">
+            <CollapsibleTrigger asChild>
+              <button className="w-full p-3 text-left font-semibold bg-accent/20 shadow-md shadow-accent/70 flex items-center justify-between">
+                <span>Product Pricing</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${openSection === "pricing" ? "rotate-180" : ""}`} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="p-3 space-y-3">
+              <div className="flex items-center gap-3">
+                <input
+                  id="markup-enabled"
+                  type="checkbox"
+                  checked={Boolean(form.markupEnabled)}
+                  onChange={(e) => handleChange("markupEnabled", e.target.checked)}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="markup-enabled">Apply markup to new products</Label>
+              </div>
+              <div>
+                <Label htmlFor="markup-percentage">Markup Percentage</Label>
+                <Input
+                  id="markup-percentage"
+                  type="number"
+                  min="0"
+                  max="1000"
+                  step="0.01"
+                  value={valOf("markupPercentage", 0)}
+                  onChange={(e: any) => handleChange("markupPercentage", Math.max(0, Number(e.target.value) || 0))}
+                  disabled={!form.markupEnabled}
+                  placeholder="30"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">When enabled, new product prices use cost price plus this percentage.</p>
               </div>
             </CollapsibleContent>
           </div>

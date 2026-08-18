@@ -23,6 +23,7 @@ const Nav = ({ basePath }: NavProps) => {
   const { data: session } = useSession();
 
   const resolveHref = (path: string) => {
+    if (path === "/home") return basePath || "/";
     if (!basePath) return path;
     return `${basePath}${path}`;
   };

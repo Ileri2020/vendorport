@@ -31,7 +31,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     name: initialProduct?.name || '',
     description: initialProduct?.description || '',
     categoryId: initialProduct?.categoryId || '',
-    price: initialProduct?.price || 0,
+    price: initialProduct ? (initialProduct.price || '') : '',
     costPrice: initialProduct?.costPrice || 0,
     images: initialProduct?.images || null,
     healthConcerns: initialProduct?.healthConcerns || [],
@@ -102,6 +102,40 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   const [healthConcernInput, setHealthConcernInput] = useState("");
   const { currentBusiness } = useAppContext();
   const isPharmacy = String(currentBusiness?.template || "estore").toLowerCase() === "pharmacy";
+  const [markupEnabled, setMarkupEnabled] = useState(false);
+  const [markupPercentage, setMarkupPercentage] = useState(0);
+
+  useEffect(() => {
+    const loadPricingSettings = async () => {
+      if (!currentBusiness?.id) return;
+      try {
+        const response = await axios.get(`/api/site-settings?businessId=${currentBusiness.id}`);
+        const enabled = Boolean(response.data?.markupEnabled);
+        const percentage = Number(response.data?.markupPercentage) || 0;
+        setMarkupEnabled(enabled);
+        setMarkupPercentage(percentage);
+        if (!editId && enabled && Number(formData.costPrice) > 0) {
+          setFormData((previous: any) => ({
+            ...previous,
+            price: Number(previous.costPrice) * (1 + percentage / 100),
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to load pricing settings", error);
+      }
+    };
+
+    loadPricingSettings();
+  }, [currentBusiness?.id, editId, formData.costPrice]);
+
+  const updateCostPrice = (value: string) => {
+    const costPrice = Number(value) || 0;
+    setFormData((previous: any) => ({
+      ...previous,
+      costPrice: value,
+      ...(markupEnabled ? { price: costPrice * (1 + markupPercentage / 100) } : {}),
+    }));
+  };
 
 
   const fetchProducts = useCallback(async () => {
@@ -170,7 +204,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       description: '',
       categoryId: categories.length > 0 ? (categories[0] as any).id : '',
       category: categories.length > 0 ? (categories[0] as any).name : '',
-      price: 0,
+      price: '',
       costPrice: 0,
       images: null,
       healthConcerns: [],
@@ -216,6 +250,11 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    if (!Number.isFinite(Number(formData.costPrice)) || Number(formData.costPrice) <= 0) {
+      toast.error("Enter a valid cost price");
+      return;
+    }
+
     const pformData = new FormData();
 
     if (file) {
@@ -225,7 +264,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     pformData.append("name", formData.name);
     pformData.append("description", formData.description);
     pformData.append("categoryId", formData.categoryId);
-    pformData.append("price", String(formData.price));
+    pformData.append("price", String(formData.price || formData.costPrice || ""));
     if (currentBusiness?.id) {
       pformData.append("businessId", currentBusiness.id);
     }
@@ -239,7 +278,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       pformData.append("healthConcerns", (formData.healthConcerns || []).join(","));
     }
 
-    if (formData.costPrice) {
+    if (formData.costPrice !== undefined && formData.costPrice !== "") {
       pformData.append("costPrice", String(formData.costPrice));
     }
     pformData.append("weight", formData.weight || "");
@@ -251,7 +290,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
           name: formData.name,
           description: formData.description,
           categoryId: formData.categoryId,
-          price: Number(formData.price),
+          price: Number(formData.price || formData.costPrice || 0),
           weight: formData.weight || "",
           bulkPrices: formData.bulkPrices || [],
           ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
@@ -641,20 +680,36 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
           </div>
         )}
 
-        <div className="w-full space-y-1">
-          <Label htmlFor="product-price">Cost Price (₦)</Label>
+        <div className="w-full space-y-3 border border-primary/20 rounded-lg p-3 bg-primary/5">
+          <div className="space-y-1">
+            <Label htmlFor="product-cost-price">Cost Price (₦)</Label>
+            <Input
+              id="product-cost-price"
+              placeholder="Enter cost price"
+              value={formData.costPrice}
+              onChange={(e) => updateCostPrice(e.target.value)}
+              type="number"
+              min="0"
+              className="border-primary/20 focus:border-primary"
+            />
+          </div>
+          <div className="space-y-1">
+          <Label htmlFor="product-price">Selling Price (₦) <span className="text-muted-foreground font-normal">(optional, editable)</span></Label>
           <Input
             id="product-price"
-            placeholder="Cost Price (Base Price)"
+            placeholder={markupEnabled ? "Calculated from cost price" : "Leave blank to use cost price"}
             value={formData.price}
             onChange={(e) => setFormData({ ...formData, price: e.target.value })}
             type="number"
+            min="0"
             className="border-primary/20 focus:border-primary"
           />
           <p className="text-[10px] text-muted-foreground">
-            This price will be marked up dynamically based on user roles:
-            Retail(1.3x), Professional(1.2x), Wholesale(1.1x)
+            {markupEnabled
+              ? `Suggested at ${markupPercentage}% markup. You can adjust this price for a specific product.`
+              : "Optional. If left blank, the cost price will be used as the selling price."}
           </p>
+          </div>
         </div>
 
         {isPharmacy && (

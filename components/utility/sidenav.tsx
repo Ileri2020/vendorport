@@ -52,8 +52,10 @@ const Sidenav = ({ basePath }: SidenavProps) => {
     }, [currentBusiness?.id]);
 
     const closeSheet = () => setOpen(false);
+    const homeHref = basePath || "/";
 
     const resolveHref = (path: string) => {
+        if (path === "/home") return basePath || "/";
         if (!basePath) return path;
         return `${basePath}${path}`;
     };
@@ -93,7 +95,11 @@ const Sidenav = ({ basePath }: SidenavProps) => {
             </SheetTrigger>
             <SheetContent side="left" className="flex flex-col w-[300px] sm:w-[400px] p-0 gap-0 border-r-0 bg-background shadow-2xl">
                 <SheetHeader className="p-3 border-b bg-background">
-                    <SheetTitle className="text-left text-2xl font-black text-primary tracking-tighter italic">Vendor <span className="text-accent">Hub</span></SheetTitle>
+                    <SheetTitle asChild>
+                        <Link href={homeHref} onClick={closeSheet} className="text-left text-2xl font-black text-primary tracking-tighter italic">
+                            Vendor <span className="text-accent">Hub</span>
+                        </Link>
+                    </SheetTitle>
                 </SheetHeader>
                 
                 <div className="flex-1 overflow-y-auto px-2 md:px-4 py-2 space-y-1 scrollbar-hide">

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 // import axios from 'axios';
 import dbHandler from './function';
 import { handleUpload } from '../file/cloudinary';
+import { prisma } from '@/lib/prisma';
 
 
 
@@ -33,11 +34,33 @@ export async function POST(req , res) {
   // );
 
   const businessId = Formdata.get("businessId") || null;
+  const costPriceValue = Formdata.get("costPrice");
+  const costPrice = costPriceValue !== null && String(costPriceValue).trim() !== ""
+    ? parseFloat(String(costPriceValue))
+    : null;
+  let productPrice = parseFloat(Formdata.get("price") as string);
+
+  if (!Number.isFinite(productPrice) && costPrice !== null && Number.isFinite(costPrice)) {
+    productPrice = costPrice;
+  }
+
+  if (businessId && costPrice !== null && Number.isFinite(costPrice)) {
+    const settings = await prisma.siteSettings.findUnique({
+      where: { businessId: String(businessId) },
+      select: { markupEnabled: true, markupPercentage: true },
+    });
+
+    if (settings?.markupEnabled && settings.markupPercentage > 0) {
+      productPrice = costPrice * (1 + settings.markupPercentage / 100);
+    }
+  }
+
   const productBody: any = {
     description: Formdata.get("description"),
     name: Formdata.get("name"),
     categoryId: Formdata.get("categoryId"),
-    price: parseFloat(Formdata.get("price") as string),
+    price: productPrice,
+    ...(costPrice !== null && Number.isFinite(costPrice) ? { costPrice } : {}),
     weight: Formdata.get("weight") || "",
     bulkPrices: Formdata.get("bulkPrices") ? JSON.parse(Formdata.get("bulkPrices") as string) : [],
     url: cldRes.url,
