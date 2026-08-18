@@ -3,8 +3,15 @@ import type { NextRequest } from 'next/server'
 import { auth } from '@/auth'
 
 const CACHE_TTL = 5000
-const cacheStore = new Map<string, { timestamp: number; status: number; headers: Record<string, string>; body: string }>()
-const pendingRequests = new Map<string, Promise<NextResponse>>()
+type CachedResponse = {
+  timestamp: number
+  status: number
+  headers: Record<string, string>
+  body: string
+}
+
+const cacheStore = new Map<string, CachedResponse>()
+const pendingRequests = new Map<string, Promise<CachedResponse>>()
 
 function getCachedResponse(key: string) {
   const cached = cacheStore.get(key)
@@ -19,6 +26,13 @@ function getCachedResponse(key: string) {
 function getRequestCacheKey(url: URL, req: Request) {
   const search = url.searchParams.toString()
   return `${req.method}:${url.origin}${url.pathname}${search ? `?${search}` : ''}`
+}
+
+function createResponse(cached: CachedResponse) {
+  return new NextResponse(cached.body, {
+    status: cached.status,
+    headers: cached.headers,
+  })
 }
 
 async function fetchWithBypass(req: Request) { 
@@ -188,10 +202,7 @@ export async function proxy(request: NextRequest) {
     const cached = getCachedResponse(cacheKey)
 
     if (cached) {
-      return new NextResponse(cached.body, {
-        status: cached.status,
-        headers: cached.headers,
-      })
+      return createResponse(cached)
     }
 
     const pending = pendingRequests.get(cacheKey)
@@ -199,7 +210,7 @@ export async function proxy(request: NextRequest) {
       return pending
     }
 
-    const fetchPromise = (async () => {
+    const fetchPromise = (async (): Promise<CachedResponse> => {
       const response = await fetchWithBypass(request)
       const body = await response.text()
       const responseHeaders: Record<string, string> = {}
@@ -208,27 +219,24 @@ export async function proxy(request: NextRequest) {
         responseHeaders[key] = value
       })
 
-      const nextResponse = new NextResponse(body, {
+      const responseData: CachedResponse = {
+        timestamp: Date.now(),
         status: response.status,
         headers: responseHeaders,
-      })
-
-      if (response.ok) {
-        cacheStore.set(cacheKey, {
-          timestamp: Date.now(),
-          status: response.status,
-          headers: responseHeaders,
-          body,
-        })
+        body,
       }
 
-      return nextResponse
+      if (response.ok) {
+        cacheStore.set(cacheKey, responseData)
+      }
+
+      return responseData
     })()
 
     pendingRequests.set(cacheKey, fetchPromise)
 
     try {
-      return await fetchPromise
+      return createResponse(await fetchPromise)
     } finally {
       pendingRequests.delete(cacheKey)
     }
