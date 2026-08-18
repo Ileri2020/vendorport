@@ -1,4 +1,5 @@
 "use client"
+import { getStoreUrl } from '@/lib/store-url';
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { useRouter } from 'next/navigation'
@@ -298,7 +299,7 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
           </p>
 
           <div className="flex flex-col gap-6 justify-center items-center pt-10">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-center">
+            <div className="flex flex-col gap-3 md:flex-row items-center justify-center">
               {isSignedIn ? (
                 <Link href="/create-store">
                   <Button size="lg" className="py-4 px-10 bg-accent/70 hover:bg-accent/50 text-white font-black animate-pulse text-lg w-full max-w-[300] rounded-2xl shadow-2xl border-2 shadow-accent/70 transition-all hover:scale-105">
@@ -589,7 +590,7 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
                           </CardContent>
                           <CardFooter className="pt-0 pb-4 px-4 flex flex-col gap-3">
                             {!biz.isArchived ? (
-                              <Link href={`/${biz.name.toLowerCase().replace(/\s+/g, '-')}`} className="w-full">
+                              <Link href={getStoreUrl(biz.name)} suppressHydrationWarning className="w-full">
                                 <Button className="w-full h-12 gap-3 border-2 rounded-2xl group-hover:bg-accent group-hover:text-white transition-all font-black text-sm" variant="outline">
                                   Visit Experience <ArrowRight className="h-4 w-4" />
                                 </Button>

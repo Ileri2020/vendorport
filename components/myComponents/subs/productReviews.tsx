@@ -112,8 +112,8 @@ export function ProductReviews({ productId }: { productId: string }) {
             {reviews.map((r, i) => (
               <div key={i} className="flex gap-4 p-4 rounded-xl border bg-card">
                 <div className="flex-shrink-0 mt-1">
-                  {r.user?.avatarUrl ? (
-                    <img src={r.user.avatarUrl} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
+                  {r.user?.avatarUrl || r.user?.image ? (
+                    <img src={r.user.avatarUrl || r.user.image} alt="Avatar" className="w-10 h-10 rounded-full object-cover" />
                   ) : (
                     <UserCircle2 className="w-10 h-10 text-muted-foreground" />
                   )}

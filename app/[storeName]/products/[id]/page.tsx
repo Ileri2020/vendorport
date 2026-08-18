@@ -25,7 +25,9 @@ const Description = () => {
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [selectedBulk, setSelectedBulk] = useState<any>(null);
-  const { id } = useParams();
+  const params = useParams();
+  const rawId = Array.isArray(params?.id) ? params.id[0] : params?.id;
+  const productId = typeof rawId === 'string' ? rawId : null;
   const { addItem } = useCart();
   const { user, currentBusiness } = useAppContext();
   
@@ -42,36 +44,58 @@ const Description = () => {
 
   useEffect(() => {
     const fetchProductDetails = async () => {
+      if (!productId) {
+        setProduct(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        // Fetch current product
-        const res = await fetch(`/api/dbhandler?model=product&id=${id}`);
+        const businessId = (currentBusiness as any)?.id;
+        const productUrl = businessId
+          ? `/api/dbhandler?model=product&id=${encodeURIComponent(productId)}&businessId=${encodeURIComponent(businessId)}`
+          : `/api/dbhandler?model=product&id=${encodeURIComponent(productId)}`;
+
+        const res = await fetch(productUrl);
+        if (!res.ok) {
+          throw new Error(`Product fetch failed: ${res.status}`);
+        }
+
         const data = await res.json();
+        if (!data || data.error) {
+          throw new Error(data?.error || 'Product not found');
+        }
+
         setProduct(data);
 
-        // Fetch similar products (same category or brand), scoped to same business
-        const businessId = (currentBusiness as any)?.id;
         const bizQ = businessId ? `&businessId=${businessId}` : "";
         let simUrl = `/api/dbhandler?model=product${bizQ}`;
         if (data.categoryId) simUrl += `&categoryId=${data.categoryId}`;
-        
+
         const simRes = await fetch(simUrl);
+        if (!simRes.ok) {
+          setSimilarProducts([]);
+          return;
+        }
+
         const allProds = await simRes.json();
         const filtered = allProds
-          .filter((p: any) => p.id !== id && p.price > 0 && p.images && p.images.length > 0)
+          .filter((p: any) => p.id !== productId && p.price > 0 && p.images && p.images.length > 0)
           .sort(() => 0.5 - Math.random())
           .slice(0, 10);
         setSimilarProducts(filtered);
       } catch (error) {
         console.error("Error fetching product:", error);
+        setProduct(null);
         toast.error("Failed to load product details");
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) fetchProductDetails();
-  }, [id, currentBusiness]);
+    fetchProductDetails();
+  }, [productId, currentBusiness]);
 
   const handleAddToCart = () => {
     if (product) {

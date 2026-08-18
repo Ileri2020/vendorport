@@ -9,6 +9,7 @@
 
 import Navbar from "@/components/utility/navbar";
 import { Footer } from "@/components/myComponents/subs/footer";
+import ColorInjector from "@/components/platform/ColorInjector";
 
 export default function PlatformLayout({
   children,
@@ -17,6 +18,7 @@ export default function PlatformLayout({
 }) {
   return (
     <>
+      <ColorInjector business={null} />
       <Navbar />
       {children}
       <Footer />

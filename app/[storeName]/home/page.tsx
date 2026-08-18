@@ -11,7 +11,7 @@ import Features from "@/components/myComponents/subs/features"
 import ConcernGrid from "@/components/myComponents/subs/concern-grid"
 import PartnerBrands from "@/components/myComponents/subs/partner-brands"
 import FeaturedIngredients from "@/components/myComponents/subs/featuredIngredients"
-import StoreSetupPrompt from "@/components/myComponents/subs/StoreSetupPrompt"
+import StoreSetupPrompt, { StoreSetupSkeleton } from "@/components/myComponents/subs/StoreSetupPrompt"
 import { MessageCircle } from "lucide-react"
 import Link from "next/link"
 import { HeavilyDiscountedCarousel } from "@/components/myComponents/subs/HeavilyDiscountedCarousel"
@@ -28,9 +28,9 @@ const Home = () => {
 
   const loadStoreContentState = useCallback(async () => {
     if (!currentBusiness?.id) {
-      setHasCategories(false)
-      setHasProducts(false)
-      setSetupLoaded(true)
+      setHasCategories(undefined)
+      setHasProducts(undefined)
+      setSetupLoaded(false)
       return
     }
 
@@ -41,14 +41,14 @@ const Home = () => {
         fetch(`/api/dbhandler?model=product&businessId=${businessId}&limit=1`),
       ])
 
-      const categories = categoryRes.ok ? await categoryRes.json() : []
-      const products = productRes.ok ? await productRes.json() : []
-      setHasCategories(Array.isArray(categories) && categories.length > 0)
-      setHasProducts(Array.isArray(products) && products.length > 0)
+      const categories = categoryRes.ok ? await categoryRes.json() : null
+      const products = productRes.ok ? await productRes.json() : null
+      setHasCategories((Array.isArray(categories) && categories.length > 0) || Number(currentBusiness._count?.categories || 0) > 0)
+      setHasProducts((Array.isArray(products) && products.length > 0) || Number(currentBusiness._count?.products || 0) > 0)
     } catch (error) {
       console.error("Failed to load store content state", error)
-      setHasCategories(false)
-      setHasProducts(false)
+      setHasCategories(Number(currentBusiness._count?.categories || 0) > 0)
+      setHasProducts(Number(currentBusiness._count?.products || 0) > 0)
     } finally {
       setSetupLoaded(true)
     }
@@ -70,7 +70,7 @@ const Home = () => {
       {/* <Filters /> */}
       <Hero storeTemplate={currentBusiness?.template} />
 
-      {currentBusiness && setupLoaded && (!hasCategories || !hasProducts) ? (
+      {!currentBusiness || !setupLoaded ? <StoreSetupSkeleton /> : currentBusiness && (!hasCategories || !hasProducts) ? (
         <StoreSetupPrompt
           businessName={currentBusiness.name}
           isOwner={isOwner}
@@ -81,7 +81,7 @@ const Home = () => {
       ) : null}
 
      <div className="mx-auto w-full">
-       {currentBusiness && setupLoaded && (!hasCategories || !hasProducts) ? null : (
+       {!currentBusiness || !setupLoaded || (currentBusiness && (!hasCategories || !hasProducts)) ? null : (
          <>
            {/* Pharmacy-only sections */}
            {isPharmacy && <CommonMedications />}

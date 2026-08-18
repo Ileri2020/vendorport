@@ -21,6 +21,7 @@ export interface StorefrontBusiness {
   ownerId: string;
   template: string;
   isArchived: boolean;
+  _count: { categories: number; products: number };
   siteSettings: {
     id: string;
     aboutText: string;
@@ -94,6 +95,7 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
       ownerId: true,
       template: true,
       isArchived: true,
+      _count: { select: { categories: true, products: true } },
       siteSettings: {
         select: {
           id: true,

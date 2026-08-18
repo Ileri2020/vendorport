@@ -38,7 +38,18 @@ function shouldCacheRequest(url: URL, req: Request) {
   if (!url.pathname.startsWith('/api/')) return false
   if (url.pathname.startsWith('/api/auth')) return false
   if (req.headers.get('x-proxy-cache-bypass') === '1') return false
-  return true
+  if (url.pathname !== '/api/dbhandler') return false
+
+  const model = url.searchParams.get('model')
+  return [
+    'activeIngredient',
+    'brand',
+    'business',
+    'category',
+    'featuredProduct',
+    'healthConcern',
+    'product',
+  ].includes(model || '')
 }
 
 /**
@@ -172,13 +183,6 @@ async function handleSubdomainRouting(request: NextRequest): Promise<NextRespons
 export async function proxy(request: NextRequest) {
   const url = new URL(request.url)
 
-  // Internal API routes must not be intercepted by the subdomain proxy.
-  // The proxy cache logic was re-fetching /api/* requests against themselves,
-  // causing runaway requests on Vercel and blank status responses.
-  if (url.pathname.startsWith('/api/')) {
-    return NextResponse.next()
-  }
-
   if (shouldCacheRequest(url, request)) {
     const cacheKey = getRequestCacheKey(url, request)
     const cached = getCachedResponse(cacheKey)
@@ -230,6 +234,12 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // Internal API routes must not be intercepted by subdomain routing.
+  // Cacheable API requests have already been handled above.
+  if (url.pathname.startsWith('/api/')) {
+    return NextResponse.next()
+  }
+
   // First handle subdomain routing
   const subdomainResponse = await handleSubdomainRouting(request)
   if (subdomainResponse) {
@@ -244,9 +254,8 @@ export const middleware = proxy
 
 export const config = {
   matcher: [
-    // Match app routes except internal API endpoints and static assets.
-    // API calls like /api/dbhandler should bypass the subdomain proxy to avoid
-    // self-fetch loops in production.
-    '/((?!_next/static|_next/image|favicon.ico|public|api/).*)',
+    // Match app and API routes except static assets. API requests are handled
+    // above for caching, then bypass subdomain routing.
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 }

@@ -276,13 +276,18 @@ export async function GET(req: NextRequest) {
       if (model === "review" || model === "post") {
         const where: any = {};
         if (businessId) where.businessId = businessId;
-        return NextResponse.json(await prismaModel.findMany({
+        const rows = await prismaModel.findMany({
           where,
           take: limit,
           skip: offset,
-          include: { user: { select: { id: true, email: true, name: true, avatarUrl: true } } },
+          include: { user: { select: { id: true, email: true, name: true, image: true } } },
           orderBy: { createdAt: 'desc' }
-        }));
+        });
+
+        return NextResponse.json(rows.map((row: any) => ({
+          ...row,
+          user: row.user ? { ...row.user, avatarUrl: row.user.image || null } : null,
+        })));
       }
 
       if (model === "category") {
@@ -473,7 +478,7 @@ export async function GET(req: NextRequest) {
         include.brandData = true;
         include.activeIngredientRefs = true;
         include.healthConcerns = true;
-        include.reviews = { include: { user: { select: { name: true, avatarUrl: true } } } };
+        include.reviews = { include: { user: { select: { name: true, image: true } } } };
         include.business = true;
       }
 
@@ -492,6 +497,17 @@ export async function GET(req: NextRequest) {
         include: Object.keys(include).length > 0 ? include : undefined
       });
       if (!item) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+
+      if (model === "product" && item.reviews) {
+        item.reviews = item.reviews.map((review: any) => ({
+          ...review,
+          user: review.user ? {
+            ...review.user,
+            avatarUrl: review.user.image || null,
+          } : null,
+        }));
+      }
+
       return NextResponse.json(item);
     }
   } catch (error) {

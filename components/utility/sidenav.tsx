@@ -58,6 +58,30 @@ const Sidenav = ({ basePath }: SidenavProps) => {
         return `${basePath}${path}`;
     };
 
+    const normalizePath = (path: string | null | undefined) => {
+        if (!path) return "/";
+        const normalized = path.replace(/\/+$/, "");
+        return normalized || "/";
+    };
+
+    const isActive = (path: string) => {
+        const currentPath = normalizePath(pathname);
+        const targetPath = path === "/home" && !basePath ? "/" : path === "/store" && basePath ? "/" : path;
+
+        if (basePath) {
+            const storePath = currentPath === normalizePath(basePath)
+                ? "/"
+                : currentPath.startsWith(`${normalizePath(basePath)}/`)
+                    ? currentPath.slice(normalizePath(basePath).length)
+                    : currentPath;
+            const target = normalizePath(targetPath);
+            return storePath === target || storePath.startsWith(`${target}/`);
+        }
+
+        const target = normalizePath(targetPath);
+        return currentPath === target || currentPath.startsWith(`${target}/`);
+    };
+
     const displayedCategories = showAllCategories ? categories : categories.slice(0, 10);
     const displayedConcerns = showAllConcerns ? concerns : concerns.slice(0, 10);
     const isPharmacyTemplate = String(currentBusiness?.template || "estore").toLowerCase() === "pharmacy";
@@ -67,8 +91,8 @@ const Sidenav = ({ basePath }: SidenavProps) => {
             <SheetTrigger className="flex justify-center items-center text-[32px] text-accent p-2 hover:bg-accent/10 rounded-xl transition-all">
                 <CiMenuFries />
             </SheetTrigger>
-            <SheetContent side="left" className="flex flex-col w-[300px] sm:w-[400px] p-0 gap-0 border-r-0 shadow-2xl">
-                <SheetHeader className="p-3 border-b bg-gradient-to-r from-primary/5 to-transparent">
+            <SheetContent side="left" className="flex flex-col w-[300px] sm:w-[400px] p-0 gap-0 border-r-0 bg-background shadow-2xl">
+                <SheetHeader className="p-3 border-b bg-background">
                     <SheetTitle className="text-left text-2xl font-black text-primary tracking-tighter italic">Vendor <span className="text-accent">Hub</span></SheetTitle>
                 </SheetHeader>
                 
@@ -111,22 +135,25 @@ const Sidenav = ({ basePath }: SidenavProps) => {
                                     navLinks.push({ name: <BarChart3 className="w-5 h-5" />, title: "Analytics", path: "/admin/analytics" });
                                 }
 
-                                return navLinks.map((link, index) => (
-                                    <Link 
+                                return navLinks.map((link, index) => {
+                                    const active = isActive(link.path);
+                                    return <Link 
                                         href={resolveHref(link.path)} 
                                         key={index} 
                                         onClick={closeSheet}
-                                        className={`${resolveHref(link.path) === pathname ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-foreground hover:bg-muted"} flex items-center justify-between p-4 rounded-2xl transition-all group`}
+                                        aria-current={active ? "page" : undefined}
+                                        className={`${active ? "text-accent-foreground shadow-lg shadow-accent/20" : "text-foreground hover:bg-muted"} flex items-center justify-between p-4 rounded-2xl transition-all group`}
+                                        style={active ? { backgroundColor: "hsl(var(--accent))" } : undefined}
                                     >
                                         <div className="flex items-center gap-4">
-                                            <div className={`p-2 rounded-xl border ${resolveHref(link.path) === pathname ? "bg-white/20 border-white/30" : "bg-muted border-border group-hover:border-primary/30 group-hover:bg-primary/5"} transition-all`}>
+                                            <div className={`p-2 rounded-xl border ${active ? "bg-white/20 border-white/30" : "bg-muted border-border group-hover:border-primary/30 group-hover:bg-primary/5"} transition-all`}>
                                                 <span className="text-xl shrink-0">{link.name}</span>
                                             </div>
                                             <span className="font-bold tracking-tight">{link.title}</span>
                                         </div>
-                                        <ChevronRight className={`w-5 h-5 transition-all ${resolveHref(link.path) === pathname ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"}`} />
-                                    </Link>
-                                ));
+                                        <ChevronRight className={`w-5 h-5 transition-all ${active ? "opacity-100 translate-x-0" : "opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0"}`} />
+                                    </Link>;
+                                });
                             })()}
                         </nav>
                     </div>

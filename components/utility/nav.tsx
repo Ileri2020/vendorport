@@ -27,6 +27,31 @@ const Nav = ({ basePath }: NavProps) => {
     return `${basePath}${path}`;
   };
 
+  const normalizePath = (path: string | null | undefined) => {
+    if (!path) return "/";
+    const normalized = path.replace(/\/+$/, "");
+    return normalized || "/";
+  };
+
+  const isActive = (path: string) => {
+    const currentPath = normalizePath(pathname);
+    const targetPath = path === "/home" && !basePath ? "/" : path === "/store" && basePath ? "/" : path;
+
+    if (basePath) {
+      const storePath = currentPath === normalizePath(basePath)
+        ? "/"
+        : currentPath.startsWith(`${normalizePath(basePath)}/`)
+          ? currentPath.slice(normalizePath(basePath).length)
+          : currentPath;
+      const target = normalizePath(targetPath);
+      return storePath === target || storePath.startsWith(`${target}/`);
+    }
+
+    const target = normalizePath(targetPath);
+    if (currentPath === target || currentPath.startsWith(`${target}/`)) return true;
+    return false;
+  };
+
   const isStoreOwner =
     basePath &&
     currentBusiness?.ownerId &&
@@ -52,10 +77,16 @@ const Nav = ({ basePath }: NavProps) => {
     <nav className="flex gap-8 text-xl">
       <TooltipProvider>
         {navLinks.map((link, index) => {
+          const active = isActive(link.path);
           return (
             <Tooltip key={index}>
               <TooltipTrigger asChild>
-                <Link href={resolveHref(link.path)} className={` ${resolveHref(link.path) === pathname && "text-accent border-b-2 border-accent"} capitalize font-medium hover:text-accent transition-all`}>
+                <Link
+                  href={resolveHref(link.path)}
+                  aria-current={active ? "page" : undefined}
+                  className={`${active ? "border-b-2 border-accent" : "text-foreground"} capitalize font-medium hover:text-accent transition-all`}
+                  style={active ? { color: "hsl(var(--accent))" } : undefined}
+                >
                   {link.name}
                 </Link>
               </TooltipTrigger>

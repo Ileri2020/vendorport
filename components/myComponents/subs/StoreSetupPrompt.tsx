@@ -15,6 +15,21 @@ interface StoreSetupPromptProps {
   onRefresh?: () => void;
 }
 
+export function StoreSetupSkeleton() {
+  return (
+    <section className="mx-auto w-full max-w-6xl px-4 py-10" aria-label="Loading store content">
+      <div className="animate-pulse space-y-6 rounded-[2.5rem] border border-border/60 bg-muted/20 p-8">
+        <div className="mx-auto h-10 max-w-sm rounded-lg bg-muted" />
+        <div className="mx-auto h-4 max-w-2xl rounded bg-muted" />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="h-40 rounded-3xl bg-muted" />
+          <div className="h-40 rounded-3xl bg-muted" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function StoreSetupPrompt({
   businessName,
   isOwner,
@@ -47,7 +62,7 @@ export default function StoreSetupPrompt({
           <div className="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
             <Sparkles className="h-8 w-8" />
           </div>
-          <h2 className="text-2xl font-bold">Store under construction</h2>
+          <h2 className="text-2xl font-bold">(Store under construction)</h2>
           <p className="mt-3 text-sm text-muted-foreground">
             This store is still being prepared by the owner. Check back soon for products and collections.
           </p>

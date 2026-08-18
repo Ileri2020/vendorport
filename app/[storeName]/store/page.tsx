@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { Filters, Stocks, GlobalSearch, SpecialOrderForm } from "@/components/myComponents/subs"
-import StoreSetupPrompt from "@/components/myComponents/subs/StoreSetupPrompt"
+import StoreSetupPrompt, { StoreSetupSkeleton } from "@/components/myComponents/subs/StoreSetupPrompt"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { MessageCircle, FlaskConical } from "lucide-react"
@@ -22,9 +22,9 @@ const Store = () => {
 
   const loadStoreContentState = useCallback(async () => {
     if (!currentBusiness?.id) {
-      setHasCategories(false)
-      setHasProducts(false)
-      setSetupLoaded(true)
+      setHasCategories(undefined)
+      setHasProducts(undefined)
+      setSetupLoaded(false)
       return
     }
 
@@ -35,14 +35,14 @@ const Store = () => {
         fetch(`/api/dbhandler?model=product&businessId=${businessId}&limit=1`),
       ])
 
-      const categories = categoryRes.ok ? await categoryRes.json() : []
-      const products = productRes.ok ? await productRes.json() : []
-      setHasCategories(Array.isArray(categories) && categories.length > 0)
-      setHasProducts(Array.isArray(products) && products.length > 0)
+      const categories = categoryRes.ok ? await categoryRes.json() : null
+      const products = productRes.ok ? await productRes.json() : null
+      setHasCategories((Array.isArray(categories) && categories.length > 0) || Number(currentBusiness._count?.categories || 0) > 0)
+      setHasProducts((Array.isArray(products) && products.length > 0) || Number(currentBusiness._count?.products || 0) > 0)
     } catch (error) {
       console.error("Failed to load store content state", error)
-      setHasCategories(false)
-      setHasProducts(false)
+      setHasCategories(Number(currentBusiness._count?.categories || 0) > 0)
+      setHasProducts(Number(currentBusiness._count?.products || 0) > 0)
     } finally {
       setSetupLoaded(true)
     }
@@ -102,7 +102,9 @@ const Store = () => {
           <GlobalSearch placeholder={settings?.heroSubtitle || "Search more products in our store..."} />
         </div>
 
-        {currentBusiness && setupLoaded && (!hasCategories || !hasProducts) ? (
+        {!currentBusiness || !setupLoaded ? (
+          <StoreSetupSkeleton />
+        ) : (!hasCategories || !hasProducts) ? (
           <StoreSetupPrompt
             businessName={currentBusiness.name}
             isOwner={isOwner}

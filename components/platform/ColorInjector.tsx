@@ -9,11 +9,28 @@ import { useAppContext } from "@/hooks/useAppContext";
  * 
  * Uses light mode colors by default, dark mode colors when dark class is present
  */
-const ColorInjector: React.FC = () => {
+interface ColorInjectorProps {
+  business?: any | null;
+}
+
+const ColorInjector: React.FC<ColorInjectorProps> = ({ business }) => {
   const { currentBusiness } = useAppContext();
+  const activeBusiness = business === undefined ? currentBusiness : business;
 
   useEffect(() => {
-    if (!currentBusiness?.siteSettings) return;
+    const root = document.documentElement;
+    const platformColors = {
+      accent: "8365 100% 37%",
+      accentSecondary: "199 89% 48%",
+      accentForeground: "222 47% 12%",
+    };
+
+    if (!activeBusiness?.siteSettings) {
+      root.style.setProperty("--accent", platformColors.accent);
+      root.style.setProperty("--accent-secondary", platformColors.accentSecondary);
+      root.style.setProperty("--accent-foreground", platformColors.accentForeground);
+      return;
+    }
 
     const {
       accentLight,
@@ -22,9 +39,7 @@ const ColorInjector: React.FC = () => {
       accentSecondaryDark,
       accentForegroundLight,
       accentForegroundDark,
-    } = currentBusiness.siteSettings;
-
-    const root = document.documentElement;
+    } = activeBusiness.siteSettings;
 
     // Apply light mode colors to root (default, light mode)
     if (accentLight) root.style.setProperty("--accent", accentLight);
@@ -49,8 +64,13 @@ const ColorInjector: React.FC = () => {
     const observer = new MutationObserver(updateDarkModeColors);
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
 
-    return () => observer.disconnect();
-  }, [currentBusiness?.siteSettings]);
+    return () => {
+      observer.disconnect();
+      root.style.setProperty("--accent", platformColors.accent);
+      root.style.setProperty("--accent-secondary", platformColors.accentSecondary);
+      root.style.setProperty("--accent-foreground", platformColors.accentForeground);
+    };
+  }, [activeBusiness?.siteSettings]);
 
   return null;
 };
