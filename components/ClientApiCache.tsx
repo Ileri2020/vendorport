@@ -1,6 +1,5 @@
 "use client";
 
-import { useLayoutEffect } from "react";
 import axios, { AxiosResponse } from "axios";
 
 const CACHE_TTL = 5000;
@@ -40,6 +39,12 @@ function isCacheable(urlValue: string) {
   return true;
 }
 
+function getCacheKey(method: string, urlValue: string) {
+  const url = new URL(urlValue, window.location.origin);
+  url.searchParams.sort();
+  return `${method.toUpperCase()}:${url.toString()}`;
+}
+
 function isFresh(timestamp: number) {
   return Date.now() - timestamp < CACHE_TTL;
 }
@@ -53,78 +58,75 @@ function createFetchResponse(entry: CachedFetch) {
 }
 
 export default function ClientApiCache() {
-  useLayoutEffect(() => {
-    const originalFetch = window.fetch.bind(window);
-    const originalAxiosGet = axios.get.bind(axios);
-
-    window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-      const method = init?.method || (input instanceof Request ? input.method : "GET");
-      const url = input instanceof Request ? input.url : input.toString();
-      const key = `${method.toUpperCase()}:${url}`;
-
-      if (method.toUpperCase() !== "GET" || !isCacheable(url)) {
-        return originalFetch(input, init);
-      }
-
-      const cached = fetchCache.get(key);
-      if (cached && isFresh(cached.timestamp)) return createFetchResponse(cached);
-      if (cached) fetchCache.delete(key);
-
-      const pending = fetchPending.get(key);
-      if (pending) return createFetchResponse(await pending);
-
-      const request = originalFetch(input, init).then(async (response) => {
-        const body = await response.text();
-        const entry: CachedFetch = {
-          timestamp: Date.now(),
-          status: response.status,
-          statusText: response.statusText,
-          headers: Array.from(response.headers.entries()),
-          body,
-        };
-        if (response.ok) fetchCache.set(key, entry);
-        return entry;
-      });
-
-      fetchPending.set(key, request);
-      try {
-        return createFetchResponse(await request);
-      } finally {
-        fetchPending.delete(key);
-      }
-    };
-
-    axios.get = (async (url: string, config?: any) => {
-      const key = `GET:${new URL(url, window.location.origin).toString()}`;
-      if (!isCacheable(url)) return originalAxiosGet(url, config);
-
-      const cached = axiosCache.get(key);
-      if (cached && isFresh(cached.timestamp)) return cached.response;
-      if (cached) axiosCache.delete(key);
-
-      const pending = axiosPending.get(key);
-      if (pending) return pending;
-
-      const request = originalAxiosGet(url, config).then((response) => {
-        if (response.status >= 200 && response.status < 300) {
-          axiosCache.set(key, { timestamp: Date.now(), response });
-        }
-        return response;
-      });
-
-      axiosPending.set(key, request);
-      try {
-        return await request;
-      } finally {
-        axiosPending.delete(key);
-      }
-    }) as typeof axios.get;
-
-    return () => {
-      window.fetch = originalFetch;
-      axios.get = originalAxiosGet as typeof axios.get;
-    };
-  }, []);
-
   return null;
+}
+
+if (typeof window !== "undefined") {
+  const originalFetch = window.fetch.bind(window);
+  const originalAxiosGet = axios.get.bind(axios);
+
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const method = init?.method || (input instanceof Request ? input.method : "GET");
+    const url = input instanceof Request ? input.url : input.toString();
+
+    if (method.toUpperCase() !== "GET" || !isCacheable(url)) {
+      return originalFetch(input, init);
+    }
+
+    const key = getCacheKey(method, url);
+
+    const cached = fetchCache.get(key);
+    if (cached && isFresh(cached.timestamp)) return createFetchResponse(cached);
+    if (cached) fetchCache.delete(key);
+
+    const pending = fetchPending.get(key);
+    if (pending) return createFetchResponse(await pending);
+
+    const request = originalFetch(input, init).then(async (response) => {
+      const body = await response.text();
+      const entry: CachedFetch = {
+        timestamp: Date.now(),
+        status: response.status,
+        statusText: response.statusText,
+        headers: Array.from(response.headers.entries()),
+        body,
+      };
+      if (response.ok) fetchCache.set(key, entry);
+      return entry;
+    });
+
+    fetchPending.set(key, request);
+    try {
+      return createFetchResponse(await request);
+    } finally {
+      fetchPending.delete(key);
+    }
+  };
+
+  axios.get = (async (url: string, config?: any) => {
+    if (!isCacheable(url)) return originalAxiosGet(url, config);
+    const key = getCacheKey("GET", url);
+
+    const cached = axiosCache.get(key);
+    if (cached && isFresh(cached.timestamp)) return cached.response;
+    if (cached) axiosCache.delete(key);
+
+    const pending = axiosPending.get(key);
+    if (pending) return pending;
+
+    const request = originalAxiosGet(url, config).then((response) => {
+      if (response.status >= 200 && response.status < 300) {
+        axiosCache.set(key, { timestamp: Date.now(), response });
+      }
+      return response;
+    });
+
+    axiosPending.set(key, request);
+    try {
+      return await request;
+    } finally {
+      axiosPending.delete(key);
+    }
+  }) as typeof axios.get;
+
 }
