@@ -102,7 +102,7 @@ const FeaturedProducts = () => {
 
   useEffect(() => {
     fetchData();
-  }, [currentBusiness]);
+  }, [businessId]);
 
   const handleAddToCart = (product: any) => {
     addItem(product, 1);

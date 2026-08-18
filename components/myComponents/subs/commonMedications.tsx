@@ -42,10 +42,10 @@ const CommonMedications = () => {
   const { addItem } = useCart();
   const plugin = React.useRef(Autoplay({ delay: 3500, stopOnInteraction: false }));
   const { currentBusiness } = useAppContext();
+  const businessId = currentBusiness?.id;
 
   const fetchData = useCallback(async () => {
     try {
-      const businessId = (currentBusiness as any)?.id;
       const bizQ = businessId ? `&businessId=${businessId}` : "";
       const [prodRes, featRes] = await Promise.all([
         fetch(`/api/dbhandler?model=product&include=category&minimal=true&limit=50${bizQ}`),
@@ -73,7 +73,7 @@ const CommonMedications = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentBusiness]);
+  }, [businessId]);
 
   useEffect(() => {
     fetchData();

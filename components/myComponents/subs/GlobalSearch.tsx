@@ -27,6 +27,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
   const [filterPrice, setFilterPrice] = useState("All");
 
   const { user, currentBusiness } = useAppContext();
+  const businessId = currentBusiness?.id;
   const pathname = usePathname();
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -49,8 +50,8 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
 
   // Fetch products once on mount, scoped to business only on store-style routes
   useEffect(() => {
-    const businessId = isStoreScopedRoute ? (currentBusiness as any)?.id : undefined;
-    const bizQ = businessId ? `&businessId=${businessId}` : "";
+    const scopedBusinessId = isStoreScopedRoute ? businessId : undefined;
+    const bizQ = scopedBusinessId ? `&businessId=${scopedBusinessId}` : "";
     setIsLoading(true);
     axios.get(`/api/dbhandler?model=product&include=category,brand,stock,activeIngredients${bizQ}`)
       .then(res => {
@@ -58,7 +59,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, [currentBusiness, isStoreScopedRoute]);
+  }, [businessId, isStoreScopedRoute]);
 
   // Memoize unique categories and brands to prevent unnecessary recalculations
   const uniqueCategories = useMemo(() => {
@@ -76,12 +77,12 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
     const alphabetCount = countSearchLetters(value);
     if (alphabetCount < 3) return [];
 
-    const businessId = isStoreScopedRoute ? (currentBusiness as any)?.id : undefined;
+    const scopedBusinessId = isStoreScopedRoute ? businessId : undefined;
     const params = new URLSearchParams();
     params.set("model", "product");
     params.set("query", query);
     params.set("include", "category,brand,stock,activeIngredients");
-    if (businessId) params.set("businessId", businessId);
+    if (scopedBusinessId) params.set("businessId", scopedBusinessId);
     if (br !== "All") params.set("brand", br);
     if (cat !== "All") params.set("categoryName", cat);
 
@@ -104,7 +105,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
       console.error("Search fetch error:", error);
       return [];
     }
-  }, [filterCategory, filterBrand, filterPrice, user?.role, currentBusiness, isStoreScopedRoute]);
+  }, [filterCategory, filterBrand, filterPrice, user?.role, businessId, isStoreScopedRoute]);
 
   const handleSearch = useCallback(async (value: string, cat = filterCategory, br = filterBrand, pr = filterPrice) => {
     const alphabetCount = countSearchLetters(value);

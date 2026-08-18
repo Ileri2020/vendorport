@@ -195,6 +195,7 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
 
 const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }: FeaturedCategoriesProps) => {
   const { user, currentBusiness } = useAppContext();
+  const businessId = currentBusiness?.id;
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
@@ -204,8 +205,8 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
 
   const fetchCategories = async () => {
     setLoading(true);
-    const businessId = fetchAll ? undefined : explicitBusinessId ?? (currentBusiness as any)?.id;
-    const cats = await getCategories(businessId);
+    const categoryBusinessId = fetchAll ? undefined : explicitBusinessId ?? businessId;
+    const cats = await getCategories(categoryBusinessId);
 
     const visibleCats = isAdmin
       ? cats
@@ -220,7 +221,7 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
 
   useEffect(() => {
     fetchCategories();
-  }, [currentBusiness]);
+  }, [businessId, explicitBusinessId, fetchAll, isAdmin]);
 
   // Limit to 20 for carousel
   const carouselCategories = categories.slice(0, 20);

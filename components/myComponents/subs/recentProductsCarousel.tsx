@@ -12,6 +12,7 @@ import { useAppContext } from "@/hooks/useAppContext"
 
 const RecentProductsCarousel = () => {
   const { currentBusiness } = useAppContext()
+  const businessId = currentBusiness?.id
   const [recentProducts, setRecentProducts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [emblaRef, emblaApi] = useEmblaCarousel(
@@ -23,7 +24,6 @@ const RecentProductsCarousel = () => {
     const fetchRecentProducts = async () => {
       try {
         setLoading(true)
-        const businessId = (currentBusiness as any)?.id
         if (!businessId) return
 
         const response = await axios.get(
@@ -40,7 +40,7 @@ const RecentProductsCarousel = () => {
     }
 
     fetchRecentProducts()
-  }, [currentBusiness])
+  }, [businessId])
 
   const handlePrev = () => {
     if (emblaApi) emblaApi.scrollPrev()

@@ -45,6 +45,7 @@ const Stocks = () => {
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
   const { currentBusiness } = useAppContext();
+  const businessId = currentBusiness?.id;
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,7 +61,6 @@ const Stocks = () => {
   const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const businessId = (currentBusiness as any)?.id;
       const bizQ = businessId ? `&businessId=${businessId}` : "";
       let url = `/api/dbhandler?model=product&include=category,brand,stock${bizQ}`;
       
@@ -110,7 +110,7 @@ const Stocks = () => {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, brandFilter, concernFilter, isFeatured, isDiscounted, isAdmin, currentPage, currentBusiness]);
+  }, [categoryFilter, brandFilter, concernFilter, isFeatured, isDiscounted, isAdmin, currentPage, businessId]);
 
   useEffect(() => {
     fetchProducts();
