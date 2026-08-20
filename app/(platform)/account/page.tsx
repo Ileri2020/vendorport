@@ -18,7 +18,6 @@ import axios from "axios"
 import { toast } from "sonner"
 import Papa from "papaparse"
 import { cn } from "@/lib/utils"
-import { AccountUpgrade } from "@/components/myComponents/subs/AccountUpgrade"
 import { AdminUserManager } from "@/components/myComponents/subs/AdminUserManager"
 import { AdminBulkManager } from "@/components/myComponents/subs/AdminBulkManager"
 import { AffiliateDialog } from "@/components/myComponents/subs/AffiliateDialog"
@@ -666,8 +665,6 @@ const Account = () => {
               </div>
             </div>
           </>
-        ) : user.role === "customer" ? (
-          <AccountUpgrade />
         ) : null}
 
         <Separator />

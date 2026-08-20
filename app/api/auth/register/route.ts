@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcrypt";
 
-const ALLOWED_USER_FIELDS = ["name", "email", "password", "role", "image", "contact"] as const;
+const ALLOWED_USER_FIELDS = ["name", "email", "password", "image", "contact"] as const;
 
 function sanitizeUserPayload(body: Record<string, any>) {
   const payload: Record<string, any> = {};
@@ -17,9 +17,7 @@ function sanitizeUserPayload(body: Record<string, any>) {
     payload.password = bcrypt.hashSync(payload.password, 10);
   }
 
-  if (!payload.role) {
-    payload.role = "customer";
-  }
+  payload.role = "customer";
 
   if (payload.name === undefined || payload.name === null || payload.name === "") {
     payload.name = payload.email || "New User";

@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/drawer"
 import { Button } from "@/components/ui/button"
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import axios from 'axios'
 import { FcGoogle } from 'react-icons/fc'
 import { googleSignIn } from './googlesignin'
@@ -35,12 +34,6 @@ export const SignupForm = ({ onLoginClick }: { onLoginClick?: () => void }) => {
     password: '',
     name: '',
     avatarUrl: '',
-    role: 'customer',
-    professionalType: '',
-    regNumber: '',
-    facilityName: '',
-    facilityAddress: '',
-    facilityRegNumber: '',
   });
   const [editId, setEditId] = useState(null);
 
@@ -50,12 +43,6 @@ export const SignupForm = ({ onLoginClick }: { onLoginClick?: () => void }) => {
       password: '',
       name: '',
       avatarUrl: '',
-      role: 'customer',
-      professionalType: '',
-      regNumber: '',
-      facilityName: '',
-      facilityAddress: '',
-      facilityRegNumber: '',
     });
     setEditId(null);
   };
@@ -113,67 +100,6 @@ export const SignupForm = ({ onLoginClick }: { onLoginClick?: () => void }) => {
           onChange={(e) => setFormData({ ...formData, password: e.target.value })}
           required
         />
-
-        <div className="space-y-2 py-2">
-          <Label className="text-sm font-bold">Account Type</Label>
-          <select 
-            className="w-full p-2 rounded-md border bg-background"
-            value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-          >
-            <option value="customer">Customer</option>
-            <option value="professional">Healthcare Professional (Doctor, Pharmacist, Nurse)</option>
-            <option value="wholesaler">Wholesaler / Facility Sales Rep</option>
-          </select>
-        </div>
-
-        {formData.role === 'professional' && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            <div className="space-y-1">
-              <Label>Professional Type</Label>
-              <select 
-                className="w-full p-2 rounded-md border bg-background"
-                value={formData.professionalType}
-                onChange={(e) => setFormData({ ...formData, professionalType: e.target.value })}
-                required
-              >
-                <option value="">Select Type</option>
-                <option value="pharmacist">Pharmacist</option>
-                <option value="doctor">Doctor</option>
-                <option value="nurse">Nurse</option>
-              </select>
-            </div>
-            <Input
-              placeholder="Professional Registration Number"
-              value={formData.regNumber}
-              onChange={(e) => setFormData({ ...formData, regNumber: e.target.value })}
-              required
-            />
-          </div>
-        )}
-
-        {formData.role === 'wholesaler' && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-            <Input
-              placeholder="Facility / Company Name"
-              value={formData.facilityName}
-              onChange={(e) => setFormData({ ...formData, facilityName: e.target.value })}
-              required
-            />
-            <Input
-              placeholder="Facility Address"
-              value={formData.facilityAddress}
-              onChange={(e) => setFormData({ ...formData, facilityAddress: e.target.value })}
-              required
-            />
-            <Input
-              placeholder="Facility Registration Number"
-              value={formData.facilityRegNumber}
-              onChange={(e) => setFormData({ ...formData, facilityRegNumber: e.target.value })}
-              required
-            />
-          </div>
-        )}
 
         <DrawerFooter className="flex flex-row w-full gap-2 mt-2 px-0">
           <Button type="submit" className="flex-1 w-full">

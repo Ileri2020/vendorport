@@ -24,7 +24,6 @@ import DeliveryFeeForm from "@/prisma/forms/DeliveryFeeForm";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ShoppingCart } from "lucide-react";
-import { AccountUpgrade } from "@/components/myComponents/subs/AccountUpgrade";
 import { AdminUserManager } from "@/components/myComponents/subs/AdminUserManager";
 import { useAppContext } from "@/hooks/useAppContext";
 import { getStoreUrl } from "@/lib/store-url";
@@ -314,7 +313,6 @@ const Admin = () => {
 
       <div className="max-w-sm mx-auto mb-10 flex flex-col gap-3">
         <AdminUserManager />
-        <AccountUpgrade />
       </div>
 
       {/* Render selected forms */}
