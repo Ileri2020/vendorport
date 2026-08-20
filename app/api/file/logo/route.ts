@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
     if (!file.type.startsWith("image/")) {
       return NextResponse.json({ error: "Logo must be an image" }, { status: 400 });
     }
-    if (file.size > MAX_LOGO_SIZE) {
-      return NextResponse.json({ error: "Logo image must be 100 KB or smaller" }, { status: 413 });
+    if (file.size >= MAX_LOGO_SIZE) {
+      return NextResponse.json({ error: "Logo image must be smaller than 100 KB" }, { status: 413 });
     }
 
     const business = await prisma.business.findUnique({ where: { id: businessId } });

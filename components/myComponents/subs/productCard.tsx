@@ -14,6 +14,7 @@ import * as React from "react";
 import { MessageCircle, ShoppingCart, Heart, Star, Edit3, Trash2, Eye, FileText, Home, Link as LinkIcon } from "lucide-react";
 import { InlinePriceFeedback } from "@/components/myComponents/subs/priceFeedback";
 import { useAppContext } from "@/hooks/useAppContext";
+import { getStoreUrl } from "@/lib/store-url";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { toast } from "sonner";
 import {
@@ -206,7 +207,7 @@ export function ProductCard({
     <div className={cn("relative", className)} {...props}>
       <div className="absolute left-2 top-2 z-20">
           {badgeSlug && !(pathname && badgeSlug && pathname.startsWith(`/${badgeSlug}`)) ? (
-            <Link href={`/${badgeSlug}`}>
+            <Link href={getStoreUrl(badgeSlug)}>
                 <Badge variant="secondary" className="rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]">
                   {businessName}
                 </Badge>
@@ -259,7 +260,7 @@ export function ProductCard({
             </SheetContent>
           </Sheet>
           {badgeSlug ? (
-            <Link href={`/${badgeSlug}`}>
+            <Link href={getStoreUrl(badgeSlug)}>
                 <Home className="h-4 w-4" />
             </Link>
           ) : null}

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Edit3, Trash2 } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
+import { prepareImageForUpload } from "@/lib/compress-image";
 
 interface CategoriesFormProps {
   initialCategory?: any;
@@ -46,22 +47,22 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
     fetchCategories();
   }, [fetchCategories]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0] || null;
 
     if (!selected) return;
 
-    // Maximum allowed size in KB
-    const maxSizeKB = 300;
-    const maxSizeBytes = maxSizeKB * 1024;
-
-    if (selected.size > maxSizeBytes) {
-      toast.warning(`Image must be smaller than ${maxSizeKB}KB.`);
-      return;
+    try {
+      const preparedFile = await prepareImageForUpload(selected);
+      setFile(preparedFile);
+      setPreview(URL.createObjectURL(preparedFile));
+      if (preparedFile !== selected) {
+        toast.success("Image compressed to WebP and prepared for upload");
+      }
+    } catch (error) {
+      e.target.value = "";
+      toast.error(error instanceof Error ? error.message : "Could not process image");
     }
-
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
   };
 
 

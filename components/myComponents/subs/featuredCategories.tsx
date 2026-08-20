@@ -31,6 +31,7 @@ import Autoplay from "embla-carousel-autoplay";
 
 
 import { useAppContext } from "@/hooks/useAppContext";
+import { getStoreUrl } from "@/lib/store-url";
 
 interface FeaturedCategoriesProps {
   fetchAll?: boolean;
@@ -104,7 +105,7 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
     <div className="group w-full max-w-xl mx-auto relative flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-300 hover:shadow-lg h-full">
       <div className="absolute left-2 top-2 z-20">
         {badgeSlug ? (
-          <Link href={`/${badgeSlug}`}>
+          <Link href={getStoreUrl(badgeSlug)}>
               <Badge variant="secondary" className="rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em]">
                 {businessName}
               </Badge>
@@ -141,13 +142,13 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
         </div>
       )}
       {badgeSlug ? (
-        <Link href={`/${badgeSlug}`}>
+        <Link href={getStoreUrl(badgeSlug)}>
             <Home className="h-4 w-4" />
         </Link>
       ) : null}
       <div
         className="flex flex-col h-full cursor-pointer"
-        onClick={() => router.push(`/store?category=${encodeURIComponent(category.name)}`)}
+        onClick={() => router.push(getStoreUrl(badgeSlug || businessName, `/store?category=${encodeURIComponent(category.name)}`))}
       >
         <div className="relative aspect-square overflow-hidden bg-muted/20">
           {category.images.map((img: string, idx: number) => (

@@ -27,6 +27,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useParams } from "next/navigation";
 import { useAppContext } from "@/hooks/useAppContext";
+import { getStoreUrl } from "@/lib/store-url";
 
 export default function AnalyticsDashboard() {
   const { data: session, status } = useSession();
@@ -43,7 +44,7 @@ export default function AnalyticsDashboard() {
   useEffect(() => {
     if (status !== "loading") {
       if (!session || !isBusinessOwner) {
-        router.push(storeName ? `/${storeName}` : "/");
+        router.push(storeName ? getStoreUrl(storeName) : "/");
       }
     }
   }, [status, session, router, isBusinessOwner, storeName]);

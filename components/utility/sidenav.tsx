@@ -18,12 +18,15 @@ import { FlaskConical } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
 import { signOut, useSession } from "next-auth/react";
 import { Login, Signup } from "../myComponents/subs";
+import Image from "next/image";
+import greenlogo from "@/public/greenlogo.png";
 
 interface SidenavProps {
     basePath?: string;
+    business?: any;
 }
 
-const Sidenav = ({ basePath }: SidenavProps) => {
+const Sidenav = ({ basePath, business }: SidenavProps) => {
     const { user, setUser, currentBusiness } = useAppContext();
     const { data: session } = useSession();
     const pathname = usePathname();
@@ -32,6 +35,16 @@ const Sidenav = ({ basePath }: SidenavProps) => {
     const [open, setOpen] = useState(false);
     const [showAllCategories, setShowAllCategories] = useState(false);
     const [showAllConcerns, setShowAllConcerns] = useState(false);
+    const brandName = basePath
+        ? business?.name || currentBusiness?.name || "VendorPort"
+        : "VendorPort";
+    const customLogo = basePath
+        ? business?.siteSettings?.logoImageUrl ||
+          business?.siteSettings?.logoUrl ||
+          currentBusiness?.siteSettings?.logoImageUrl ||
+          currentBusiness?.siteSettings?.logoUrl ||
+          greenlogo
+        : greenlogo;
 
     useEffect(() => {
         const fetchData = async () => {
@@ -96,8 +109,9 @@ const Sidenav = ({ basePath }: SidenavProps) => {
             <SheetContent side="left" className="flex flex-col w-[300px] sm:w-[400px] p-0 gap-0 border-r-0 bg-background shadow-2xl">
                 <SheetHeader className="p-3 border-b bg-background">
                     <SheetTitle asChild>
-                        <Link href={homeHref} onClick={closeSheet} className="text-left text-2xl font-black text-primary tracking-tighter italic">
-                            Vendor <span className="text-accent">Hub</span>
+                        <Link href={homeHref} onClick={closeSheet} className="flex items-center gap-2 text-left text-2xl font-black text-primary tracking-tighter italic">
+                            <Image src={customLogo} alt={`${brandName} logo`} width={36} height={36} className="h-9 w-9 object-contain" />
+                            <span>{brandName}</span>
                         </Link>
                     </SheetTitle>
                 </SheetHeader>
@@ -121,7 +135,7 @@ const Sidenav = ({ basePath }: SidenavProps) => {
                         <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 flex items-center gap-2">
                              Quick Find
                         </h3>
-                        <GlobalSearch placeholder="Find meds..." className="h-12 rounded-2xl border-none shadow-sm focus-visible:ring-primary" />
+                        <GlobalSearch placeholder="Find meds..." className="h-12 rounded-2xl border-none shadow-sm focus-visible:ring-primary" businessId={business?.id} />
                     </div>
 
                     {/* Navigation Links */}

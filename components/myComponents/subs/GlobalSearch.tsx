@@ -12,9 +12,10 @@ import { getProductPrice } from "@/lib/stock-pricing";
 interface GlobalSearchProps {
   placeholder?: string;
   className?: string;
+  businessId?: string;
 }
 
-export const GlobalSearch = ({ placeholder = "Search for medications, brands or ingredients...", className = "" }: GlobalSearchProps) => {
+export const GlobalSearch = ({ placeholder = "Search for medications, brands or ingredients...", className = "", businessId: providedBusinessId }: GlobalSearchProps) => {
   const [searchValue, setSearchValue] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<any[]>([]);
@@ -27,7 +28,6 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
   const [filterPrice, setFilterPrice] = useState("All");
 
   const { user, currentBusiness } = useAppContext();
-  const businessId = currentBusiness?.id;
   const pathname = usePathname();
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -48,8 +48,20 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
     return firstSegment;
   }, [knownPlatformRoutes, storeRouteSegments]);
 
+  const businessId = providedBusinessId || (
+    isStoreScopedRoute && currentBusiness?.slug === currentStoreSlug
+      ? currentBusiness?.id
+      : undefined
+  );
+  const isStoreBusinessReady = !isStoreScopedRoute || Boolean(businessId);
+
   // Fetch products once on mount, scoped to business only on store-style routes
   useEffect(() => {
+    if (!isStoreBusinessReady) {
+      setAllProducts([]);
+      return;
+    }
+
     const scopedBusinessId = isStoreScopedRoute ? businessId : undefined;
     const bizQ = scopedBusinessId ? `&businessId=${scopedBusinessId}` : "";
     setIsLoading(true);
@@ -59,7 +71,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
       })
       .catch(console.error)
       .finally(() => setIsLoading(false));
-  }, [businessId, isStoreScopedRoute]);
+  }, [businessId, isStoreBusinessReady, isStoreScopedRoute]);
 
   // Memoize unique categories and brands to prevent unnecessary recalculations
   const uniqueCategories = useMemo(() => {
@@ -76,6 +88,8 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
     const query = value.trim();
     const alphabetCount = countSearchLetters(value);
     if (alphabetCount < 3) return [];
+
+    if (!isStoreBusinessReady) return [];
 
     const scopedBusinessId = isStoreScopedRoute ? businessId : undefined;
     const params = new URLSearchParams();
@@ -105,7 +119,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
       console.error("Search fetch error:", error);
       return [];
     }
-  }, [filterCategory, filterBrand, filterPrice, user?.role, businessId, isStoreScopedRoute]);
+  }, [filterCategory, filterBrand, filterPrice, user?.role, businessId, isStoreBusinessReady, isStoreScopedRoute]);
 
   const handleSearch = useCallback(async (value: string, cat = filterCategory, br = filterBrand, pr = filterPrice) => {
     const alphabetCount = countSearchLetters(value);

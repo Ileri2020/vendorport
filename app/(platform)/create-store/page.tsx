@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation'
 import axios from 'axios'
 import { toast } from 'sonner'
 import { useAppContext } from '@/hooks/useAppContext'
+import { getStoreUrl } from '@/lib/store-url'
 
 const templates = [
   {
@@ -75,7 +76,7 @@ export default function CreateStorePage() {
           .replace(/[^a-z0-9-]/g, '');
 
         toast.success('Store created successfully!');
-        router.push(`/${businessSlug || slug}`);
+        router.push(getStoreUrl(businessSlug || slug));
       }
     } catch (error: any) {
       console.error('Error creating store:', error);

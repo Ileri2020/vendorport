@@ -10,6 +10,7 @@
 
 // TODO: Delete after migration complete - legacy catch-all for old DB-generated URLs
 import { redirect, notFound } from "next/navigation";
+import { getStoreUrl } from "@/lib/store-url";
 
 const STATIC_PAGES = new Set(["home", "about", "contact", "blog", "cart", "store", "help", "jobs"]);
 
@@ -25,9 +26,9 @@ export default async function CatchAllRoute({ params }: Props) {
   // (this path should normally be unreachable for those slugs)
   if (STATIC_PAGES.has(firstSegment)) {
     if (firstSegment === "store") {
-      redirect(`/${storeName}`);
+      redirect(getStoreUrl(storeName));
     }
-    redirect(`/${storeName}/${firstSegment}`);
+    redirect(getStoreUrl(storeName, firstSegment));
   }
 
   // Unknown slug → 404

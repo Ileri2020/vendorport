@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Search, ChevronLeft, ChevronRight, ArrowUpDown, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAppContext } from '@/hooks/useAppContext';
+import { prepareImageForUpload } from '@/lib/compress-image';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -65,6 +66,9 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   
   // Category search state
   const [categorySearch, setCategorySearch] = useState("");
+  const [showNewCategory, setShowNewCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState({ name: "", description: "" });
+  const [creatingCategory, setCreatingCategory] = useState(false);
   
   // Brand search state
   const [brandSearch, setBrandSearch] = useState("");
@@ -166,6 +170,30 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       console.error('Failed to fetch categories', err);
     }
   }, [currentBusiness?.id, formData.categoryId]);
+
+  const createInlineCategory = async () => {
+    if (!newCategory.name.trim()) {
+      toast.error("Enter a category name");
+      return;
+    }
+    setCreatingCategory(true);
+    try {
+      const response = await axios.post("/api/categories", {
+        ...newCategory,
+        ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
+      });
+      const category = response.data;
+      setCategories((items) => items.some((item: any) => item.id === category.id) ? items : [category, ...items]);
+      setFormData((previous: any) => ({ ...previous, categoryId: category.id, category: category.name }));
+      setNewCategory({ name: "", description: "" });
+      setShowNewCategory(false);
+      toast.success("Category ready for this product");
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || "Could not create category");
+    } finally {
+      setCreatingCategory(false);
+    }
+  };
 
   useEffect(() => {
     if (initialProduct) {
@@ -324,13 +352,21 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     }
   };
 
-  const handleImageChange = (e) => {
-    const selectedFile = e.target.files[0];
-    if (selectedFile.size > 300 * 1024){
-      toast.warning("File size greater than 300kb. Upload might fail.");
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+
+    try {
+      const preparedFile = await prepareImageForUpload(selectedFile);
+      setFile(preparedFile);
+      setPreview(URL.createObjectURL(preparedFile));
+      if (preparedFile !== selectedFile) {
+        toast.success("Image compressed to WebP and prepared for upload");
+      }
+    } catch (error) {
+      e.target.value = "";
+      toast.error(error instanceof Error ? error.message : "Could not process image");
     }
-    setFile(selectedFile);
-    setPreview(URL.createObjectURL(selectedFile));
   };
 
   const handleDelete = async (product : any) => {
@@ -604,6 +640,10 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
             <Select 
               value={formData.categoryId} 
               onValueChange={(value) => {
+                if (value === "__new__") {
+                  setShowNewCategory(true);
+                  return;
+                }
                 const selectedCategory = categories.find((cat: any) => cat.id === value);
                 setFormData({ 
                   ...formData, 
@@ -617,6 +657,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
               <SelectContent className="max-h-48 overflow-y-auto">
+                <SelectItem value="__new__">+ Create new category</SelectItem>
                 {categories.length > 0 ? categories
                   .filter((category: any) => 
                     category.name.toLowerCase().includes(categorySearch.toLowerCase())
@@ -628,6 +669,17 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
                   )) : <SelectItem value="none" disabled>No categories</SelectItem>}
               </SelectContent>
             </Select>
+            {showNewCategory && (
+              <div className="space-y-2 rounded-md border border-primary/20 bg-primary/5 p-3 text-left">
+                <Label htmlFor="new-category-name">New category name</Label>
+                <Input id="new-category-name" value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} placeholder="e.g. Vitamins" />
+                <Input value={newCategory.description} onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })} placeholder="Description (optional)" />
+                <div className="flex gap-2">
+                  <Button type="button" size="sm" onClick={createInlineCategory} disabled={creatingCategory}>{creatingCategory ? "Creating..." : "Create category"}</Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setShowNewCategory(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

@@ -67,7 +67,7 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
       <header className="w-[100%] bg-background sticky top-0 z-10 border-0 border-b-2 border-foreground/50">
         <div className="px-2 py-2 shadow-foreground mx-auto flex justify-between items-center max-h-[90px] overflow-visible">
           <div className="lg:hidden">
-            <Sidenav basePath={basePath} />
+            <Sidenav basePath={basePath} business={business} />
           </div>
           <Link
             href={homeHref}
@@ -99,6 +99,7 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
             <GlobalSearch
               placeholder="Search medications..."
               className="h-10"
+              businessId={businessId}
             />
           </div>
 

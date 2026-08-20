@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { useAppContext } from "@/hooks/useAppContext";
 import { toast } from "sonner";
 import { PlusCircle, Trash2, ChevronDown } from "lucide-react";
+import { prepareImageForUpload } from "@/lib/compress-image";
 
 const accentColorOptions = [
   { name: "Emerald", hsl: "152 68% 38%" },
@@ -61,22 +62,12 @@ const SiteSettingsForm: React.FC = () => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 100 * 1024) {
-      event.target.value = "";
-      toast.error("Logo image must be 100 KB or smaller");
-      return;
-    }
-    if (!file.type.startsWith("image/")) {
-      event.target.value = "";
-      toast.error("Please select an image file");
-      return;
-    }
-
-    const uploadData = new FormData();
-    uploadData.append("businessId", currentBusiness?.id || "");
-    uploadData.append("file", file);
-
     try {
+      const preparedFile = await prepareImageForUpload(file);
+      const uploadData = new FormData();
+      uploadData.append("businessId", currentBusiness?.id || "");
+      uploadData.append("file", preparedFile);
+
       const response = await fetch("/api/file/logo", {
         method: "POST",
         body: uploadData,
@@ -84,8 +75,9 @@ const SiteSettingsForm: React.FC = () => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Logo upload failed");
       handleChange("logoImageUrl", result.url);
-      toast.success("Logo uploaded. Save settings to apply it.");
+      toast.success(`${preparedFile !== file ? "Logo compressed and " : ""}uploaded. Save settings to apply it.`);
     } catch (error) {
+      event.target.value = "";
       console.error(error);
       toast.error(error instanceof Error ? error.message : "Logo upload failed");
     }

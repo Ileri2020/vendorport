@@ -18,6 +18,11 @@ export default {Links : [
       path: "/store",
     },
     {
+      name: <AiOutlineProfile />,
+      title: "New Product",
+      path: "/new-product",
+    },
+    {
       name: <AiOutlineInfoCircle />,
       title: "About",
       path: "/about",

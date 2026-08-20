@@ -1,7 +1,7 @@
 const slugifyStoreName = (name: string) =>
   name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 
-export function getStoreUrl(name: string) {
+export function getStoreUrl(name: string, path = "") {
   const slug = slugifyStoreName(name);
   const configuredDomain = process.env.NEXT_PUBLIC_STORE_DOMAIN?.trim();
   let storeDomain = configuredDomain;
@@ -13,8 +13,9 @@ export function getStoreUrl(name: string) {
       : hostname;
   }
 
-  if (!storeDomain) return `/${slug}`;
+  const normalizedPath = path ? `/${path.replace(/^\/+/, "")}` : "";
+  if (!storeDomain) return `/${slug}${normalizedPath}`;
 
   const protocol = storeDomain.includes("localhost") || storeDomain.startsWith("127.0.0.1") ? "http" : "https";
-  return `${protocol}://${slug}.${storeDomain.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
+  return `${protocol}://${slug}.${storeDomain.replace(/^https?:\/\//, "").replace(/\/$/, "")}${normalizedPath}`;
 }

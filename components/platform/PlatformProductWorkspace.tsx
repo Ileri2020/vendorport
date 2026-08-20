@@ -1,0 +1,182 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
+import { Search, PackagePlus, Link2, Check } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+
+interface PlatformProductWorkspaceProps {
+  business?: { id: string; ownerId: string; name: string } | null;
+}
+
+export default function PlatformProductWorkspace({ business = null }: PlatformProductWorkspaceProps) {
+  const { data: session } = useSession();
+  const isOwner = Boolean(business && session?.user?.id && String(business.ownerId) === String(session.user.id));
+  const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [businessCategories, setBusinessCategories] = useState<any[]>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [query, setQuery] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({ name: "", description: "", price: "", costPrice: "", categoryId: "" });
+  const [newCategory, setNewCategory] = useState({ name: "", description: "" });
+  const [showNewCategory, setShowNewCategory] = useState(false);
+
+  const loadProducts = async () => {
+    const response = await fetch(`/api/platform-products?query=${encodeURIComponent(query)}`);
+    if (!response.ok) return;
+    setProducts(await response.json());
+  };
+
+  useEffect(() => {
+    if (session?.user?.id) loadProducts();
+  }, [session?.user?.id, query]);
+
+  useEffect(() => {
+    if (!business?.id || !isOwner) return;
+    fetch(`/api/dbhandler?model=category&businessId=${business.id}`)
+      .then((response) => response.json())
+      .then(setBusinessCategories)
+      .catch(() => toast.error("Could not load business categories"));
+  }, [business?.id, isOwner]);
+
+  useEffect(() => {
+    fetch("/api/dbhandler?model=category")
+      .then((response) => response.json())
+      .then(setCategories)
+      .catch(() => toast.error("Could not load categories"));
+  }, []);
+
+  const createCategory = async () => {
+    if (!newCategory.name.trim()) return toast.error("Enter a category name");
+    const response = await fetch("/api/categories", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newCategory),
+    });
+    const result = await response.json();
+    if (!response.ok) return toast.error(result.error || "Could not create category");
+    setCategories((items) => items.some((item) => item.id === result.id) ? items : [result, ...items]);
+    setForm((previous) => ({ ...previous, categoryId: result.id }));
+    setNewCategory({ name: "", description: "" });
+    setShowNewCategory(false);
+    toast.success("Category ready for this product");
+  };
+
+  const createProduct = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setLoading(true);
+    try {
+      const response = await fetch("/api/platform-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not create product");
+      setForm({ name: "", description: "", price: "", costPrice: "", categoryId: "" });
+      toast.success("Platform product created");
+      await loadProducts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not create product");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const attachProducts = async () => {
+    if (!business || selected.length === 0 || !categoryId) return toast.error("Select products and a category");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/platform-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "attach", businessId: business.id, categoryId, productIds: selected }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not attach products");
+      toast.success(`${result.attached} product${result.attached === 1 ? "" : "s"} added to ${business.name}`);
+      setSelected([]);
+      setCategoryId("");
+      await loadProducts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not attach products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!session?.user?.id) {
+    return <div className="mx-auto max-w-xl p-10 text-center">Sign in to create and manage platform products.</div>;
+  }
+
+  return (
+    <main className="mx-auto max-w-6xl space-y-8 px-4 py-10">
+      <header>
+        <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Vport Catalog</p>
+        <h1 className="mt-2 text-4xl font-black tracking-tight">New Product</h1>
+        <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+          Create products in the shared platform catalog. Products stay outside every website until a business owner adds them to a category.
+        </p>
+      </header>
+
+      <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
+        <form onSubmit={createProduct} className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex items-center gap-2 font-bold"><PackagePlus className="h-5 w-5 text-primary" /> Create platform product</div>
+          <div><Label htmlFor="platform-product-name">Name</Label><Input id="platform-product-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+          <div><Label htmlFor="platform-product-description">Description</Label><Input id="platform-product-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label htmlFor="platform-product-cost">Cost</Label><Input id="platform-product-cost" type="number" min="0" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} /></div>
+            <div><Label htmlFor="platform-product-price">Price</Label><Input id="platform-product-price" required type="number" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></div>
+          </div>
+          <div>
+            <Label htmlFor="platform-product-category">Category (optional)</Label>
+            <select id="platform-product-category" value={form.categoryId} onChange={(e) => {
+              if (e.target.value === "__new__") setShowNewCategory(true);
+              else setForm({ ...form, categoryId: e.target.value });
+            }} className="mt-1 h-10 w-full rounded-md border bg-background px-3 text-sm">
+              <option value="">No category yet</option>
+              {categories.map((category) => <option key={category.id} value={category.id}>{category.name}{category.businessId ? " (business)" : ""}</option>)}
+              <option value="__new__">+ Create new category</option>
+            </select>
+            {showNewCategory && <div className="mt-3 space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+              <Input placeholder="Category name" value={newCategory.name} onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })} />
+              <Input placeholder="Description (optional)" value={newCategory.description} onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })} />
+              <div className="flex gap-2"><Button type="button" size="sm" onClick={createCategory}>Create category</Button><Button type="button" size="sm" variant="ghost" onClick={() => setShowNewCategory(false)}>Cancel</Button></div>
+            </div>}
+          </div>
+          <Button type="submit" disabled={loading} className="w-full">{loading ? "Creating..." : "Create Product"}</Button>
+        </form>
+
+        <section className="rounded-2xl border bg-card p-5 shadow-sm">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div><h2 className="font-bold">Platform products</h2><p className="text-xs text-muted-foreground">Search products created by the community.</p></div>
+            <div className="relative w-full sm:max-w-xs"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search products" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+          </div>
+          <div className="mt-5 space-y-2">
+            {products.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No unassigned platform products found.</p> : products.map((product) => {
+              const checked = selected.includes(product.id);
+              return <button type="button" key={product.id} onClick={() => setSelected((items) => checked ? items.filter((id) => id !== product.id) : [...items, product.id])} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${checked ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
+                <span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()} · by {product.creator?.name || "Vport user"}</span></span>
+              </button>;
+            })}
+          </div>
+        </section>
+      </section>
+
+      {isOwner && <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
+        <div className="flex items-center gap-2 font-bold"><Link2 className="h-5 w-5 text-primary" /> Add selected products to {business?.name}</div>
+        <p className="mt-1 text-sm text-muted-foreground">Choose one of your categories. Selected platform products will become part of this website.</p>
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm sm:max-w-xs"><option value="">Select category</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+          <Button onClick={attachProducts} disabled={loading || selected.length === 0 || !categoryId}>Add {selected.length || "selected"} product{selected.length === 1 ? "" : "s"} to website</Button>
+        </div>
+      </section>}
+    </main>
+  );
+}

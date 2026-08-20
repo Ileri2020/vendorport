@@ -27,6 +27,7 @@ import { ShoppingCart } from "lucide-react";
 import { AccountUpgrade } from "@/components/myComponents/subs/AccountUpgrade";
 import { AdminUserManager } from "@/components/myComponents/subs/AdminUserManager";
 import { useAppContext } from "@/hooks/useAppContext";
+import { getStoreUrl } from "@/lib/store-url";
 import { CartDetailsDialog } from "@/components/myComponents/subs/CartDetailsDialog";
 import { formatPrice } from "@/lib/stock-pricing";
 import { toast } from "sonner";
@@ -187,7 +188,7 @@ const Admin = () => {
     ];
 
     useEffect(() => {
-      const redirectTarget = storeName ? `/${storeName}` : "/";
+      const redirectTarget = storeName ? getStoreUrl(storeName) : "/";
       if (status !== "loading" && currentBusiness) {
         if (!session || !isBusinessOwner) {
           router.replace(redirectTarget);
@@ -303,7 +304,7 @@ const Admin = () => {
       <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
         <h1 className="text-4xl font-semibold">Admin Dashboard</h1>
         <Button
-          onClick={() => router.push(`/${storeName}/admin/analytics`)}
+          onClick={() => router.push(getStoreUrl(storeName, "admin/analytics"))}
           className="flex items-center gap-2"
         >
           <BarChart3 className="w-4 h-4" />

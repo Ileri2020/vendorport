@@ -40,6 +40,7 @@ model User {
   priceFeedbacks PriceFeedback[]
   affiliate     Affiliate?
   heavilyDiscountedProducts HeavilyDiscountedProduct[]
+  createdProducts Product[]       @relation("UserCreatedProducts")
   portfolio     Portfolio[]
 }
 
@@ -352,8 +353,8 @@ model Product {
   id                String           @id @default(auto()) @map("_id") @db.ObjectId
   name              String
   description       String?
-  category          Category         @relation(fields: [categoryId], references: [id])
-  categoryId        String           @db.ObjectId
+  category          Category?        @relation(fields: [categoryId], references: [id])
+  categoryId        String?          @db.ObjectId
   activeIngredients String[]
   scarce            Boolean?
   for               String[] //patients like oncology/cancer, hiv, etc
@@ -372,6 +373,8 @@ model Product {
   wishlist          Wishlist[]
   businessId        String?          @db.ObjectId
   business          Business?        @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  creatorId         String?          @db.ObjectId
+  creator           User?            @relation("UserCreatedProducts", fields: [creatorId], references: [id], onDelete: SetNull)
   brandId           String?          @db.ObjectId
   brandData         Brand?           @relation(fields: [brandId], references: [id])
   activeIngredientIds String[]       @db.ObjectId
