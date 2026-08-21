@@ -13,6 +13,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_ID,
       clientSecret: process.env.GOOGLE_SECRET,
+      redirectProxyUrl: process.env.NODE_ENV === "production"
+        ? "https://vport.store/api/auth"
+        : undefined,
     }),
 
     Credentials({
@@ -204,6 +207,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: {
     strategy: "jwt",
     maxAge: 10 * 60 * 60, // 10 hours
+  },
+
+  cookies: {
+    sessionToken: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-authjs.session-token"
+        : "authjs.session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain: process.env.NODE_ENV === "production" ? ".vport.store" : undefined,
+      },
+    },
   },
 
   jwt: {

@@ -14,7 +14,7 @@ import { prepareImageForUpload } from "@/lib/compress-image";
 
 const accentColorOptions = [
   { name: "Emerald", hsl: "152 68% 38%" },
-  { name: "Sky", hsl: "199 89% 48%" },
+  { name: "Gold", hsl: "43 96% 56%" },
   { name: "Violet", hsl: "258 70% 55%" },
   { name: "Rose", hsl: "336 78% 52%" },
   { name: "Amber", hsl: "36 95% 53%" },
@@ -687,9 +687,9 @@ const SiteSettingsForm: React.FC = () => {
                     <div>
                       <Label>Secondary Accent (HSL)</Label>
                       <Input 
-                        value={valOf("accentSecondaryLight", "199 89% 48%")} 
+                        value={valOf("accentSecondaryLight", "43 96% 56%")}
                         onChange={(e: any) => handleChange("accentSecondaryLight", e.target.value)}
-                        placeholder="e.g., 199 89% 48%"
+                        placeholder="e.g., 43 96% 56%"
                         className="bg-white text-black border-gray-300"
                       />
                     </div>
@@ -722,9 +722,9 @@ const SiteSettingsForm: React.FC = () => {
                     <div>
                       <Label className="text-white">Secondary Accent (HSL)</Label>
                       <Input 
-                        value={valOf("accentSecondaryDark", "199 89% 66%")} 
+                        value={valOf("accentSecondaryDark", "45 93% 62%")}
                         onChange={(e: any) => handleChange("accentSecondaryDark", e.target.value)}
-                        placeholder="e.g., 199 89% 66%"
+                        placeholder="e.g., 45 93% 62%"
                         className="bg-gray-700 text-white border-gray-600"
                       />
                     </div>

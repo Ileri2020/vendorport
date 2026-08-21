@@ -21,7 +21,7 @@ const ColorInjector: React.FC<ColorInjectorProps> = ({ business }) => {
     const root = document.documentElement;
     const platformColors = {
       accent: "8365 100% 37%",
-      accentSecondary: "199 89% 48%",
+      accentSecondary: "43 96% 56%",
       accentForeground: "222 47% 12%",
     };
 

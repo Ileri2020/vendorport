@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { Check, ChevronDown, X } from "lucide-react"
+import { Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAppContext } from "@/hooks/useAppContext"
 
@@ -23,9 +23,13 @@ function splitLocations(value: string | null) {
   return value ? value.split("|").map((item) => item.trim()).filter(Boolean) : []
 }
 
-function laneItems(categories: Category[], lane: number) {
-  const items = categories.filter((_, index) => index % CATEGORY_LANES === lane)
-  return items.length || !categories.length ? items : [categories[lane % categories.length]]
+function laneItems(categories: Category[], lane: number, useThreeLanes: boolean) {
+  if (!useThreeLanes) return categories
+  const baseSize = Math.floor(categories.length / CATEGORY_LANES)
+  const remainder = categories.length % CATEGORY_LANES
+  const start = lane * baseSize + Math.min(lane, remainder)
+  const size = baseSize + (lane < remainder ? 1 : 0)
+  return categories.slice(start, start + size)
 }
 
 export default function CategoryNavigator() {
@@ -35,7 +39,7 @@ export default function CategoryNavigator() {
   const { currentBusiness } = useAppContext()
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<string[]>([])
-  const [open, setOpen] = useState(false)
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
   const selected = useMemo(() => splitCategories(searchParams.get("category")), [searchParams])
   const selectedLocations = useMemo(() => splitLocations(searchParams.get("location")), [searchParams])
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "")
@@ -101,37 +105,37 @@ export default function CategoryNavigator() {
   }
 
   const selectedCategories = categories.filter((category) => selected.includes(category.name))
+  const useThreeLanes = categories.length >= CATEGORY_LANES * 5
+  const lanes = useThreeLanes ? [0, 1, 2] : [0]
 
   return (
     <section className="mb-5 w-full overflow-hidden rounded-2xl border border-border/70 bg-card/70 p-3 shadow-sm md:p-4" aria-label="Product categories">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-3 flex flex-wrap items-center justify-start gap-3">
+        <div className="relative order-first">
+          <Button type="button" variant="outline" size="sm" onClick={() => setCategoryMenuOpen((open) => !open)}>
+            Categories {selected.length ? `(${selected.length})` : ""}
+          </Button>
+          {categoryMenuOpen && (
+            <div className="fixed left-1/2 top-1/2 z-40 w-[min(90vw,24rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-3 shadow-2xl sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-72 sm:translate-x-0 sm:translate-y-0">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground">Select categories</span>
+                <button type="button" aria-label="Close category selection" onClick={() => setCategoryMenuOpen(false)}><X className="h-4 w-4" /></button>
+              </div>
+              <div className="max-h-64 space-y-1 overflow-y-auto">
+                {categories.map((category) => {
+                  const isSelected = selected.includes(category.name)
+                  return <button key={category.id} type="button" onClick={() => toggleCategory(category.name)} className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                    {isSelected && <Check className="h-3 w-3" />}{category.name}
+                  </button>
+                })}
+              </div>
+              <Button type="button" size="sm" className="mt-3 w-full" onClick={() => setCategoryMenuOpen(false)}>Apply</Button>
+            </div>
+          )}
+        </div>
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Browse by category</p>
           <p className="text-sm text-muted-foreground">Choose one or more categories to filter the store.</p>
-        </div>
-        <div className="relative">
-          <Button type="button" variant="outline" size="sm" onClick={() => setOpen((value) => !value)} className="gap-2">
-            Categories {selected.length ? `(${selected.length})` : ""}
-            <ChevronDown className="h-4 w-4" />
-          </Button>
-          {open && (
-            <div className="absolute right-0 top-10 z-30 w-72 rounded-xl border bg-background p-3 shadow-xl">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-xs font-bold text-muted-foreground">Select categories</span>
-                <button type="button" aria-label="Close category selection" onClick={() => setOpen(false)}><X className="h-4 w-4" /></button>
-              </div>
-              <select
-                multiple
-                value={selected}
-                onChange={(event) => updateSelection(Array.from(event.target.selectedOptions, (option) => option.value))}
-                aria-label="Select one or more product categories"
-                className="h-52 w-full rounded-lg border bg-background p-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              >
-                {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
-              </select>
-              <Button type="button" size="sm" className="mt-3 w-full" onClick={() => setOpen(false)}>Apply</Button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -145,17 +149,15 @@ export default function CategoryNavigator() {
         </div>
       )}
 
-      <div className="mb-4 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 md:grid-cols-[1fr_1fr_1.4fr_auto] md:items-end">
+      <div className="mb-4 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 md:grid-cols-2">
         <div>
-          <label htmlFor="store-min-price" className="mb-1 block text-xs font-bold text-muted-foreground">Minimum price</label>
-          <input id="store-min-price" type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="0" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
+          <label htmlFor="category-filter-button" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Categories</label>
+          <Button id="category-filter-button" type="button" variant="outline" onClick={() => setCategoryMenuOpen(true)} className="h-20 w-full justify-start px-3 font-normal">
+            {selected.length ? `${selected.length} categor${selected.length === 1 ? "y" : "ies"} selected` : "Categories"}
+          </Button>
         </div>
         <div>
-          <label htmlFor="store-max-price" className="mb-1 block text-xs font-bold text-muted-foreground">Maximum price</label>
-          <input id="store-max-price" type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="Any price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
-        </div>
-        <div>
-          <label htmlFor="store-location" className="mb-1 block text-xs font-bold text-muted-foreground">Available location</label>
+          <label htmlFor="store-location" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Available location</label>
           <select id="store-location" multiple value={selectedLocations} onChange={(event) => {
             const next = Array.from(event.target.selectedOptions, (option) => option.value)
             const params = new URLSearchParams(searchParams.toString())
@@ -164,23 +166,32 @@ export default function CategoryNavigator() {
             const query = params.toString()
             router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
           }} className="h-20 w-full rounded-md border bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring" aria-label="Select one or more available locations">
-            {locations.length ? locations.map((location) => <option key={location} value={location}>{location}</option>) : <option disabled>No locations configured</option>}
+            {locations.length ? <><option disabled value="">Available location</option>{locations.map((location) => <option key={location} value={location}>{location}</option>)}</> : <option disabled>No locations configured</option>}
           </select>
         </div>
-        <div className="flex gap-2">
+        <div>
+          <label htmlFor="store-min-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Minimum price</label>
+          <input id="store-min-price" type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="Minimum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+        <div>
+          <label htmlFor="store-max-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Maximum price</label>
+          <input id="store-max-price" type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="Maximum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+        <div className="flex items-end gap-2">
           <Button type="button" size="sm" onClick={applyFilters}>Apply filters</Button>
           {(minPrice || maxPrice || selectedLocations.length) && <Button type="button" size="sm" variant="ghost" onClick={clearFilters}>Clear</Button>}
         </div>
       </div>
 
       <div className="space-y-2 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
-        {[0, 1, 2].map((lane) => {
-          const items = laneItems(categories, lane)
-          const movingItems = [...items, ...items]
+        {lanes.map((lane) => {
+          const items = laneItems(categories, lane, useThreeLanes)
+          const shouldMove = items.length > 3
+          const movingItems = shouldMove ? [...items, ...items] : items
           return (
-            <div key={lane} className="overflow-hidden">
+            <div key={lane} className={`overflow-hidden ${!shouldMove ? "flex justify-center" : ""}`}>
               <div
-                className={`flex w-max gap-2 ${lane === 1 ? "animate-marquee-reverse" : "animate-marquee"}`}
+                className={`flex w-max ${shouldMove ? "flex-nowrap" : "flex-wrap justify-center"} gap-2 ${shouldMove ? lane === 1 ? "animate-marquee-reverse" : "animate-marquee" : ""}`}
                 style={{ "--marquee-duration": `${28 + lane * 4}s` } as React.CSSProperties}
               >
                 {movingItems.map((category, index) => {
