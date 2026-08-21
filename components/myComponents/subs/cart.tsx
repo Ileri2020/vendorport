@@ -16,6 +16,7 @@ export interface CartItem {
   customPrice?: number;
   bulkPriceId?: string;
   bulkName?: string;
+  variantId?: string;
   isSpecial?: boolean;
 }
 

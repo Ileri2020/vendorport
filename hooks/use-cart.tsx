@@ -16,9 +16,9 @@ export interface CartContextType {
   clearCart: () => void;
   itemCount: number;
   items: CartItem[];
-  removeItem: (id: string, bulkPriceId?: string) => void;
+  removeItem: (id: string, bulkPriceId?: string, variantId?: string) => void;
   subtotal: number;
-  updateQuantity: (id: string, quantity: number, bulkPriceId?: string) => void;
+  updateQuantity: (id: string, quantity: number, bulkPriceId?: string, variantId?: string) => void;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -95,10 +95,10 @@ export function CartProvider({ children, businessSlug }: CartProviderProps) {
     (newItem: Omit<CartItem, "quantity">, qty = 1) => {
       if (qty <= 0) return;
       setItems((prev) => {
-        const existing = prev.find((i) => i.id === newItem.id && i.bulkPriceId === newItem.bulkPriceId);
+        const existing = prev.find((i) => i.id === newItem.id && i.bulkPriceId === newItem.bulkPriceId && i.variantId === newItem.variantId);
         if (existing) {
           return prev.map((i) =>
-            (i.id === newItem.id && i.bulkPriceId === newItem.bulkPriceId) ? { ...i, quantity: i.quantity + qty } : i,
+            (i.id === newItem.id && i.bulkPriceId === newItem.bulkPriceId && i.variantId === newItem.variantId) ? { ...i, quantity: i.quantity + qty } : i,
           );
         }
         return [...prev, { ...newItem, quantity: qty }];
@@ -107,14 +107,14 @@ export function CartProvider({ children, businessSlug }: CartProviderProps) {
     [],
   );
 
-  const removeItem = React.useCallback((id: string, bulkPriceId?: string) => {
-    setItems((prev) => prev.filter((i) => !(i.id === id && i.bulkPriceId === bulkPriceId)));
+  const removeItem = React.useCallback((id: string, bulkPriceId?: string, variantId?: string) => {
+    setItems((prev) => prev.filter((i) => !(i.id === id && i.bulkPriceId === bulkPriceId && i.variantId === variantId)));
   }, []);
 
-  const updateQuantity = React.useCallback((id: string, qty: number, bulkPriceId?: string) => {
+  const updateQuantity = React.useCallback((id: string, qty: number, bulkPriceId?: string, variantId?: string) => {
     setItems((prev) =>
       prev.flatMap((i) => {
-        if (!(i.id === id && i.bulkPriceId === bulkPriceId)) return i;
+        if (!(i.id === id && i.bulkPriceId === bulkPriceId && i.variantId === variantId)) return i;
         if (qty <= 0) return []; // treat zero/negative as remove
         if (qty === i.quantity) return i;
         return { ...i, quantity: qty };

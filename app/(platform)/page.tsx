@@ -29,6 +29,9 @@ interface Business {
   ratings: number
   numReviews: number
   isArchived?: boolean
+  siteSettings?: {
+    storefrontImageUrl?: string | null
+  } | null
   owner: {
     name: string | null
     image: string | null
@@ -550,9 +553,14 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
                       <motion.div whileHover={{ y: -6 }} transition={{ duration: 0.25 }}>
                         <Card className="h-full shadow-md shadow-accent flex flex-col overflow-hidden border-2 hover:border-accent transition-all rounded-3xl group">
                           <div className="h-24 bg-muted relative overflow-hidden">
-                             <div className="absolute inset-0 flex items-center justify-center bg-accent/5 group-hover:bg-accent/10 transition-colors">
-                                <Globe className="h-14 w-14 text-accent/10 group-hover:scale-120 transition-transform duration-700" />
-                             </div>
+                              {biz.siteSettings?.storefrontImageUrl ? (
+                               <img src={biz.siteSettings.storefrontImageUrl} alt={`${biz.name} storefront`} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                              ) : (
+                               <div className="absolute inset-0 flex items-center justify-center bg-accent/5 group-hover:bg-accent/10 transition-colors">
+                                 <Globe className="h-14 w-14 text-accent/10 group-hover:scale-120 transition-transform duration-700" />
+                               </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
                              <div className="absolute top-3 right-3 bg-white/95 dark:bg-black/95 px-3 py-1 rounded-full flex items-center gap-1 text-sm font-black shadow-lg border-2 border-accent/20">
                                 <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                                 {biz.ratings.toFixed(1)}

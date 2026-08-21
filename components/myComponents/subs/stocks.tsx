@@ -37,6 +37,9 @@ const Stocks = () => {
   const categoryFilter = searchParams.get("category");
   const concernFilter = searchParams.get("concern"); // ✅ NEW: health concern filter
   const brandFilter = searchParams.get("brand");
+  const minPriceFilter = searchParams.get("minPrice");
+  const maxPriceFilter = searchParams.get("maxPrice");
+  const locationFilter = searchParams.get("location");
   const isFeatured = searchParams.get("featured") === "true";
   const isDiscounted = searchParams.get("discounted") === "true";
   
@@ -56,7 +59,7 @@ const Stocks = () => {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [categoryFilter, brandFilter, concernFilter, isFeatured, isDiscounted]);
+  }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -67,6 +70,9 @@ const Stocks = () => {
       if (brandFilter) url += `&brand=${encodeURIComponent(brandFilter)}`;
       if (categoryFilter) url += `&categoryName=${encodeURIComponent(categoryFilter)}`;
       if (concernFilter) url += `&concern=${encodeURIComponent(concernFilter)}`;
+      if (minPriceFilter) url += `&minPrice=${encodeURIComponent(minPriceFilter)}`;
+      if (maxPriceFilter) url += `&maxPrice=${encodeURIComponent(maxPriceFilter)}`;
+      if (locationFilter) url += `&location=${encodeURIComponent(locationFilter)}`;
 
       if (!isAdmin) {
          url += `&requireImages=true&requirePrice=true`;
@@ -110,7 +116,7 @@ const Stocks = () => {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, brandFilter, concernFilter, isFeatured, isDiscounted, isAdmin, currentPage, businessId]);
+  }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted, isAdmin, currentPage, businessId]);
 
   useEffect(() => {
     fetchProducts();
@@ -236,7 +242,7 @@ const Stocks = () => {
                 rating: 5,
                 categoryName: product.category?.name || "Pharmacy"
               }}
-              onAddToCart={() => addItem(product, 1)}
+              onAddToCart={(item) => addItem(item, 1)}
               onAddToWishlist={() => handleAddToWishlist(product.id)}
             />
           ))}

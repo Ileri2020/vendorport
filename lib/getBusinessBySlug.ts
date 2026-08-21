@@ -30,6 +30,7 @@ export interface StorefrontBusiness {
     heroCTA: string | null;
     heroCTALink: string | null;
     heroImage: string | null;
+    storefrontImageUrl: string | null;
     contactEmail: string | null;
     contactPhone: string | null;
     contactDesc: string | null;
@@ -51,6 +52,7 @@ export interface StorefrontBusiness {
     iconImageHeight: number;
     addToHome: string;
     animatedTexts: string[];
+    operatingStates: string[];
     aboutSub: string;
     whoWeAreText: string;
     visionText: string;
@@ -105,6 +107,7 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
           heroCTA: true,
           heroCTALink: true,
           heroImage: true,
+          storefrontImageUrl: true,
           contactEmail: true,
           contactPhone: true,
           contactDesc: true,
@@ -126,6 +129,7 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
           iconImageHeight: true,
           addToHome: true,
           animatedTexts: true,
+          operatingStates: true,
           aboutSub: true,
           whoWeAreText: true,
           visionText: true,

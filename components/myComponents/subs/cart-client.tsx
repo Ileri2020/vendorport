@@ -203,6 +203,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
         id: i.id,
         quantity: i.quantity,
         bulkPriceId: (i as any).bulkPriceId || null,
+        variantId: (i as any).variantId || null,
         customName: (i as any).customName || null,
         customPrice: (i as any).customPrice || null,
         isSpecial: !!(i as any).isSpecial,
@@ -336,6 +337,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
           productId: i.id,
           quantity: i.quantity,
           bulkPriceId: (i as any).bulkPriceId,
+          variantId: (i as any).variantId,
           isSpecial: !!(i as any).isSpecial,
           customPrice: (i as any).customPrice,
           customName: (i as any).customName
@@ -494,7 +496,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
           <div className="space-y-4">
              {items.map((item) => (
               <div
-                key={`${item.id}-${(item as any).bulkPriceId || 'single'}`}
+                key={`${item.id}-${(item as any).bulkPriceId || 'single'}-${(item as any).variantId || 'base'}`}
                 className="flex gap-4 p-3 rounded-xl border bg-card hover:shadow-sm transition-shadow"
               >
                 <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border bg-muted">
@@ -517,7 +519,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
                       <button
                         title='Remove item'
                         className="text-muted-foreground hover:text-destructive p-1"
-                        onClick={() => removeItem(item.id, (item as any).bulkPriceId)}
+                        onClick={() => removeItem(item.id, (item as any).bulkPriceId, (item as any).variantId)}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -531,6 +533,11 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
                              {(item as any).bulkName}
                           </Badge>
                        )}
+                        {(item as any).variantTitle && (
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4 font-black">
+                            {(item as any).variantTitle}
+                          </Badge>
+                        )}
                     </div>
                   </div>
                   
@@ -540,7 +547,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
                         title='Decrease quantity'
                         className="p-1 hover:bg-muted rounded-l-lg transition-colors"
                         disabled={item.quantity <= 1}
-                        onClick={() => updateQuantity(item.id, item.quantity - 1, (item as any).bulkPriceId)}
+                        onClick={() => updateQuantity(item.id, item.quantity - 1, (item as any).bulkPriceId, (item as any).variantId)}
                       >
                         <Minus className="h-3 w-3" />
                       </button>
@@ -548,7 +555,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
                       <button
                         title='Increase quantity'
                         className="p-1 hover:bg-muted rounded-r-lg transition-colors"
-                        onClick={() => updateQuantity(item.id, item.quantity + 1, (item as any).bulkPriceId)}
+                        onClick={() => updateQuantity(item.id, item.quantity + 1, (item as any).bulkPriceId, (item as any).variantId)}
                       >
                         <Plus className="h-3 w-3" />
                       </button>
@@ -884,6 +891,14 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
               name={user.name || 'User'}
               onSuccess={async () => {
                 try {
+                  const confirmation = await axios.post('/api/payment?action=confirm', {
+                    tx_ref: checkoutData.tx_ref,
+                    method: 'monnify',
+                  });
+                  if (confirmation.data?.barcodeImageUrl) {
+                    toast.success('Payment confirmed and order barcode created');
+                  }
+
                   // Check for affiliate referral and credit commission
                   const affiliateReferral = getStoredAffiliateReferral();
                   if (affiliateReferral) {

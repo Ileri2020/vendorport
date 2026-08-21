@@ -133,6 +133,7 @@ model SiteSettings {
   heroCTALink           String?  @default("/store")
   heroImage             String?
   logoImageUrl          String?
+  storefrontImageUrl    String?
   markupEnabled         Boolean  @default(false)
   markupPercentage      Float    @default(0)
   iconMode              String   @default("text")
@@ -161,6 +162,7 @@ model SiteSettings {
   promoTitle            String?  @default("Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.")
   promoBannerText       String?  @default("Authentic medical supplies at clearance prices. Limited quantities available — move fast!")
   animatedTexts         String[] @default(["Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.", "Authentic medical supplies at clearance prices. Limited quantities available — move fast!", "Fast delivery to your doorstep"])
+  operatingStates       String[] @default([])
   aboutSub              String   @default("We believe that access to safe, effective, and affordable medicines should never be a privilege—it should be a standard. We are a forward-thinking healthcare company dedicated to solving the complex challenges surrounding medicine access in Nigeria and across underserved African communities.")
   whoWeAreText          String   @default("Healthclique Limited is owned and managed by licensed Pharmacists with deep expertise in pharmaceutical care, supply chain management, and patient-centered service delivery. We operate in full compliance with all regulatory requirements governing the pharmaceutical sector, ensuring that every product and service we provide meets the highest standards of safety, quality, and authenticity.")
   visionText            String   @default("To become Africa’s most trusted digital healthcare platform, transforming how medicines are accessed and delivered—one community at a time.")
@@ -353,9 +355,7 @@ model Product {
   description               String?
   shortDescription          String?
   barcode                   String?
-  volume                    String?
   tags                      String[]                   @default([])
-  metadata                  Json?
   category                  Category?                  @relation(fields: [categoryId], references: [id])
   categoryId                String?                    @db.ObjectId
   productCategories         ProductCategory[]
@@ -660,6 +660,7 @@ model Payment {
   cartId     String    @unique @db.ObjectId
   //method must be converted to an enum
   tx_ref     String?   @unique
+  barcodeImageUrl String?
   method     String
   amount     Float
   payeeName  String?

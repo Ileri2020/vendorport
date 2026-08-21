@@ -15,7 +15,7 @@ interface GlobalSearchProps {
   businessId?: string;
 }
 
-export const GlobalSearch = ({ placeholder = "Search for medications, brands or ingredients...", className = "", businessId: providedBusinessId }: GlobalSearchProps) => {
+export const GlobalSearch = ({ placeholder, className = "", businessId: providedBusinessId }: GlobalSearchProps) => {
   const [searchValue, setSearchValue] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<any[]>([]);
@@ -54,6 +54,10 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
       : undefined
   );
   const isStoreBusinessReady = !isStoreScopedRoute || Boolean(businessId);
+  const defaultPlaceholder = isStoreScopedRoute && currentBusiness?.template === "pharmacy"
+    ? "Find medication..."
+    : "Find products...";
+  const resolvedPlaceholder = placeholder || defaultPlaceholder;
 
   // Fetch products once on mount, scoped to business only on store-style routes
   useEffect(() => {
@@ -178,7 +182,7 @@ export const GlobalSearch = ({ placeholder = "Search for medications, brands or 
         <Input
           ref={inputRef}
           type="text"
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           autoComplete="off"
           inputMode="search"
           className="h-12 pl-12 pr-12 text-base border-2 border-muted hover:border-primary/50 focus:border-primary transition-all rounded-xl shadow-sm"

@@ -229,21 +229,40 @@ async function createPlatformCatalog() {
   }
 
   const appCategories = new Map();
-  for (const category of categoriesByKey.values()) {
-    const existing = await prisma.category.findFirst({
-      where: { name: category.name, businessId: null },
-    });
-    const saved = existing || await prisma.category.create({
-      data: {
-        name: category.name,
-        description: asText(category.raw.description) || undefined,
-        image: asText(category.raw.image) || undefined,
-        businessId: null,
-      },
-    });
-    appCategories.set(category.key, saved.id);
-    categoryCount += existing ? 0 : 1;
+  const existingCategories = await prisma.category.findMany({
+    where: { businessId: null },
+    select: { id: true, name: true },
+  });
+  for (const existing of existingCategories) {
+    appCategories.set(asText(existing.name).toLocaleLowerCase(), existing.id);
   }
+
+  for (const category of categoriesByKey.values()) {
+    const normalizedName = asText(category.name).toLocaleLowerCase();
+    let categoryId = appCategories.get(normalizedName);
+    if (!categoryId) {
+      const saved = await prisma.category.create({
+        data: {
+          name: category.name,
+          description: asText(category.raw.description) || undefined,
+          image: asText(category.raw.image) || undefined,
+          businessId: null,
+        },
+      });
+      categoryId = saved.id;
+      appCategories.set(normalizedName, categoryId);
+      categoryCount += 1;
+    }
+    appCategories.set(category.key, categoryId);
+  }
+
+  const existingProducts = await prisma.product.findMany({
+    where: { businessId: null },
+    select: { id: true, name: true, categoryId: true },
+  });
+  const existingProductKeys = new Set(
+    existingProducts.map((product) => `${asText(product.name).toLocaleLowerCase()}::${product.categoryId || ''}`)
+  );
 
   for (const sourceData of sources) {
     for (const product of sourceData.products) {
@@ -294,22 +313,15 @@ async function createPlatformCatalog() {
         },
       };
 
-      const existing = await prisma.product.findFirst({
-        where: {
-          name: productData.name,
-          businessId: null,
-          categoryId: categoryIds[0] || undefined,
-        },
-        select: { id: true },
-      });
-
-      if (existing) {
+      const productKey = `${productData.name.toLocaleLowerCase()}::${categoryIds[0] || ''}`;
+      if (existingProductKeys.has(productKey)) {
         console.log(`Skipping existing platform product: ${productData.name}`);
         continue;
       }
 
       try {
         await prisma.product.create({ data: { ...productData, categoryId: categoryIds[0] || undefined } });
+        existingProductKeys.add(productKey);
         productCount += 1;
         if (productCount % 25 === 0) console.log(`Imported ${productCount} platform products`);
       } catch (error) {

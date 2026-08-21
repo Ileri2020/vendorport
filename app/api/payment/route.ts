@@ -2,11 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 import axios from "axios";
+import bwipjs from "bwip-js/node";
+import { handleUpload } from "@/app/api/file/cloudinary";
 import { sendOrderNotification, sendPaymentConfirmationEmail, sendStoreOwnerOrderNotifications } from "@/lib/nodemailer";
 
 
 function generateTxRef() {
   return `HC-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+}
+
+async function generateOrderBarcodeImage(value: string) {
+  const barcodeBuffer = await bwipjs.toBuffer({
+    bcid: "code128",
+    text: value,
+    scale: 3,
+    height: 16,
+    includetext: false,
+    padding: 8,
+    backgroundcolor: "FFFFFF",
+  });
+  const dataUri = `data:image/png;base64,${barcodeBuffer.toString("base64")}`;
+  const uploaded = await handleUpload(dataUri);
+  return uploaded.secure_url;
 }
 
 const PRICE_MARKUPS: Record<string, number> = {
@@ -119,13 +136,14 @@ export async function POST(req: NextRequest) {
         });
 
         if (payment && payment.cart) {
+          const barcodeImageUrl = payment.barcodeImageUrl || await generateOrderBarcodeImage(confirm_tx_ref);
           await prisma.cart.update({
             where: { id: payment.cartId },
             data: { status: "paid" },
           });
           await prisma.payment.update({
             where: { tx_ref: confirm_tx_ref },
-            data: { method: method || "online" }
+            data: { method: method || "online", barcodeImageUrl }
           });
 
           // Check for affiliate referral and credit commission
@@ -205,7 +223,7 @@ export async function POST(req: NextRequest) {
             });
           }
 
-          return NextResponse.json({ success: true, message: "Payment confirmed" });
+          return NextResponse.json({ success: true, message: "Payment confirmed", barcodeImageUrl });
         }
       }
       
@@ -240,7 +258,7 @@ export async function POST(req: NextRequest) {
     // Server-side total calculation
     const products = await prisma.product.findMany({
       where: { id: { in: items.map((i: any) => i.productId) } },
-      include: { bulkPrices: true }
+      include: { bulkPrices: true, variants: { include: { prices: true } } }
     });
 
     const markup = PRICE_MARKUPS[user.role] || 1.3;
@@ -254,6 +272,12 @@ export async function POST(req: NextRequest) {
       if (item.bulkPriceId) {
         const bulk = product.bulkPrices.find(b => b.id === item.bulkPriceId);
         if (bulk) price = bulk.price;
+      } else if (item.variantId) {
+        const variant = product.variants.find((option: any) => option.id === item.variantId);
+        const variantPrice = variant?.prices?.[0]?.calculatedAmount ?? variant?.prices?.[0]?.amount;
+        if (variantPrice !== undefined && variantPrice !== null) {
+          price = Number(variantPrice) > 100000 ? Number(variantPrice) / 100 : Number(variantPrice);
+        }
       } else if (item.isSpecial && item.customPrice) {
         price = item.customPrice;
       }

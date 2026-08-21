@@ -144,7 +144,7 @@ const FeaturedProducts = () => {
                   rating: 5,
                   categoryName: product.categoryName || product.category?.name || "Pharmacy"
                 }}
-                onAddToCart={() => handleAddToCart(product)}
+                onAddToCart={(item) => handleAddToCart(item)}
               />
             </CarouselItem>
           ))}

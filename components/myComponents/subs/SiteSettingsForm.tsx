@@ -29,6 +29,8 @@ const SiteSettingsForm: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<any>({});
   const [openSection, setOpenSection] = useState<string | null>("hero");
+  const [newOperatingState, setNewOperatingState] = useState("");
+  const [newOperatingCountry, setNewOperatingCountry] = useState("Nigeria");
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -58,6 +60,25 @@ const SiteSettingsForm: React.FC = () => {
     handleChange("accentDark", hsl);
   };
 
+  const addOperatingState = () => {
+    const state = newOperatingState.trim();
+    const country = newOperatingCountry.trim();
+    if (!state || !country) {
+      toast.error("Enter a state and country");
+      return;
+    }
+    const location = `${state}, ${country}`;
+    const operatingStates = Array.isArray(form.operatingStates) ? form.operatingStates : [];
+    if (!operatingStates.some((item: string) => item.toLowerCase() === location.toLowerCase())) {
+      handleChange("operatingStates", [...operatingStates, location]);
+    }
+    setNewOperatingState("");
+  };
+
+  const removeOperatingState = (location: string) => {
+    handleChange("operatingStates", (Array.isArray(form.operatingStates) ? form.operatingStates : []).filter((item: string) => item !== location));
+  };
+
   const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -80,6 +101,36 @@ const SiteSettingsForm: React.FC = () => {
       event.target.value = "";
       console.error(error);
       toast.error(error instanceof Error ? error.message : "Logo upload failed");
+    }
+  };
+
+  const handleStorefrontFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !currentBusiness?.id) return;
+    if (file.size >= 50 * 1024) {
+      event.target.value = "";
+      toast.error("Storefront image must be smaller than 50 KB");
+      return;
+    }
+
+    try {
+      const preparedFile = await prepareImageForUpload(file);
+      if (preparedFile.size >= 50 * 1024) {
+        event.target.value = "";
+        toast.error("Compressed storefront image must be smaller than 50 KB");
+        return;
+      }
+      const uploadData = new FormData();
+      uploadData.append("businessId", currentBusiness.id);
+      uploadData.append("file", preparedFile);
+      const response = await fetch("/api/file/storefront", { method: "POST", body: uploadData });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Storefront image upload failed");
+      handleChange("storefrontImageUrl", result.url);
+      toast.success("Storefront image uploaded. Save settings to apply it.");
+    } catch (error) {
+      event.target.value = "";
+      toast.error(error instanceof Error ? error.message : "Storefront image upload failed");
     }
   };
 
@@ -236,6 +287,16 @@ const SiteSettingsForm: React.FC = () => {
                     </div>
                   ) : null}
                 </div>
+                <div className="md:col-span-2">
+                  <Label>Storefront Image</Label>
+                  <Input type="file" accept="image/*" onChange={handleStorefrontFileChange} className="mt-2" />
+                  <p className="mt-1 text-xs text-muted-foreground">Optional image shown on the platform home page and Top Rated Websites carousel. Must be smaller than 50 KB.</p>
+                  {valOf("storefrontImageUrl", "") ? (
+                    <div className="mt-3 h-32 overflow-hidden rounded-md border bg-white/70">
+                      <img src={valOf("storefrontImageUrl", "")} alt="Storefront preview" className="h-full w-full object-cover" />
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </CollapsibleContent>
           </div>
@@ -275,6 +336,38 @@ const SiteSettingsForm: React.FC = () => {
                   placeholder="30"
                 />
                 <p className="mt-1 text-xs text-muted-foreground">When enabled, new product prices use cost price plus this percentage.</p>
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
+        <Collapsible open={openSection === "locations"} onOpenChange={(v) => setOpenSection(v ? "locations" : null)}>
+          <div className="border rounded-md bg-accent/5">
+            <CollapsibleTrigger asChild>
+              <button className="w-full p-3 text-left font-semibold bg-accent/20 shadow-md shadow-accent/70 flex items-center justify-between">
+                <span>Operating Locations</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${openSection === "locations" ? "rotate-180" : ""}`} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="p-3 space-y-3">
+              <p className="text-sm text-muted-foreground">Products from this business are available in the states listed here.</p>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
+                <div>
+                  <Label htmlFor="operating-state">State or region</Label>
+                  <Input id="operating-state" value={newOperatingState} onChange={(event) => setNewOperatingState(event.target.value)} placeholder="Lagos" />
+                </div>
+                <div>
+                  <Label htmlFor="operating-country">Country</Label>
+                  <Input id="operating-country" value={newOperatingCountry} onChange={(event) => setNewOperatingCountry(event.target.value)} placeholder="Nigeria" />
+                </div>
+                <Button type="button" onClick={addOperatingState} className="gap-2"><PlusCircle className="h-4 w-4" />Add location</Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(Array.isArray(form.operatingStates) ? form.operatingStates : []).map((location: string) => (
+                  <button key={location} type="button" onClick={() => removeOperatingState(location)} className="inline-flex items-center gap-1 rounded-full border bg-background px-3 py-1 text-sm hover:border-destructive hover:text-destructive">
+                    {location}<Trash2 className="h-3 w-3" />
+                  </button>
+                ))}
               </div>
             </CollapsibleContent>
           </div>

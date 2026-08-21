@@ -194,7 +194,7 @@ const CommonMedications = () => {
                         rating: 5,
                         categoryName: product.category?.name || "Pharmacy",
                       }}
-                      onAddToCart={() => handleAddToCart(product)}
+                      onAddToCart={(item) => handleAddToCart(item)}
                     />
                     {/* Admin inline toggle: always visible for admins */}
                     {isAdmin && (

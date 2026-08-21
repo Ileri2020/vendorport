@@ -18,6 +18,7 @@ import { PriceFeedback } from "@/components/myComponents/subs/priceFeedback"
 import Similar from "@/components/myComponents/subs/similar"
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
+import { VariantCard, getVariantAmount, getVariantPriceRange } from "@/components/myComponents/subs/variantCard";
 
 const Description = () => {
   const [product, setProduct] = useState<any>(null);
@@ -25,7 +26,6 @@ const Description = () => {
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [selectedBulk, setSelectedBulk] = useState<any>(null);
-  const [selectedVariantId, setSelectedVariantId] = useState("");
   const [selectedImage, setSelectedImage] = useState(0);
   const params = useParams();
   const rawId = Array.isArray(params?.id) ? params.id[0] : params?.id;
@@ -40,9 +40,7 @@ const Description = () => {
   const isPrescription = regClass === "Prescription Medicine";
   const isControlled = regClass === "Controlled Medicine";
   const variants = Array.isArray(product?.variants) ? product.variants : [];
-  const selectedVariant = variants.find((variant: any) => variant.id === selectedVariantId) || variants[0];
-  const variantAmount = selectedVariant?.prices?.[0]?.calculatedAmount ?? selectedVariant?.prices?.[0]?.amount;
-  const displayVariantPrice = variantAmount !== undefined ? (Number(variantAmount) > 100000 ? Number(variantAmount) / 100 : Number(variantAmount)) : null;
+  const variantPriceRange = getVariantPriceRange(variants);
   const productImages = Array.isArray(product?.images) ? product.images : [];
 
   const whatsappNumber = "2348000000000"; // Replace with real company number
@@ -109,6 +107,13 @@ const Description = () => {
       }, 1);
       toast.success(`${product.name}${selectedBulk ? ` (${selectedBulk.name})` : ''} added to cart`);
     }
+  };
+
+  const handleAddVariantToCart = (variant: any) => {
+    if (!product) return;
+    const amount = getVariantAmount(variant);
+    addItem({ ...product, ...(amount === null ? {} : { price: amount }), variantId: variant.id, variantTitle: variant.title }, 1);
+    toast.success(`${product.name} (${variant.title}) added to cart`);
   };
 
   if (loading) {
@@ -247,7 +252,8 @@ const Description = () => {
 
           <div className="flex items-baseline gap-3">
             <span className="text-4xl font-black text-foreground">
-                ₦ {formatPrice((selectedBulk ? selectedBulk.price : displayVariantPrice ?? getProductPrice(product, user?.role)) * (selectedBulk ? (PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || 1.3) : 1))}
+                ₦ {formatPrice((selectedBulk ? selectedBulk.price : variantPriceRange?.minimum ?? getProductPrice(product, user?.role)) * (selectedBulk ? (PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || 1.3) : 1))}
+                {variantPriceRange && !selectedBulk && variantPriceRange.minimum !== variantPriceRange.maximum && ` - ₦ ${formatPrice(variantPriceRange.maximum)}`}
             </span>
             {selectedBulk && (
                 <span className="text-sm font-bold text-muted-foreground">
@@ -286,13 +292,9 @@ const Description = () => {
           )}
 
           {variants.length > 0 && <div className="space-y-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
-            <div><h3 className="font-bold text-primary">Choose an option</h3><p className="text-xs text-muted-foreground">Prices, weight, and availability can vary by option.</p></div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {variants.map((variant: any) => <button type="button" key={variant.id} onClick={() => setSelectedVariantId(variant.id)} className={`rounded-xl border-2 p-3 text-left ${selectedVariant?.id === variant.id ? "border-primary bg-background" : "border-transparent bg-background/60"}`}>
-                <div className="font-bold">{variant.title}</div><div className="text-xs text-muted-foreground">{[variant.weight, variant.volume].filter(Boolean).join(" · ") || "Standard option"}</div>
-                <div className="mt-1 text-sm font-black text-primary">₦ {formatPrice((variant.prices?.[0]?.calculatedAmount ?? variant.prices?.[0]?.amount ?? 0) > 100000 ? (variant.prices?.[0]?.calculatedAmount ?? variant.prices?.[0]?.amount ?? 0) / 100 : (variant.prices?.[0]?.calculatedAmount ?? variant.prices?.[0]?.amount ?? 0))}</div>
-                {variant.inventoryItems?.[0]?.sku && <div className="mt-1 text-[10px] text-muted-foreground">SKU: {variant.inventoryItems[0].sku}</div>}
-              </button>)}
+            <div><h3 className="font-bold text-primary">Available options</h3><p className="text-xs text-muted-foreground">Choose a variant to add it directly to your cart.</p></div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {variants.map((variant: any) => <VariantCard key={variant.id} variant={variant} onAddToCart={handleAddVariantToCart} />)}
             </div>
           </div>}
 
@@ -346,12 +348,12 @@ const Description = () => {
                 <MessageCircle className="h-5 w-5 text-white" />
                 Speak to a Representative
               </Button>
-            ) : (
+            ) : variants.length === 0 ? (
                 <Button size="lg" onClick={handleAddToCart} className="w-full gap-2 rounded-xl h-14 text-lg">
                   <ShoppingCart className="h-5 w-5" />
                   Add to Cart
                 </Button>
-            )}
+            ) : null}
           </div>
           
           <PriceFeedback productId={product.id} productName={product.name} />
@@ -394,8 +396,8 @@ const Description = () => {
                     inStock: true,
                     categoryName: simProd.category?.name || "General"
                   }}
-                  onAddToCart={() => {
-                    addItem(simProd, 1);
+                  onAddToCart={(item) => {
+                    addItem(item, 1);
                     toast.success(`${simProd.name} added to cart`);
                   }}
                 />
@@ -428,8 +430,8 @@ const Description = () => {
                  inStock: true,
                  categoryName: simProd.category?.name || "General"
                }}
-               onAddToCart={() => {
-                 addItem(simProd, 1);
+               onAddToCart={(item) => {
+                 addItem(item, 1);
                  toast.success(`${simProd.name} added to cart`);
                }}
              />

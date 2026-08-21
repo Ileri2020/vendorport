@@ -19,8 +19,13 @@ function splitCategories(value: string | null) {
   return value ? value.split(",").map((item) => item.trim()).filter(Boolean) : []
 }
 
+function splitLocations(value: string | null) {
+  return value ? value.split("|").map((item) => item.trim()).filter(Boolean) : []
+}
+
 function laneItems(categories: Category[], lane: number) {
-  return categories.filter((_, index) => index % CATEGORY_LANES === lane)
+  const items = categories.filter((_, index) => index % CATEGORY_LANES === lane)
+  return items.length || !categories.length ? items : [categories[lane % categories.length]]
 }
 
 export default function CategoryNavigator() {
@@ -29,11 +34,15 @@ export default function CategoryNavigator() {
   const searchParams = useSearchParams()
   const { currentBusiness } = useAppContext()
   const [categories, setCategories] = useState<Category[]>([])
+  const [locations, setLocations] = useState<string[]>([])
   const [open, setOpen] = useState(false)
   const selected = useMemo(() => splitCategories(searchParams.get("category")), [searchParams])
+  const selectedLocations = useMemo(() => splitLocations(searchParams.get("location")), [searchParams])
+  const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "")
+  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "")
 
   useEffect(() => {
-    const isPlatformStore = pathname.split("/").filter(Boolean).length === 1
+    const isPlatformStore = pathname.replace(/\/$/, "") === "/store"
     const query = isPlatformStore
       ? "&platform=true"
       : currentBusiness?.id ? `&businessId=${encodeURIComponent(currentBusiness.id)}` : ""
@@ -41,17 +50,54 @@ export default function CategoryNavigator() {
       .then((response) => response.ok ? response.json() : [])
       .then((data) => setCategories(Array.isArray(data) ? data.filter((category) => category?._count?.products !== 0) : []))
       .catch(() => setCategories([]))
+
+    const locationsQuery = !isPlatformStore && currentBusiness?.id
+      ? `?businessId=${encodeURIComponent(currentBusiness.id)}`
+      : ""
+    fetch(`/api/store-locations${locationsQuery}`)
+      .then((response) => response.ok ? response.json() : [])
+      .then((data) => setLocations(Array.isArray(data) ? data : []))
+      .catch(() => setLocations([]))
   }, [currentBusiness?.id, pathname])
+
+  useEffect(() => {
+    setMinPrice(searchParams.get("minPrice") || "")
+    setMaxPrice(searchParams.get("maxPrice") || "")
+  }, [searchParams])
 
   function updateSelection(next: string[]) {
     const params = new URLSearchParams(searchParams.toString())
     if (next.length) params.set("category", next.join(","))
     else params.delete("category")
-    router.push(`${pathname}?${params.toString()}`, { scroll: false })
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
   function toggleCategory(name: string) {
     updateSelection(selected.includes(name) ? selected.filter((item) => item !== name) : [...selected, name])
+  }
+
+  function applyFilters() {
+    const params = new URLSearchParams(searchParams.toString())
+    if (minPrice.trim() && Number.isFinite(Number(minPrice))) params.set("minPrice", String(Math.max(0, Number(minPrice))))
+    else params.delete("minPrice")
+    if (maxPrice.trim() && Number.isFinite(Number(maxPrice))) params.set("maxPrice", String(Math.max(0, Number(maxPrice))))
+    else params.delete("maxPrice")
+    if (selectedLocations.length) params.set("location", selectedLocations.join("|"))
+    else params.delete("location")
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
+  function clearFilters() {
+    setMinPrice("")
+    setMaxPrice("")
+    const params = new URLSearchParams(searchParams.toString())
+    params.delete("minPrice")
+    params.delete("maxPrice")
+    params.delete("location")
+    const query = params.toString()
+    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
   }
 
   const selectedCategories = categories.filter((category) => selected.includes(category.name))
@@ -78,7 +124,8 @@ export default function CategoryNavigator() {
                 multiple
                 value={selected}
                 onChange={(event) => updateSelection(Array.from(event.target.selectedOptions, (option) => option.value))}
-                className="h-52 w-full rounded-lg border bg-background p-2 text-sm"
+                aria-label="Select one or more product categories"
+                className="h-52 w-full rounded-lg border bg-background p-2 text-sm outline-none focus:ring-2 focus:ring-ring"
               >
                 {categories.map((category) => <option key={category.id} value={category.name}>{category.name}</option>)}
               </select>
@@ -98,13 +145,44 @@ export default function CategoryNavigator() {
         </div>
       )}
 
+      <div className="mb-4 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 md:grid-cols-[1fr_1fr_1.4fr_auto] md:items-end">
+        <div>
+          <label htmlFor="store-min-price" className="mb-1 block text-xs font-bold text-muted-foreground">Minimum price</label>
+          <input id="store-min-price" type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="0" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+        <div>
+          <label htmlFor="store-max-price" className="mb-1 block text-xs font-bold text-muted-foreground">Maximum price</label>
+          <input id="store-max-price" type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="Any price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
+        </div>
+        <div>
+          <label htmlFor="store-location" className="mb-1 block text-xs font-bold text-muted-foreground">Available location</label>
+          <select id="store-location" multiple value={selectedLocations} onChange={(event) => {
+            const next = Array.from(event.target.selectedOptions, (option) => option.value)
+            const params = new URLSearchParams(searchParams.toString())
+            if (next.length) params.set("location", next.join("|"))
+            else params.delete("location")
+            const query = params.toString()
+            router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+          }} className="h-20 w-full rounded-md border bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring" aria-label="Select one or more available locations">
+            {locations.length ? locations.map((location) => <option key={location} value={location}>{location}</option>) : <option disabled>No locations configured</option>}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <Button type="button" size="sm" onClick={applyFilters}>Apply filters</Button>
+          {(minPrice || maxPrice || selectedLocations.length) && <Button type="button" size="sm" variant="ghost" onClick={clearFilters}>Clear</Button>}
+        </div>
+      </div>
+
       <div className="space-y-2 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
         {[0, 1, 2].map((lane) => {
           const items = laneItems(categories, lane)
           const movingItems = [...items, ...items]
           return (
             <div key={lane} className="overflow-hidden">
-              <div className={`flex w-max gap-2 ${lane === 1 ? "animate-marquee-reverse" : "animate-marquee"}`}>
+              <div
+                className={`flex w-max gap-2 ${lane === 1 ? "animate-marquee-reverse" : "animate-marquee"}`}
+                style={{ "--marquee-duration": `${28 + lane * 4}s` } as React.CSSProperties}
+              >
                 {movingItems.map((category, index) => {
                   const isSelected = selected.includes(category.name)
                   return <button key={`${category.id}-${index}`} type="button" onClick={() => toggleCategory(category.name)} className={`inline-flex min-h-9 items-center gap-1 whitespace-nowrap rounded-full border px-3 text-xs font-semibold transition-colors ${isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background hover:border-primary hover:text-primary"}`}>

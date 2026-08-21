@@ -274,6 +274,7 @@ export async function GET(req: NextRequest) {
           take: Math.min(limit, 12),
           skip: offset,
           orderBy: [{ ratings: 'desc' as const }, { createdAt: 'desc' as const }],
+          include: { siteSettings: { select: { storefrontImageUrl: true } } },
         });
 
         const ownerIds = businesses.map(b => b.ownerId).filter(Boolean);
@@ -350,6 +351,11 @@ export async function GET(req: NextRequest) {
         const categoryId = searchParams.get("categoryId");
         const categoryName = searchParams.get("categoryName");
         const concern = searchParams.get("concern");
+        const minPriceValue = searchParams.get("minPrice");
+        const maxPriceValue = searchParams.get("maxPrice");
+        const minPrice = minPriceValue === null ? Number.NaN : Number(minPriceValue);
+        const maxPrice = maxPriceValue === null ? Number.NaN : Number(maxPriceValue);
+        const location = searchParams.get("location");
         const businessId = searchParams.get("businessId");
         const includeParams = searchParams.get("include")?.split(",");
         
@@ -367,6 +373,18 @@ export async function GET(req: NextRequest) {
           where.category = categoryNames.length > 1
             ? { name: { in: categoryNames, mode: 'insensitive' } }
             : { name: { equals: categoryNames[0], mode: 'insensitive' } };
+        }
+        if (Number.isFinite(minPrice)) where.price = { ...(where.price || {}), gte: Math.max(0, minPrice) };
+        if (Number.isFinite(maxPrice)) where.price = { ...(where.price || {}), lte: Math.max(0, maxPrice) };
+        if (location) {
+          const locations = location.split("|").map((item) => item.trim()).filter(Boolean);
+          if (locations.length) {
+            where.business = {
+              siteSettings: {
+                is: { operatingStates: locations.length > 1 ? { hasSome: locations } : { has: locations[0] } },
+              },
+            };
+          }
         }
         if (concern) where.category = { name: { equals: concern.trim(), mode: 'insensitive' } };
 

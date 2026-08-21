@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/sheet";
 import ProductForm from "@/prisma/forms/ProductForm";
 import axios from "axios";
+import { VariantCard, getVariantAmount, getVariantPriceRange } from "./variantCard";
 
 type ProductCardProps = Omit<
   React.HTMLAttributes<HTMLDivElement>,
@@ -61,7 +62,7 @@ export function ProductCard({
   const [isHovered, setIsHovered] = React.useState(false);
   const [isAddingToCart, setIsAddingToCart] = React.useState(false);
   const [isInWishlist, setIsInWishlist] = React.useState(false);
-  const [selectedVariantId, setSelectedVariantId] = React.useState("");
+  const [isVariantDialogOpen, setIsVariantDialogOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (product?.id) {
@@ -77,6 +78,10 @@ export function ProductCard({
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (variants.length > 0) {
+      setIsVariantDialogOpen(true);
+      return;
+    }
     if (onAddToCart) {
       setIsAddingToCart(true);
       setTimeout(() => {
@@ -131,9 +136,8 @@ export function ProductCard({
    * Safe Data Access
    */
   const variants = Array.isArray(product?.variants) ? product.variants : [];
-  const selectedVariant = variants.find((variant: any) => variant.id === selectedVariantId) || variants[0];
-  const variantPrice = selectedVariant?.prices?.[0]?.calculatedAmount ?? selectedVariant?.prices?.[0]?.amount;
-  const currentPrice = variantPrice !== undefined ? (Number(variantPrice) > 100000 ? Number(variantPrice) / 100 : Number(variantPrice)) : getProductPrice(product, user?.role);
+  const variantPriceRange = getVariantPriceRange(variants);
+  const currentPrice = variantPriceRange?.minimum ?? getProductPrice(product, user?.role);
   const inStock = typeof product.inStock === 'boolean' ? product.inStock : isProductInStock(product);
   const categoryNames = [product?.category?.name, ...(product?.productCategories || []).map((item: any) => item.category?.name || item.name), product?.categoryName].filter(Boolean).filter((name, index, names) => names.indexOf(name) === index);
   const categoryName = categoryNames[0] || "Pharmacy";
@@ -152,6 +156,17 @@ export function ProductCard({
   const markup = PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || PRICE_MARKUPS.customer;
   const displayPrice = firstBulk ? firstBulk.price * markup : currentPrice;
   const displayLabel = firstBulk ? `/${firstBulk.name}` : "";
+
+  const handleVariantAddToCart = (variantOption: any) => {
+    const amount = getVariantAmount(variantOption);
+    onAddToCart?.({
+      ...product,
+      ...(amount === null ? {} : { price: amount }),
+      variantId: variantOption.id,
+      variantTitle: variantOption.title,
+    });
+    setIsVariantDialogOpen(false);
+  };
 
   const whatsappNumber = "2348000000000"; // Replace with real company number
   const speakToRepUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hello, I'm interested in the controlled medicine: ${product.name}. Please guide me on how to proceed.`)}`;
@@ -174,6 +189,11 @@ export function ProductCard({
   const discountedPrice = hasDiscount
     ? displayPrice * (1 - discountPercent / 100)
     : displayPrice;
+  const variantPriceLabel = variantPriceRange && !firstBulk
+    ? variantPriceRange.minimum === variantPriceRange.maximum
+      ? `₦${formatPrice(variantPriceRange.minimum)}`
+      : `₦${formatPrice(variantPriceRange.minimum)} - ₦${formatPrice(variantPriceRange.maximum)}`
+    : `₦${formatPrice(discountedPrice)}`;
 
   const renderStars = () => {
     return (
@@ -407,13 +427,9 @@ export function ProductCard({
                   {product.shortDescription && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{product.shortDescription}</p>}
                   <div className="mt-1.5">{renderStars()}</div>
 
-                  {variants.length > 0 && <select value={selectedVariant?.id || ""} onChange={(event) => { event.preventDefault(); event.stopPropagation(); setSelectedVariantId(event.target.value); }} onClick={(event) => event.stopPropagation()} className="mt-2 h-8 w-full rounded-md border bg-background px-2 text-xs">
-                    {variants.map((item: any) => <option key={item.id} value={item.id}>{item.title}{item.weight ? ` · ${item.weight}` : ""}</option>)}
-                  </select>}
-
                   <div className="mt-2 flex items-center flex-wrap gap-1.5">
                     <span className="font-medium text-foreground">
-                      ₦{formatPrice(discountedPrice)}{displayLabel && <span className="text-xs text-muted-foreground ml-0.5">{displayLabel}</span>}
+                      {variantPriceLabel}{displayLabel && <span className="text-xs text-muted-foreground ml-0.5">{displayLabel}</span>}
                     </span>
                     {hasDiscount && (
                       <span className="text-sm text-muted-foreground line-through">
@@ -514,8 +530,8 @@ export function ProductCard({
               <CardFooter className="p-4 pt-0">
                 <div className="flex w-full items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-medium text-foreground">
-                      ₦{formatPrice(discountedPrice)}{displayLabel && <span className="text-xs text-muted-foreground ml-0.5">{displayLabel}</span>}
+                      <span className="font-medium text-foreground">
+                      {variantPriceLabel}{displayLabel && <span className="text-xs text-muted-foreground ml-0.5">{displayLabel}</span>}
                     </span>
                     {hasDiscount && (
                       <span className="text-sm text-muted-foreground line-through">
@@ -554,6 +570,21 @@ export function ProductCard({
           </div>
         </Card>
       </div>
+      {variants.length > 0 && (
+        <Dialog open={isVariantDialogOpen} onOpenChange={setIsVariantDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Choose {product?.name || "a product option"}</DialogTitle>
+              <DialogDescription>Select a variant to add to your cart.</DialogDescription>
+            </DialogHeader>
+            <div className="grid max-h-[60vh] grid-cols-1 gap-3 overflow-y-auto sm:grid-cols-2">
+              {variants.map((variantOption: any) => (
+                <VariantCard key={variantOption.id} variant={variantOption} onAddToCart={handleVariantAddToCart} />
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
