@@ -2,6 +2,8 @@
 
 require('dotenv/config');
 
+const fs = require('fs');
+const path = require('path');
 const { v2: cloudinary } = require('cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaClient: PricepallyClient } = require('../generated/pricepally');
@@ -30,6 +32,18 @@ function getOption(name) {
   const prefix = `--${name}=`;
   const argument = process.argv.find((value) => value.startsWith(prefix));
   return argument ? argument.slice(prefix.length) : undefined;
+}
+
+function snapshotDirectory() {
+  return path.resolve(getOption('snapshot-dir') || 'tmp/platform-catalog');
+}
+
+function writeSnapshot(filename, value) {
+  const directory = snapshotDirectory();
+  fs.mkdirSync(directory, { recursive: true });
+  const filePath = path.join(directory, filename);
+  fs.writeFileSync(filePath, JSON.stringify(value, null, 2), 'utf8');
+  return filePath;
 }
 
 function asText(value) {
@@ -193,9 +207,62 @@ async function loadSourceCatalog() {
   ];
 }
 
+async function loadAppCatalogSnapshot() {
+  const [categories, products] = await Promise.all([
+    prisma.category.findMany({
+      where: { businessId: null },
+      select: { id: true, name: true, description: true, image: true },
+    }),
+    prisma.product.findMany({
+      where: { businessId: null },
+      select: { id: true, name: true, categoryId: true, images: true },
+    }),
+  ]);
+
+  return { categories, products };
+}
+
+function buildLocalComparison(sources, appCatalog) {
+  const appCategoryNames = new Set(appCatalog.categories.map((category) => asText(category.name).toLocaleLowerCase()));
+  const appProductKeys = new Set(appCatalog.products.map((product) => (
+    `${asText(product.name).toLocaleLowerCase()}::${product.categoryId || ''}`
+  )));
+  const sourceProducts = sources.flatMap((sourceData) => sourceData.products.map((product) => ({
+    source: sourceData.source,
+    sourceId: product.id,
+    name: asText(product.title || product.name),
+  })));
+  const sourceCategories = [...new Map(sources.flatMap((sourceData) => sourceData.categories.map((category) => {
+    const raw = category.rawCategory || category;
+    const name = asText(raw.name || category.name) || 'Uncategorized';
+    return [name.toLocaleLowerCase(), { source: sourceData.source, name }];
+  }))).values()];
+
+  return {
+    generatedAt: new Date().toISOString(),
+    app: { categories: appCatalog.categories.length, products: appCatalog.products.length },
+    scraped: {
+      categories: sourceCategories.length,
+      products: sourceProducts.length,
+    },
+    missingCategories: sourceCategories.filter((category) => !appCategoryNames.has(category.name.toLocaleLowerCase())),
+    unmatchedProducts: sourceProducts.filter((product) => ![...appProductKeys].some((key) => key.startsWith(`${product.name.toLocaleLowerCase()}::`))),
+  };
+}
+
 async function createPlatformCatalog() {
   const dryRun = hasFlag('dry-run');
   const sources = await loadSourceCatalog();
+  const appCatalog = await loadAppCatalogSnapshot();
+  const sourceSnapshotPath = writeSnapshot('scraped-catalog.json', sources);
+  const appSnapshotPath = writeSnapshot('app-platform-catalog.json', appCatalog);
+  const comparison = buildLocalComparison(sources, appCatalog);
+  const comparisonPath = writeSnapshot('comparison.json', comparison);
+  console.log(`Local snapshots written to ${snapshotDirectory()}`);
+  console.log(`Comparison: ${comparison.missingCategories.length} missing categories, ${comparison.unmatchedProducts.length} unmatched products`);
+  console.log(`Source snapshot: ${sourceSnapshotPath}`);
+  console.log(`App snapshot: ${appSnapshotPath}`);
+  console.log(`Comparison report: ${comparisonPath}`);
   const imageCache = new Map();
   const categoriesByKey = new Map();
   const sourceCategoryLookups = new Map();
