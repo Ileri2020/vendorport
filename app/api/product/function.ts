@@ -62,7 +62,12 @@ async function dbHandler({
             name: body.name,
             categoryId: body.categoryId,
             price: Number(body.price),
-            images: body.url ? [body.url] : [],
+            images: Array.isArray(body.urls) ? body.urls : (body.url ? [body.url] : []),
+            shortDescription: body.shortDescription || undefined,
+            barcode: body.barcode || undefined,
+            volume: body.volume || undefined,
+            tags: Array.isArray(body.tags) ? body.tags : [],
+            metadata: body.metadata || undefined,
             businessId: body.businessId ? String(body.businessId) : undefined,
             costPrice: body.costPrice !== undefined && body.costPrice !== null && body.costPrice !== "" ? Number(body.costPrice) : undefined,
             weight: body.weight ? String(body.weight) : undefined,
@@ -76,6 +81,25 @@ async function dbHandler({
                 ? body.activeIngredients.split(",").map((name: string) => name.trim()).filter(Boolean)
                 : [],
           };
+
+          if (Array.isArray(body.variants)) {
+            productData.variants = {
+              create: body.variants.filter((variant: any) => variant?.title).map((variant: any) => ({
+                title: String(variant.title),
+                weight: variant.weight || undefined,
+                volume: variant.volume || undefined,
+                metadata: variant.metadata || undefined,
+                allowBackorder: Boolean(variant.allowBackorder),
+                manageInventory: variant.manageInventory !== false,
+                stockStatusByRegion: variant.stockStatusByRegion || undefined,
+                prices: { create: (variant.prices || []).filter((price: any) => price?.amount !== undefined).map((price: any) => ({ amount: Number(price.amount) || 0, originalAmount: price.originalAmount == null ? undefined : Number(price.originalAmount), calculatedAmount: price.calculatedAmount == null ? undefined : Number(price.calculatedAmount), currencyCode: price.currencyCode || "ngn", isDiscounted: Boolean(price.isDiscounted), minQuantity: price.minQuantity == null ? undefined : Number(price.minQuantity), maxQuantity: price.maxQuantity == null ? undefined : Number(price.maxQuantity), metadata: price.metadata || undefined })) },
+                inventoryItems: { create: (variant.inventoryItems || []).map((item: any) => ({ sku: item.sku || undefined, requiredQuantity: item.requiredQuantity == null ? undefined : Number(item.requiredQuantity), availableQuantity: item.availableQuantity == null ? undefined : Number(item.availableQuantity), deliverableQuantity: item.deliverableQuantity == null ? undefined : Number(item.deliverableQuantity), reservedQuantity: item.reservedQuantity == null ? undefined : Number(item.reservedQuantity), stockedQuantity: item.stockedQuantity == null ? undefined : Number(item.stockedQuantity), minStockLevel: item.minStockLevel == null ? undefined : Number(item.minStockLevel), metadata: item.metadata || undefined })) },
+              }))
+            };
+          }
+          if (Array.isArray(body.categoryIds) && body.categoryIds.length > 0) {
+            productData.productCategories = { create: body.categoryIds.filter(Boolean).map((categoryId: string) => ({ category: { connect: { id: String(categoryId) } } })) };
+          }
 
           if (Array.isArray(body.healthConcerns) && body.healthConcerns.length > 0) {
             productData.healthConcerns = {

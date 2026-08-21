@@ -158,6 +158,44 @@ function normalizeBusinessRelation(model: string, data: any) {
   return data;
 }
 
+function parseJsonValue(value: any, fallback: any = null) {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value !== "string") return value;
+  try { return JSON.parse(value); } catch { return fallback; }
+}
+
+function buildVariantCreates(variants: any[]) {
+  return variants.filter((variant) => variant?.title).map((variant) => ({
+    title: String(variant.title),
+    weight: variant.weight || undefined,
+    volume: variant.volume || undefined,
+    metadata: variant.metadata || undefined,
+    allowBackorder: Boolean(variant.allowBackorder),
+    manageInventory: variant.manageInventory !== false,
+    stockStatusByRegion: variant.stockStatusByRegion || undefined,
+    prices: { create: (variant.prices || []).filter((price: any) => price?.amount !== undefined).map((price: any) => ({
+      amount: Number(price.amount) || 0,
+      originalAmount: price.originalAmount == null ? undefined : Number(price.originalAmount),
+      calculatedAmount: price.calculatedAmount == null ? undefined : Number(price.calculatedAmount),
+      currencyCode: price.currencyCode || "ngn",
+      isDiscounted: Boolean(price.isDiscounted),
+      minQuantity: price.minQuantity == null ? undefined : Number(price.minQuantity),
+      maxQuantity: price.maxQuantity == null ? undefined : Number(price.maxQuantity),
+      metadata: price.metadata || undefined,
+    })) },
+    inventoryItems: { create: (variant.inventoryItems || []).map((item: any) => ({
+      sku: item.sku || undefined,
+      requiredQuantity: item.requiredQuantity == null ? undefined : Number(item.requiredQuantity),
+      availableQuantity: item.availableQuantity == null ? undefined : Number(item.availableQuantity),
+      deliverableQuantity: item.deliverableQuantity == null ? undefined : Number(item.deliverableQuantity),
+      reservedQuantity: item.reservedQuantity == null ? undefined : Number(item.reservedQuantity),
+      stockedQuantity: item.stockedQuantity == null ? undefined : Number(item.stockedQuantity),
+      minStockLevel: item.minStockLevel == null ? undefined : Number(item.minStockLevel),
+      metadata: item.metadata || undefined,
+    })) },
+  }));
+}
+
 // =====================
 // Utilities
 // =====================
@@ -293,12 +331,14 @@ export async function GET(req: NextRequest) {
       if (model === "category") {
         const where: any = {};
         if (businessId) where.businessId = businessId;
+        if (searchParams.get("platform") === "true") where.businessId = null;
         return NextResponse.json(await prisma.category.findMany({
           take: limit,
           skip: offset,
           where,
           include: { 
             products: { take: 3, select: { images: true } },
+            productCategories: { take: 3, include: { product: { select: { id: true, name: true, images: true } } } },
             _count: { select: { products: true } },
             business: true,
           }
@@ -322,7 +362,12 @@ export async function GET(req: NextRequest) {
           ];
         }
         if (categoryId) where.categoryId = categoryId;
-        if (categoryName) where.category = { name: { equals: categoryName.trim(), mode: 'insensitive' } };
+        if (categoryName) {
+          const categoryNames = categoryName.split(",").map((name) => name.trim()).filter(Boolean);
+          where.category = categoryNames.length > 1
+            ? { name: { in: categoryNames, mode: 'insensitive' } }
+            : { name: { equals: categoryNames[0], mode: 'insensitive' } };
+        }
         if (concern) where.category = { name: { equals: concern.trim(), mode: 'insensitive' } };
 
         const searchQuery = searchParams.get("query")?.trim();
@@ -347,6 +392,8 @@ export async function GET(req: NextRequest) {
         const include: any = {};
         const includeMap: Record<string, any> = {
           category: { category: true },
+          categories: { productCategories: { include: { category: true } } },
+          variants: { variants: { include: { prices: true, inventoryItems: true } } },
           brand: { brandData: true },
           stock: { stock: true },
           activeIngredients: { activeIngredientRefs: true },
@@ -362,7 +409,9 @@ export async function GET(req: NextRequest) {
           });
         } else if (!minimal) {
           include.category = true;
+          include.productCategories = { include: { category: true } };
           include.stock = true;
+          include.variants = { include: { prices: true, inventoryItems: true } };
           include.brandData = true;
           include.activeIngredientRefs = true;
           include.healthConcerns = true;
@@ -474,7 +523,9 @@ export async function GET(req: NextRequest) {
       const include: any = {};
       if (model === "product") {
         include.category = true;
+        include.productCategories = { include: { category: true } };
         include.stock = true;
+        include.variants = { include: { prices: true, inventoryItems: true } };
         include.brandData = true;
         include.activeIngredientRefs = true;
         include.healthConcerns = true;
@@ -731,6 +782,23 @@ export async function POST(req: NextRequest) {
           : undefined;
       }
 
+      body.shortDescription = body.shortDescription || undefined;
+      body.barcode = body.barcode || undefined;
+      body.volume = body.volume || undefined;
+      body.tags = Array.isArray(body.tags) ? body.tags : parseJsonValue(body.tags, []);
+      body.metadata = parseJsonValue(body.metadata, null);
+      body.categoryIds = parseJsonValue(body.categoryIds, []);
+      body.variants = parseJsonValue(body.variants, []);
+
+      if (Array.isArray(body.categoryIds) && body.categoryIds.length > 0) {
+        body.productCategories = { create: body.categoryIds.filter(Boolean).map((categoryId: string) => ({ category: { connect: { id: String(categoryId) } } })) };
+      }
+      delete body.categoryIds;
+
+      if (Array.isArray(body.variants)) {
+        body.variants = { create: buildVariantCreates(body.variants) };
+      }
+
       if (Array.isArray(body.bulkPrices)) {
         body.bulkPrices = {
           create: body.bulkPrices.map((bp: any) => ({
@@ -882,6 +950,23 @@ export async function PUT(req: NextRequest) {
   }
 
   if (model === "product") {
+    updatedData.shortDescription = updatedData.shortDescription || undefined;
+    updatedData.barcode = updatedData.barcode || undefined;
+    updatedData.volume = updatedData.volume || undefined;
+    updatedData.tags = Array.isArray(updatedData.tags) ? updatedData.tags : parseJsonValue(updatedData.tags, []);
+    updatedData.metadata = parseJsonValue(updatedData.metadata, null);
+    const categoryIds = parseJsonValue(updatedData.categoryIds, undefined);
+    delete updatedData.categoryIds;
+    if (Array.isArray(categoryIds)) {
+      updatedData.productCategories = {
+        deleteMany: {},
+        create: categoryIds.filter(Boolean).map((categoryId: string) => ({ category: { connect: { id: String(categoryId) } } })),
+      };
+    }
+    const variants = parseJsonValue(updatedData.variants, undefined);
+    if (Array.isArray(variants)) {
+      updatedData.variants = { deleteMany: {}, create: buildVariantCreates(variants) };
+    }
     if (updatedData.brand !== undefined) {
       if (updatedData.brand) {
         updatedData.brand = { connectOrCreate: { where: { name: updatedData.brand }, create: { name: updatedData.brand } } };

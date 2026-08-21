@@ -13,15 +13,15 @@ export async function POST(req , res) {
 
   console.log("about to post product", Formdata)
   
-  const file = Formdata.get("file")
-  if (file.size > (300 * 1024) && Formdata.get("title") === 'profile image'){
+  const files = Formdata.getAll("file").filter((value: any) => value && typeof value.size === "number" && value.size > 0) as File[];
+  if (files.some((file) => file.size > (300 * 1024)) && Formdata.get("title") === 'profile image'){
     return NextResponse.json({"error" : "file greater 300kb"}, {status : 413})
   }
-  const buffer = await file.arrayBuffer()
-  const b64 = Buffer.from(buffer).toString("base64");
-  // console.log("buffer b64", b64)
-  const dataURI = "data:" + file.type + ";base64," + b64;
-  const cldRes = await handleUpload(dataURI);
+  const uploadedImages = await Promise.all(files.map(async (file) => {
+    const buffer = await file.arrayBuffer();
+    const b64 = Buffer.from(buffer).toString("base64");
+    return handleUpload(`data:${file.type};base64,${b64}`);
+  }));
 
   // const postRes = await axios.post(`${process.env.NEXT_PUBLIC_SITE_URL}/api/dbhandler?model=posts`,
   //   {
@@ -63,7 +63,8 @@ export async function POST(req , res) {
     ...(costPrice !== null && Number.isFinite(costPrice) ? { costPrice } : {}),
     weight: Formdata.get("weight") || "",
     bulkPrices: Formdata.get("bulkPrices") ? JSON.parse(Formdata.get("bulkPrices") as string) : [],
-    url: cldRes.url,
+    urls: uploadedImages.map((result) => result.url),
+    url: uploadedImages[0]?.url,
     ...(businessId ? { businessId: String(businessId) } : {}),
   };
 
@@ -93,6 +94,19 @@ export async function POST(req , res) {
   if (Formdata.get("requiresPrescription") !== null) {
     productBody.requiresPrescription = Formdata.get("requiresPrescription") === "true";
   }
+
+  const parseJsonField = (field: string, fallback: any) => {
+    const value = Formdata.get(field);
+    if (!value || !String(value).trim()) return fallback;
+    try { return JSON.parse(String(value)); } catch { return fallback; }
+  };
+  productBody.shortDescription = String(Formdata.get("shortDescription") || "");
+  productBody.barcode = String(Formdata.get("barcode") || "");
+  productBody.volume = String(Formdata.get("volume") || "");
+  productBody.tags = parseJsonField("tags", []);
+  productBody.metadata = parseJsonField("metadata", null);
+  productBody.categoryIds = parseJsonField("categoryIds", []);
+  productBody.variants = parseJsonField("variants", []);
 
   const postRes = await dbHandler({
     model: 'product',

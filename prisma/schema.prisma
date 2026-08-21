@@ -12,36 +12,36 @@ datasource db {
 }
 
 model User {
-  id            String            @id @default(auto()) @map("_id") @db.ObjectId
-  name          String?
-  email         String?           @unique
-  emailVerified DateTime?
-  password      String?
-  providerid    String?
-  role          String            @default("customer") //professional admin staff supreme
-  cart          Cart[]
+  id                        String                     @id @default(auto()) @map("_id") @db.ObjectId
+  name                      String?
+  email                     String?                    @unique
+  emailVerified             DateTime?
+  password                  String?
+  providerid                String?
+  role                      String                     @default("customer") //professional admin staff supreme
+  cart                      Cart[]
   //orders   Order[]
-  reviews       Review[]
-  addresses     ShippingAddress[]
-  post          Post[]
-  notification  Notification[]
-  image         String?           @default("https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png")
-  contact       String?           @default("xxxx-xxx-xxxx")
+  reviews                   Review[]
+  addresses                 ShippingAddress[]
+  post                      Post[]
+  notification              Notification[]
+  image                     String?                    @default("https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png")
+  contact                   String?                    @default("xxxx-xxx-xxxx")
   // visit   Visit[]
-  accounts      Account[]
-  sessions      Session[]
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  wishlist      Wishlist[]
-  messages      Message[]
-  lunches       Lunch[]
-  businesses    Business[]        @relation("UserBusinesses")
-  chatThreads   ChatThread[]      @relation("UserChatThreads")
-  priceFeedbacks PriceFeedback[]
-  affiliate     Affiliate?
+  accounts                  Account[]
+  sessions                  Session[]
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  wishlist                  Wishlist[]
+  messages                  Message[]
+  lunches                   Lunch[]
+  businesses                Business[]                 @relation("UserBusinesses")
+  chatThreads               ChatThread[]               @relation("UserChatThreads")
+  priceFeedbacks            PriceFeedback[]
+  affiliate                 Affiliate?
   heavilyDiscountedProducts HeavilyDiscountedProduct[]
-  createdProducts Product[]       @relation("UserCreatedProducts")
-  portfolio     Portfolio[]
+  createdProducts           Product[]                  @relation("UserCreatedProducts")
+  portfolio                 Portfolio[]
 }
 
 model Portfolio {
@@ -65,7 +65,7 @@ model Portfolio {
 model Business {
   id               String            @id @default(auto()) @map("_id") @db.ObjectId
   name             String            @unique // this will be the storeName for the slug /(storeName)
-  description      String?          
+  description      String?
   ownerId          String            @db.ObjectId
   owner            User              @relation("UserBusinesses", fields: [ownerId], references: [id])
   template         String            @default("estore") // estore, pharmacy, etc.
@@ -109,8 +109,6 @@ model ProjectSettings {
   // pages        Page[]
 }
 
-
-
 model Staff {
   id         String   @id @default(auto()) @map("_id") @db.ObjectId
   name       String
@@ -124,62 +122,62 @@ model Staff {
 }
 
 model SiteSettings {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  businessId      String   @unique @db.ObjectId
-  business        Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  aboutText       String   @default("Write about your business here")
-  addToHome       String   @default("Add our app to your home screen for a better experience!")
-  heroTitle       String   @default("Welcome to our store")
-  heroSubtitle    String   @default("Browse our products and enjoy great deals")
-  heroCTA         String?  @default("Shop Now")
-  heroCTALink     String?  @default("/store")
-  heroImage       String?
-  logoImageUrl    String?
-  markupEnabled   Boolean  @default(false)
-  markupPercentage Float   @default(0)
-  iconMode        String   @default("text")
-  iconText        String?
-  iconFontSize    Int      @default(20)
-  iconFontColor   String   @default("#000000")
-  iconImageUrl    String?
-  iconImageWidth  Int      @default(40)
-  iconImageHeight Int      @default(40)
-  contactDesc     String   @default("If you have any questions, inquiries, or would like to hire me, I would love to hear from you. Please feel free to reach out using the contact information provided below:")
-  contactEmail    String?  @default("healthcliquespecialties@gmail.com")
-  contactPhone    String?  @default("(+234) 816 968 4400")
-  helpText        String   @default("How can we assist you?")
-  facebook        String?
-  instagram       String?
-  twitter         String?
-  linkedin        String?
-  headerCTA       String?  @default("Join Now")
-  footerText      String?  @default("Your trusted partner in quality products.")
-  address         String?  @default("22 Akinagbe, Alapere, Ketu, Lagos State")
-  newsletterTitle String?  @default("Join our Newsletter")
-  newsletterText  String?  @default("Be the first to know about new arrivals and exclusive offers.")
-  badgeText       String?  @default("NAFDAC Approved Pharmacy")
-  preHeroText     String?  @default("With a click, get your")
-  heroHighlight   String?  @default("Premium Medical Supplies")
-  promoTitle      String?  @default("Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.")
-  promoBannerText String?  @default("Authentic medical supplies at clearance prices. Limited quantities available — move fast!")
-  animatedTexts   String[] @default(["Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.", "Authentic medical supplies at clearance prices. Limited quantities available — move fast!", "Fast delivery to your doorstep"]) 
-  aboutSub        String   @default("We believe that access to safe, effective, and affordable medicines should never be a privilege—it should be a standard. We are a forward-thinking healthcare company dedicated to solving the complex challenges surrounding medicine access in Nigeria and across underserved African communities.")
-  whoWeAreText    String   @default("Healthclique Limited is owned and managed by licensed Pharmacists with deep expertise in pharmaceutical care, supply chain management, and patient-centered service delivery. We operate in full compliance with all regulatory requirements governing the pharmaceutical sector, ensuring that every product and service we provide meets the highest standards of safety, quality, and authenticity.")
-  visionText      String   @default("To become Africa’s most trusted digital healthcare platform, transforming how medicines are accessed and delivered—one community at a time.")
-  promiseText     String   @default("From the moment you place an order to the time it arrives at your doorstep, we are committed to delivering a smooth, secure, and memorable experience. At Healthclique Limited, your health is not just our business—it is our purpose.")
-  whatWeDoText    String   @default("We leverage a holistic, technology-driven approach to bridge the gap between patients, healthcare professionals, and essential medicines. Our robust platform is designed to serve:")
-  aiSystemText    String   @default("With our advanced AI-powered system, accessing medications has never been easier. Simply upload your prescription or request, and our intelligent platform handles verification, sourcing, and fulfillment—delivering a seamless, stress-free experience from start to finish.")
-  integrityText   String   @default("Integrity is the foundation of everything we do. Our mission aligns closely with the Nigerian National Drug Policy.")  
-  accentLight     String   @default("8365 100% 37%")
-  accentDark      String   @default("8365 100% 59%")
+  id                    String   @id @default(auto()) @map("_id") @db.ObjectId
+  businessId            String   @unique @db.ObjectId
+  business              Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  aboutText             String   @default("Write about your business here")
+  addToHome             String   @default("Add our app to your home screen for a better experience!")
+  heroTitle             String   @default("Welcome to our store")
+  heroSubtitle          String   @default("Browse our products and enjoy great deals")
+  heroCTA               String?  @default("Shop Now")
+  heroCTALink           String?  @default("/store")
+  heroImage             String?
+  logoImageUrl          String?
+  markupEnabled         Boolean  @default(false)
+  markupPercentage      Float    @default(0)
+  iconMode              String   @default("text")
+  iconText              String?
+  iconFontSize          Int      @default(20)
+  iconFontColor         String   @default("#000000")
+  iconImageUrl          String?
+  iconImageWidth        Int      @default(40)
+  iconImageHeight       Int      @default(40)
+  contactDesc           String   @default("If you have any questions, inquiries, or would like to hire me, I would love to hear from you. Please feel free to reach out using the contact information provided below:")
+  contactEmail          String?  @default("healthcliquespecialties@gmail.com")
+  contactPhone          String?  @default("(+234) 816 968 4400")
+  helpText              String   @default("How can we assist you?")
+  facebook              String?
+  instagram             String?
+  twitter               String?
+  linkedin              String?
+  headerCTA             String?  @default("Join Now")
+  footerText            String?  @default("Your trusted partner in quality products.")
+  address               String?  @default("22 Akinagbe, Alapere, Ketu, Lagos State")
+  newsletterTitle       String?  @default("Join our Newsletter")
+  newsletterText        String?  @default("Be the first to know about new arrivals and exclusive offers.")
+  badgeText             String?  @default("NAFDAC Approved Pharmacy")
+  preHeroText           String?  @default("With a click, get your")
+  heroHighlight         String?  @default("Premium Medical Supplies")
+  promoTitle            String?  @default("Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.")
+  promoBannerText       String?  @default("Authentic medical supplies at clearance prices. Limited quantities available — move fast!")
+  animatedTexts         String[] @default(["Order authentic medications, pharmaceutical products, and medical equipment at the lowest prices, delivered to your doorstep.", "Authentic medical supplies at clearance prices. Limited quantities available — move fast!", "Fast delivery to your doorstep"])
+  aboutSub              String   @default("We believe that access to safe, effective, and affordable medicines should never be a privilege—it should be a standard. We are a forward-thinking healthcare company dedicated to solving the complex challenges surrounding medicine access in Nigeria and across underserved African communities.")
+  whoWeAreText          String   @default("Healthclique Limited is owned and managed by licensed Pharmacists with deep expertise in pharmaceutical care, supply chain management, and patient-centered service delivery. We operate in full compliance with all regulatory requirements governing the pharmaceutical sector, ensuring that every product and service we provide meets the highest standards of safety, quality, and authenticity.")
+  visionText            String   @default("To become Africa’s most trusted digital healthcare platform, transforming how medicines are accessed and delivered—one community at a time.")
+  promiseText           String   @default("From the moment you place an order to the time it arrives at your doorstep, we are committed to delivering a smooth, secure, and memorable experience. At Healthclique Limited, your health is not just our business—it is our purpose.")
+  whatWeDoText          String   @default("We leverage a holistic, technology-driven approach to bridge the gap between patients, healthcare professionals, and essential medicines. Our robust platform is designed to serve:")
+  aiSystemText          String   @default("With our advanced AI-powered system, accessing medications has never been easier. Simply upload your prescription or request, and our intelligent platform handles verification, sourcing, and fulfillment—delivering a seamless, stress-free experience from start to finish.")
+  integrityText         String   @default("Integrity is the foundation of everything we do. Our mission aligns closely with the Nigerian National Drug Policy.")
+  accentLight           String   @default("8365 100% 37%")
+  accentDark            String   @default("8365 100% 59%")
   accentSecondaryLight  String   @default("199 89% 48%")
   accentSecondaryDark   String   @default("199 89% 66%")
   accentForegroundLight String   @default("222 47% 12%")
-  accentForegroundDark  String   @default("222 47% 10%")  
+  accentForegroundDark  String   @default("222 47% 10%")
   bankName              String?  @default("")
   accountNumber         String?  @default("")
   accountName           String?  @default("")
-  updatedAt       DateTime @updatedAt
+  updatedAt             DateTime @updatedAt
 }
 
 model Promotion {
@@ -298,7 +296,6 @@ model EmailVerificationCode {
   @@index([email])
 }
 
-
 model Post {
   id          String    @id @default(auto()) @map("_id") @db.ObjectId
   title       String?
@@ -335,61 +332,138 @@ model Notification {
 }
 
 model Category {
-  id          String    @id @default(auto()) @map("_id") @db.ObjectId
-  name        String // removed unique to allow same name in different businesses
-  description String?
-  image       String?
+  id                String            @id @default(auto()) @map("_id") @db.ObjectId
+  name              String // removed unique to allow same name in different businesses
+  description       String?
+  image             String?
   //slug     String   @unique
-  products    Product[]
-  businessId  String?   @db.ObjectId
-  business    Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  products          Product[]
+  productCategories ProductCategory[]
+  businessId        String?           @db.ObjectId
+  business          Business?         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   @@unique([name, businessId])
 }
 
 model Product {
-  id                String           @id @default(auto()) @map("_id") @db.ObjectId
-  name              String
-  description       String?
-  category          Category?        @relation(fields: [categoryId], references: [id])
-  categoryId        String?          @db.ObjectId
-  activeIngredients String[]
-  scarce            Boolean?
-  for               String[] //patients like oncology/cancer, hiv, etc
-  brand             String?
-  price             Float
-  stock             Stock[] //@relation(fields: [stockId], references: [id])
+  id                        String                     @id @default(auto()) @map("_id") @db.ObjectId
+  name                      String
+  description               String?
+  shortDescription          String?
+  barcode                   String?
+  volume                    String?
+  tags                      String[]                   @default([])
+  metadata                  Json?
+  category                  Category?                  @relation(fields: [categoryId], references: [id])
+  categoryId                String?                    @db.ObjectId
+  productCategories         ProductCategory[]
+  activeIngredients         String[]
+  scarce                    Boolean?
+  for                       String[] //patients like oncology/cancer, hiv, etc
+  brand                     String?
+  price                     Float
+  stock                     Stock[] //@relation(fields: [stockId], references: [id])
   //stockId  String?   @db.ObjectId
-  reviews           Review[]
-  cartItems         CartItem[]
-  Featured          FeaturedProduct?
-  images            String[]
-  costPrice         Float?
+  reviews                   Review[]
+  cartItems                 CartItem[]
+  Featured                  FeaturedProduct?
+  images                    String[]
+  costPrice                 Float?
   //orderItems OrderItem[]
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  wishlist          Wishlist[]
-  businessId        String?          @db.ObjectId
-  business          Business?        @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  creatorId         String?          @db.ObjectId
-  creator           User?            @relation("UserCreatedProducts", fields: [creatorId], references: [id], onDelete: SetNull)
-  brandId           String?          @db.ObjectId
-  brandData         Brand?           @relation(fields: [brandId], references: [id])
-  activeIngredientIds String[]       @db.ObjectId
-  activeIngredientRefs ActiveIngredient[] @relation(fields: [activeIngredientIds], references: [id])
-  healthConcernIds  String[]         @db.ObjectId
-  healthConcerns    HealthConcern[]  @relation(fields: [healthConcernIds], references: [id])
-  vendors           ProductVendor[]
-  priceFeedbacks    PriceFeedback[]
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  wishlist                  Wishlist[]
+  businessId                String?                    @db.ObjectId
+  business                  Business?                  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  creatorId                 String?                    @db.ObjectId
+  creator                   User?                      @relation("UserCreatedProducts", fields: [creatorId], references: [id], onDelete: SetNull)
+  brandId                   String?                    @db.ObjectId
+  brandData                 Brand?                     @relation(fields: [brandId], references: [id])
+  activeIngredientIds       String[]                   @db.ObjectId
+  activeIngredientRefs      ActiveIngredient[]         @relation(fields: [activeIngredientIds], references: [id])
+  healthConcernIds          String[]                   @db.ObjectId
+  healthConcerns            HealthConcern[]            @relation(fields: [healthConcernIds], references: [id])
+  vendors                   ProductVendor[]
+  priceFeedbacks            PriceFeedback[]
   heavilyDiscountedProducts HeavilyDiscountedProduct[]
-  regulatoryClassification String?          @default("OTC")
-  requiresPrescription     Boolean?         @default(false)
-  weight                   String?
-  bulkPrices               BulkPrice[]
+  regulatoryClassification  String?                    @default("OTC")
+  requiresPrescription      Boolean?                   @default(false)
+  weight                    String?
+  bulkPrices                BulkPrice[]
+  variants                  ProductVariant[]
 
   // add product features like dosage form, strength, manufacturer, etc
+}
+
+model ProductCategory {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId  String   @db.ObjectId
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  categoryId String   @db.ObjectId
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@unique([productId, categoryId])
+  @@index([categoryId])
+}
+
+model ProductVariant {
+  id                  String                    @id @default(auto()) @map("_id") @db.ObjectId
+  product             Product                   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId           String                    @db.ObjectId
+  title               String
+  weight              String?
+  volume              String?
+  metadata            Json?
+  allowBackorder      Boolean                   @default(false)
+  manageInventory     Boolean                   @default(true)
+  stockStatusByRegion Json?
+  prices              ProductVariantPrice[]
+  inventoryItems      ProductVariantInventory[]
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  @@index([productId])
+}
+
+model ProductVariantPrice {
+  id               String         @id @default(auto()) @map("_id") @db.ObjectId
+  variant          ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variantId        String         @db.ObjectId
+  amount           Float
+  originalAmount   Float?
+  calculatedAmount Float?
+  currencyCode     String         @default("ngn")
+  isDiscounted     Boolean        @default(false)
+  minQuantity      Int?
+  maxQuantity      Int?
+  metadata         Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([variantId])
+}
+
+model ProductVariantInventory {
+  id                  String         @id @default(auto()) @map("_id") @db.ObjectId
+  variant             ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  variantId           String         @db.ObjectId
+  sku                 String?
+  requiredQuantity    Float?
+  availableQuantity   Float?
+  deliverableQuantity Float?
+  reservedQuantity    Float?
+  stockedQuantity     Float?
+  minStockLevel       Float?
+  metadata            Json?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([variantId])
+  @@index([sku])
 }
 
 //for inputing available product, after sales, deduct the quantity
@@ -407,25 +481,25 @@ model Brand {
 }
 
 model Vendor {
-  id        String            @id @default(auto()) @map("_id") @db.ObjectId
-  name      String            @unique
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  name      String          @unique
   address   String?
   products  ProductVendor[]
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @updatedAt
-  version   Int               @default(0)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  version   Int             @default(0)
 }
 
 model ProductVendor {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId       String   @db.ObjectId
-  vendor          Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  vendorId        String   @db.ObjectId
-  costPrice       Float
-  isDefault       Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String   @db.ObjectId
+  vendor    Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  vendorId  String   @db.ObjectId
+  costPrice Float
+  isDefault Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([productId, vendorId])
   @@index([productId])
@@ -433,21 +507,21 @@ model ProductVendor {
 }
 
 model ActiveIngredient {
-  id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  name             String    @unique
-  productIds       String[]  @db.ObjectId
-  products         Product[] @relation(fields: [productIds], references: [id])
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String    @unique
+  productIds String[]  @db.ObjectId
+  products   Product[] @relation(fields: [productIds], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model HealthConcern {
-  id               String    @id @default(auto()) @map("_id") @db.ObjectId
-  name             String    @unique
-  productIds       String[]  @db.ObjectId
-  products         Product[] @relation(fields: [productIds], references: [id])
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String    @unique
+  productIds String[]  @db.ObjectId
+  products   Product[] @relation(fields: [productIds], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model PriceFeedback {
@@ -463,43 +537,43 @@ model PriceFeedback {
 }
 
 model Affiliate {
-  id            String               @id @default(auto()) @map("_id") @db.ObjectId
-  user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String               @db.ObjectId @unique
-  affiliateId   String               @unique
-  name          String               @unique
-  earnings      Float                @default(0.0)
-  referrals     AffiliateReferral[]
-  payouts       AffiliatePayout[]
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
+  id          String              @id @default(auto()) @map("_id") @db.ObjectId
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String              @unique @db.ObjectId
+  affiliateId String              @unique
+  name        String              @unique
+  earnings    Float               @default(0.0)
+  referrals   AffiliateReferral[]
+  payouts     AffiliatePayout[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
 }
 
 model AffiliateReferral {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  id                  String    @id @default(auto()) @map("_id") @db.ObjectId
   affiliate           Affiliate @relation(fields: [affiliateIdFk], references: [id], onDelete: Cascade)
-  affiliateIdFk       String   @db.ObjectId
-  referredUserId      String?  @db.ObjectId
-  cartId              String?  @db.ObjectId
+  affiliateIdFk       String    @db.ObjectId
+  referredUserId      String?   @db.ObjectId
+  cartId              String?   @db.ObjectId
   orderId             String
   totalAmount         Float
   affiliateCommission Float
   referredBonus       Float
-  status              String   @default("pending")
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  status              String    @default("pending")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 }
 
 model AffiliatePayout {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
   affiliate     Affiliate @relation(fields: [affiliateIdFk], references: [id], onDelete: Cascade)
-  affiliateIdFk String   @db.ObjectId
+  affiliateIdFk String    @db.ObjectId
   amount        Float
-  status        String   @default("requested")
-  requestedAt   DateTime @default(now())
+  status        String    @default("requested")
+  requestedAt   DateTime  @default(now())
   paidAt        DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model Advertext {

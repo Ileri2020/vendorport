@@ -15,9 +15,16 @@ const Description = () => {
   const [product, setProduct] = useState<any>(null);
   const [similarProducts, setSimilarProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedVariantId, setSelectedVariantId] = useState("");
   const { id } = useParams();
   const { addItem } = useCart();
   const { user } = useAppContext()
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const selectedVariant = variants.find((variant: any) => variant.id === selectedVariantId) || variants[0];
+  const rawVariantPrice = selectedVariant?.prices?.[0]?.calculatedAmount ?? selectedVariant?.prices?.[0]?.amount;
+  const variantPrice = rawVariantPrice === undefined ? null : (Number(rawVariantPrice) > 100000 ? Number(rawVariantPrice) / 100 : Number(rawVariantPrice));
+  const productImages = Array.isArray(product?.images) ? product.images : [];
 
   useEffect(() => {
     const fetchProductDetails = async () => {
@@ -115,10 +122,13 @@ const Description = () => {
         {/* Product Image */}
         <div className="relative aspect-square overflow-hidden rounded-3xl border bg-white p-8 shadow-sm">
           <img
-            src={product.images?.[0] || "/logo.png"}
+            src={productImages[selectedImage] || "/logo.png"}
             alt={product.name}
             className="h-full w-full object-contain"
           />
+          {productImages.length > 1 && <div className="absolute inset-x-4 bottom-4 flex gap-2 overflow-x-auto rounded-xl bg-background/80 p-2 backdrop-blur-sm">
+            {productImages.map((imageUrl: string, index: number) => <button type="button" key={imageUrl} onClick={() => setSelectedImage(index)} className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 ${selectedImage === index ? "border-primary" : "border-transparent"}`}><img src={imageUrl} alt={`${product.name} image ${index + 1}`} className="h-full w-full object-cover" /></button>)}
+          </div>}
         </div>
 
         {/* Product Info */}
@@ -128,11 +138,16 @@ const Description = () => {
               {product.brand || "General"}
             </div>
             <h1 className="text-3xl font-bold md:text-5xl">{product.name}</h1>
+            {product.shortDescription && <p className="text-sm text-muted-foreground">{product.shortDescription}</p>}
           </div>
 
           <div className="text-3xl font-black text-foreground">
-            ₦ {formatPrice(getProductPrice(product, user?.role))}
+            ₦ {formatPrice(variantPrice ?? getProductPrice(product, user?.role))}
           </div>
+
+          {variants.length > 0 && <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {variants.map((variant: any) => <button type="button" key={variant.id} onClick={() => setSelectedVariantId(variant.id)} className={`rounded-xl border-2 p-3 text-left ${selectedVariant?.id === variant.id ? "border-primary bg-primary/5" : "border-muted"}`}><strong>{variant.title}</strong><span className="block text-xs text-muted-foreground">{[variant.weight, variant.volume].filter(Boolean).join(" · ")}</span></button>)}
+          </div>}
 
           {/* Product Specifications */}
           <div className="grid grid-cols-1 gap-4 rounded-2xl bg-muted/30 p-4 sm:grid-cols-2">
@@ -165,6 +180,11 @@ const Description = () => {
           <div className="prose prose-sm max-w-none text-muted-foreground">
             <p className="whitespace-pre-line">{product.description || "No description available."}</p>
           </div>
+
+          {(product.barcode || product.volume || product.tags?.length) && <div className="space-y-3 rounded-2xl border bg-muted/20 p-4 text-sm">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{product.barcode && <div><span className="block text-xs text-muted-foreground">Barcode</span><strong>{product.barcode}</strong></div>}{product.volume && <div><span className="block text-xs text-muted-foreground">Volume</span><strong>{product.volume}</strong></div>}{product.weight && <div><span className="block text-xs text-muted-foreground">Weight</span><strong>{product.weight}</strong></div>}</div>
+            {product.tags?.length > 0 && <div className="flex flex-wrap gap-2">{product.tags.map((tag: string) => <span key={tag} className="rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">{tag}</span>)}</div>}
+          </div>}
 
           {product.activeIngredients?.length > 0 && (
             <div className="space-y-3">

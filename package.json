@@ -6,6 +6,10 @@
     "dev": "next dev",
     "build": "npx prisma generate && next build",
     "consolidate": "node consolidate.js",
+    "scrape:market2home": "node scripts/scrape-market2home.js",
+    "scrape:pricepally": "node scripts/scrape-pricepally.js",
+    "import:scraped-platform": "node scripts/import-scraped-platform-catalog.js",
+    "import:scraped-platform": "node scripts/import-scraped-platform-catalog.js",
     "start": "next start",
     "lint": "next lint"
   },

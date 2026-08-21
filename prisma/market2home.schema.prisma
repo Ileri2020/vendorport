@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/market2home"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("MARKET2HOME_MONGODB_URL")
+}
+
+model Market2homeProduct {
+  id           String   @id @map("_id")
+  source       String
+  sourceUrl    String
+  sourceId     String   @unique
+  handle       String?
+  title        String?
+  description  String?
+  images       Json
+  categoryRefs Json
+  rawProduct   Json
+  importedAt   DateTime
+  createdAt    DateTime @default(now())
+
+  @@map("market2home_products")
+  @@index([handle])
+}
+
+model Market2homeCategory {
+  id          String   @id @map("_id")
+  source      String
+  sourceId    String?
+  name        String
+  handle      String
+  productIds  String[]
+  rawCategory Json
+  importedAt  DateTime
+  createdAt   DateTime @default(now())
+
+  @@map("market2home_categories")
+  @@unique([handle])
+}

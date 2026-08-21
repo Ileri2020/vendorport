@@ -31,7 +31,13 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   const [formData, setFormData] = useState<any>({ 
     name: initialProduct?.name || '',
     description: initialProduct?.description || '',
+    shortDescription: initialProduct?.shortDescription || '',
+    barcode: initialProduct?.barcode || '',
+    volume: initialProduct?.volume || '',
+    tags: Array.isArray(initialProduct?.tags) ? initialProduct.tags.join(', ') : '',
+    metadata: initialProduct?.metadata ? JSON.stringify(initialProduct.metadata, null, 2) : '',
     categoryId: initialProduct?.categoryId || '',
+    categoryIds: Array.isArray(initialProduct?.productCategories) ? initialProduct.productCategories.map((item: any) => item.categoryId || item.category?.id).filter(Boolean) : [],
     price: initialProduct ? (initialProduct.price || '') : '',
     costPrice: initialProduct?.costPrice || 0,
     images: initialProduct?.images || null,
@@ -43,8 +49,9 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     requiresPrescription: initialProduct?.requiresPrescription || false,
     weight: initialProduct?.weight || '',
     bulkPrices: initialProduct?.bulkPrices || [],
+    variants: initialProduct?.variants || [],
   });
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
@@ -146,7 +153,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     try {
       const businessId = currentBusiness?.id;
       const bizQ = businessId ? `&businessId=${businessId}` : "";
-      const res = await axios.get(`/api/dbhandler?model=product&include=category${bizQ}`);
+      const res = await axios.get(`/api/dbhandler?model=product&include=category,categories,variants${bizQ}`);
       setProducts(res.data);
     } catch (err) {
       console.error('Failed to fetch products', err);
@@ -200,7 +207,13 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       setFormData({
         name: initialProduct.name || '',
         description: initialProduct.description || '',
+        shortDescription: initialProduct.shortDescription || '',
+        barcode: initialProduct.barcode || '',
+        volume: initialProduct.volume || '',
+        tags: Array.isArray(initialProduct.tags) ? initialProduct.tags.join(', ') : '',
+        metadata: initialProduct.metadata ? JSON.stringify(initialProduct.metadata, null, 2) : '',
         categoryId: initialProduct.categoryId || '',
+        categoryIds: Array.isArray(initialProduct.productCategories) ? initialProduct.productCategories.map((item: any) => item.categoryId || item.category?.id).filter(Boolean) : [],
         price: initialProduct.price || 0,
         costPrice: initialProduct.costPrice || 0,
         images: initialProduct.images || null,
@@ -212,6 +225,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
         requiresPrescription: initialProduct.requiresPrescription || false,
         weight: initialProduct.weight || '',
         bulkPrices: Array.isArray(initialProduct.bulkPrices) ? initialProduct.bulkPrices : [],
+        variants: Array.isArray(initialProduct.variants) ? initialProduct.variants : [],
       });
       setEditId(initialProduct.id);
     }
@@ -234,7 +248,13 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       category: categories.length > 0 ? (categories[0] as any).name : '',
       price: '',
       costPrice: 0,
-      images: null,
+      images: [],
+      shortDescription: '',
+      barcode: '',
+      volume: '',
+      tags: '',
+      metadata: '',
+      categoryIds: [],
       healthConcerns: [],
       activeIngredients: '',
       brand: '',
@@ -243,9 +263,10 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       requiresPrescription: false,
       weight: '',
       bulkPrices: [],
+      variants: [],
     });
     setEditId(null);
-    setFile(null);
+    setFiles([]);
     setPreview(null);
   };
 
@@ -285,13 +306,17 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
     const pformData = new FormData();
 
-    if (file) {
-      pformData.append("file", file);
-    }
+    files.forEach((selectedFile) => pformData.append("file", selectedFile));
 
     pformData.append("name", formData.name);
     pformData.append("description", formData.description);
+    pformData.append("shortDescription", formData.shortDescription || "");
+    pformData.append("barcode", formData.barcode || "");
+    pformData.append("volume", formData.volume || "");
+    pformData.append("tags", JSON.stringify(String(formData.tags || "").split(",").map((tag: string) => tag.trim()).filter(Boolean)));
+    pformData.append("metadata", formData.metadata || "");
     pformData.append("categoryId", formData.categoryId);
+    pformData.append("categoryIds", JSON.stringify(formData.categoryIds || []));
     pformData.append("price", String(formData.price || formData.costPrice || ""));
     if (currentBusiness?.id) {
       pformData.append("businessId", currentBusiness.id);
@@ -311,16 +336,24 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     }
     pformData.append("weight", formData.weight || "");
     pformData.append("bulkPrices", JSON.stringify(formData.bulkPrices || []));
+    pformData.append("variants", JSON.stringify(formData.variants || []));
 
     try {
       if (editId) {
         const productPayload: any = {
           name: formData.name,
           description: formData.description,
+          shortDescription: formData.shortDescription || "",
+          barcode: formData.barcode || "",
+          volume: formData.volume || "",
+          tags: String(formData.tags || "").split(",").map((tag: string) => tag.trim()).filter(Boolean),
+          metadata: formData.metadata ? JSON.parse(formData.metadata) : null,
           categoryId: formData.categoryId,
+          categoryIds: formData.categoryIds || [],
           price: Number(formData.price || formData.costPrice || 0),
           weight: formData.weight || "",
           bulkPrices: formData.bulkPrices || [],
+          variants: formData.variants || [],
           ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
         };
 
@@ -353,14 +386,14 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = e.target.files?.[0];
-    if (!selectedFile) return;
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length === 0) return;
 
     try {
-      const preparedFile = await prepareImageForUpload(selectedFile);
-      setFile(preparedFile);
-      setPreview(URL.createObjectURL(preparedFile));
-      if (preparedFile !== selectedFile) {
+      const preparedFiles = await Promise.all(selectedFiles.map((selectedFile) => prepareImageForUpload(selectedFile)));
+      setFiles(preparedFiles);
+      setPreview(URL.createObjectURL(preparedFiles[0]));
+      if (preparedFiles.some((preparedFile, index) => preparedFile !== selectedFiles[index])) {
         toast.success("Image compressed to WebP and prepared for upload");
       }
     } catch (error) {
@@ -384,13 +417,19 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
   const handleEdit = (product: any) => {
     setEditId(product.id);
-    setFile(null);
+    setFiles([]);
     setPreview(null);
 
     setFormData({
       name: product.name ?? '',
       description: product.description ?? '',
+      shortDescription: product.shortDescription ?? '',
+      barcode: product.barcode ?? '',
+      volume: product.volume ?? '',
+      tags: Array.isArray(product.tags) ? product.tags.join(', ') : '',
+      metadata: product.metadata ? JSON.stringify(product.metadata, null, 2) : '',
       categoryId: product.categoryId ?? '',
+      categoryIds: Array.isArray(product.productCategories) ? product.productCategories.map((item: any) => item.categoryId || item.category?.id).filter(Boolean) : [],
       price: product.price ?? 0,
       costPrice: product.costPrice ?? 0,
       images: product.images ?? [],
@@ -402,6 +441,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       requiresPrescription: product.requiresPrescription || false,
       weight: product.weight || '',
       bulkPrices: Array.isArray(product.bulkPrices) ? product.bulkPrices : [],
+      variants: Array.isArray(product.variants) ? product.variants : [],
     });
     // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -510,6 +550,17 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="border-primary/20 focus:border-primary"
           />
+        </div>
+
+        <div className="w-full space-y-2 rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <Label className="text-xs font-black uppercase tracking-widest text-primary">Catalog Details</Label>
+          <Input placeholder="Short description for product cards" value={formData.shortDescription} onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })} />
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <Input placeholder="Barcode / EAN" value={formData.barcode} onChange={(e) => setFormData({ ...formData, barcode: e.target.value })} />
+            <Input placeholder="Volume (e.g. 500ml)" value={formData.volume} onChange={(e) => setFormData({ ...formData, volume: e.target.value })} />
+            <Input placeholder="Tags, comma separated" value={formData.tags} onChange={(e) => setFormData({ ...formData, tags: e.target.value })} />
+          </div>
+          <textarea className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm" placeholder='Metadata JSON (optional)' value={formData.metadata} onChange={(e) => setFormData({ ...formData, metadata: e.target.value })} />
         </div>
 
         {isPharmacy && (
@@ -677,6 +728,22 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
                 <div className="flex gap-2">
                   <Button type="button" size="sm" onClick={createInlineCategory} disabled={creatingCategory}>{creatingCategory ? "Creating..." : "Create category"}</Button>
                   <Button type="button" size="sm" variant="ghost" onClick={() => setShowNewCategory(false)}>Cancel</Button>
+                </div>
+              </div>
+            )}
+            {categories.length > 0 && (
+              <div className="space-y-2 rounded-md border bg-muted/20 p-3 text-left">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold">Additional categories</Label>
+                  <span className="text-[10px] text-muted-foreground">{formData.categoryIds.length} selected</span>
+                </div>
+                <div className="grid max-h-32 grid-cols-2 gap-2 overflow-y-auto">
+                  {categories.filter((category: any) => category.id !== formData.categoryId).map((category: any) => (
+                    <label key={category.id} className="flex cursor-pointer items-center gap-2 text-xs">
+                      <Checkbox checked={formData.categoryIds.includes(category.id)} onCheckedChange={(checked) => setFormData((previous: any) => ({ ...previous, categoryIds: checked ? [...new Set([...previous.categoryIds, category.id])] : previous.categoryIds.filter((id: string) => id !== category.id) }))} />
+                      <span className="truncate">{category.name}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
             )}
@@ -884,6 +951,32 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
           )}
         </div>
 
+        <div className="w-full space-y-3 rounded-lg border-2 border-dashed border-primary/20 bg-primary/5 p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label className="text-xs font-black uppercase tracking-widest text-primary">Product Variants</Label>
+              <p className="text-[10px] text-muted-foreground">Use for pack sizes, weights, or regional prices.</p>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={() => setFormData({ ...formData, variants: [...formData.variants, { title: '', weight: '', volume: '', allowBackorder: false, manageInventory: true, prices: [{ amount: 0, currencyCode: 'ngn' }], inventoryItems: [] }] })}>Add variant</Button>
+          </div>
+          {formData.variants.map((variant: any, index: number) => (
+            <div key={variant.id || index} className="relative space-y-2 rounded-md border bg-background p-3">
+              <Button type="button" variant="ghost" size="icon" className="absolute right-1 top-1 h-6 w-6 text-destructive" onClick={() => setFormData({ ...formData, variants: formData.variants.filter((_: any, itemIndex: number) => itemIndex !== index) })}><X className="h-4 w-4" /></Button>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Input placeholder="Variant title (e.g. 1 Carton)" value={variant.title || ''} onChange={(e) => { const next = [...formData.variants]; next[index] = { ...next[index], title: e.target.value }; setFormData({ ...formData, variants: next }); }} />
+                <Input placeholder="Weight" value={variant.weight || ''} onChange={(e) => { const next = [...formData.variants]; next[index] = { ...next[index], weight: e.target.value }; setFormData({ ...formData, variants: next }); }} />
+                <Input placeholder="Volume" value={variant.volume || ''} onChange={(e) => { const next = [...formData.variants]; next[index] = { ...next[index], volume: e.target.value }; setFormData({ ...formData, variants: next }); }} />
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <Input type="number" min="0" placeholder="Price" value={variant.prices?.[0]?.amount ?? ''} onChange={(e) => { const next = [...formData.variants]; next[index] = { ...next[index], prices: [{ ...(next[index].prices?.[0] || {}), amount: Number(e.target.value), currencyCode: 'ngn' }] }; setFormData({ ...formData, variants: next }); }} />
+                <Input placeholder="SKU" value={variant.inventoryItems?.[0]?.sku || ''} onChange={(e) => { const next = [...formData.variants]; next[index] = { ...next[index], inventoryItems: [{ ...(next[index].inventoryItems?.[0] || {}), sku: e.target.value }] }; setFormData({ ...formData, variants: next }); }} />
+                <label className="flex items-center gap-2 text-xs"><Checkbox checked={!!variant.allowBackorder} onCheckedChange={(checked) => { const next = [...formData.variants]; next[index] = { ...next[index], allowBackorder: !!checked }; setFormData({ ...formData, variants: next }); }} /> Allow backorder</label>
+              </div>
+            </div>
+          ))}
+          {formData.variants.length === 0 && <p className="py-2 text-center text-xs italic text-muted-foreground">No variants added. The base product price remains active.</p>}
+        </div>
+
         {isPharmacy && (
           <div className="w-full flex items-center gap-2 border p-2 rounded-md bg-secondary/10">
             <Checkbox 
@@ -896,14 +989,11 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
         )}
 
         <div className="w-full space-y-1">
-          <Label htmlFor="product-image">Product Image</Label>
-          {!preview && formData?.images?.length > 0 && (
-            <img
-              src={formData.images[0]}
-              alt="Current product"
-              className="rounded-md object-cover"
-              style={{ maxHeight: '200px', width: '100%', marginTop: '1rem' }}
-            />
+          <Label htmlFor="product-image">Product Images</Label>
+          {formData?.images?.length > 0 && (
+            <div className="grid grid-cols-3 gap-2">
+              {formData.images.map((imageUrl: string) => <img key={imageUrl} src={imageUrl} alt="Current product" className="aspect-square rounded-md object-cover" />)}
+            </div>
           )}
           {(preview) && (
             <div style={{ marginTop: '1rem', width: '100%' }}>
@@ -912,6 +1002,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
           )}
           <Input
             type="file"
+            multiple
             name='image'
             id='product-image'
             onChange={handleImageChange}

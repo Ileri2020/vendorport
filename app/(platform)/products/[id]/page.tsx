@@ -25,6 +25,8 @@ const Description = () => {
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [selectedBulk, setSelectedBulk] = useState<any>(null);
+  const [selectedVariantId, setSelectedVariantId] = useState("");
+  const [selectedImage, setSelectedImage] = useState(0);
   const params = useParams();
   const rawId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const productId = typeof rawId === 'string' ? rawId : null;
@@ -37,6 +39,11 @@ const Description = () => {
   const regClass = product?.regulatoryClassification || "OTC";
   const isPrescription = regClass === "Prescription Medicine";
   const isControlled = regClass === "Controlled Medicine";
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const selectedVariant = variants.find((variant: any) => variant.id === selectedVariantId) || variants[0];
+  const variantAmount = selectedVariant?.prices?.[0]?.calculatedAmount ?? selectedVariant?.prices?.[0]?.amount;
+  const displayVariantPrice = variantAmount !== undefined ? (Number(variantAmount) > 100000 ? Number(variantAmount) / 100 : Number(variantAmount)) : null;
+  const productImages = Array.isArray(product?.images) ? product.images : [];
 
   const whatsappNumber = "2348000000000"; // Replace with real company number
   const speakToRepUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hello, I'm interested in the controlled medicine: ${product?.name}. Please guide me on how to proceed.`)}`;
@@ -191,10 +198,13 @@ const Description = () => {
         {/* Product Image */}
         <div className="relative aspect-square overflow-hidden rounded-3xl border bg-white p-8 shadow-sm">
           <img
-            src={product.images?.[0] || "/logo.png"}
+            src={productImages[selectedImage] || "/logo.png"}
             alt={product.name}
             className="h-full w-full object-contain"
           />
+          {productImages.length > 1 && <div className="absolute inset-x-4 bottom-4 flex gap-2 overflow-x-auto rounded-xl bg-background/80 p-2 backdrop-blur-sm">
+            {productImages.map((imageUrl: string, index: number) => <button type="button" key={imageUrl} onClick={() => setSelectedImage(index)} className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 ${selectedImage === index ? "border-primary" : "border-transparent"}`}><img src={imageUrl} alt={`${product.name} image ${index + 1}`} className="h-full w-full object-cover" /></button>)}
+          </div>}
         </div>
 
         {/* Product Info */}
@@ -208,6 +218,7 @@ const Description = () => {
               </Badge>
             </div>
             <h1 className="text-3xl font-bold md:text-5xl">{product.name}</h1>
+            {product.shortDescription && <p className="text-base text-muted-foreground">{product.shortDescription}</p>}
             <div className="flex items-center gap-1 mt-2 mb-4">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Star key={i} className="h-5 w-5 fill-yellow-400 text-yellow-400" />
@@ -236,7 +247,7 @@ const Description = () => {
 
           <div className="flex items-baseline gap-3">
             <span className="text-4xl font-black text-foreground">
-                ₦ {formatPrice((selectedBulk ? selectedBulk.price : getProductPrice(product, user?.role)) * (selectedBulk ? (PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || 1.3) : 1))}
+                ₦ {formatPrice((selectedBulk ? selectedBulk.price : displayVariantPrice ?? getProductPrice(product, user?.role)) * (selectedBulk ? (PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || 1.3) : 1))}
             </span>
             {selectedBulk && (
                 <span className="text-sm font-bold text-muted-foreground">
@@ -274,6 +285,17 @@ const Description = () => {
             </div>
           )}
 
+          {variants.length > 0 && <div className="space-y-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+            <div><h3 className="font-bold text-primary">Choose an option</h3><p className="text-xs text-muted-foreground">Prices, weight, and availability can vary by option.</p></div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {variants.map((variant: any) => <button type="button" key={variant.id} onClick={() => setSelectedVariantId(variant.id)} className={`rounded-xl border-2 p-3 text-left ${selectedVariant?.id === variant.id ? "border-primary bg-background" : "border-transparent bg-background/60"}`}>
+                <div className="font-bold">{variant.title}</div><div className="text-xs text-muted-foreground">{[variant.weight, variant.volume].filter(Boolean).join(" · ") || "Standard option"}</div>
+                <div className="mt-1 text-sm font-black text-primary">₦ {formatPrice((variant.prices?.[0]?.calculatedAmount ?? variant.prices?.[0]?.amount ?? 0) > 100000 ? (variant.prices?.[0]?.calculatedAmount ?? variant.prices?.[0]?.amount ?? 0) / 100 : (variant.prices?.[0]?.calculatedAmount ?? variant.prices?.[0]?.amount ?? 0))}</div>
+                {variant.inventoryItems?.[0]?.sku && <div className="mt-1 text-[10px] text-muted-foreground">SKU: {variant.inventoryItems[0].sku}</div>}
+              </button>)}
+            </div>
+          </div>}
+
           <div className="prose prose-sm max-w-none text-muted-foreground">
             <p className="whitespace-pre-line">
               {(() => {
@@ -292,6 +314,14 @@ const Description = () => {
               </button>
             )}
           </div>
+
+          <div className="grid grid-cols-2 gap-3 rounded-2xl border bg-background p-4 text-sm sm:grid-cols-4">
+            {product.weight && <div><span className="block text-xs text-muted-foreground">Weight</span><strong>{product.weight}</strong></div>}
+            {product.volume && <div><span className="block text-xs text-muted-foreground">Volume</span><strong>{product.volume}</strong></div>}
+            {product.barcode && <div><span className="block text-xs text-muted-foreground">Barcode</span><strong>{product.barcode}</strong></div>}
+            {product.productCategories?.length > 0 && <div><span className="block text-xs text-muted-foreground">Categories</span><strong>{product.productCategories.map((item: any) => item.category?.name).filter(Boolean).join(", ")}</strong></div>}
+          </div>
+          {product.tags?.length > 0 && <div className="flex flex-wrap gap-2">{product.tags.map((tag: string) => <Badge key={tag} variant="secondary">{tag}</Badge>)}</div>}
 
           {product.activeIngredients?.length > 0 && (
             <div className="space-y-3">

@@ -61,6 +61,7 @@ export function ProductCard({
   const [isHovered, setIsHovered] = React.useState(false);
   const [isAddingToCart, setIsAddingToCart] = React.useState(false);
   const [isInWishlist, setIsInWishlist] = React.useState(false);
+  const [selectedVariantId, setSelectedVariantId] = React.useState("");
 
   React.useEffect(() => {
     if (product?.id) {
@@ -129,10 +130,15 @@ export function ProductCard({
   /**
    * Safe Data Access
    */
-  const currentPrice = getProductPrice(product, user?.role);
+  const variants = Array.isArray(product?.variants) ? product.variants : [];
+  const selectedVariant = variants.find((variant: any) => variant.id === selectedVariantId) || variants[0];
+  const variantPrice = selectedVariant?.prices?.[0]?.calculatedAmount ?? selectedVariant?.prices?.[0]?.amount;
+  const currentPrice = variantPrice !== undefined ? (Number(variantPrice) > 100000 ? Number(variantPrice) / 100 : Number(variantPrice)) : getProductPrice(product, user?.role);
   const inStock = typeof product.inStock === 'boolean' ? product.inStock : isProductInStock(product);
-  const categoryName = product?.category?.name || product?.categoryName || "Pharmacy";
-  const image = product?.images?.[0] || "/placeholder.png";
+  const categoryNames = [product?.category?.name, ...(product?.productCategories || []).map((item: any) => item.category?.name || item.name), product?.categoryName].filter(Boolean).filter((name, index, names) => names.indexOf(name) === index);
+  const categoryName = categoryNames[0] || "Pharmacy";
+  const images = Array.isArray(product?.images) ? product.images : [];
+  const image = images[0] || "/placeholder.png";
   const regClass = product?.regulatoryClassification || "OTC";
   const isPrescription = regClass === "Prescription Medicine";
   const businessName = product?.business?.name || "HCVP";
@@ -340,6 +346,8 @@ export function ProductCard({
             >
               {categoryName}
             </Badge>
+            {categoryNames.length > 1 && <Badge className="absolute bottom-2 left-24 z-10 bg-background/80 backdrop-blur-sm" variant="outline">+{categoryNames.length - 1}</Badge>}
+            {images.length > 1 && <Badge className="absolute top-12 left-2 z-10 bg-background/80 backdrop-blur-sm" variant="outline">{images.length} photos</Badge>}
 
             {/* Regulatory Badge */}
             <div className="absolute bottom-2 right-12 z-10 flex flex-col gap-1 items-end">
@@ -396,7 +404,12 @@ export function ProductCard({
 
               {variant === "default" && (
                 <>
+                  {product.shortDescription && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{product.shortDescription}</p>}
                   <div className="mt-1.5">{renderStars()}</div>
+
+                  {variants.length > 0 && <select value={selectedVariant?.id || ""} onChange={(event) => { event.preventDefault(); event.stopPropagation(); setSelectedVariantId(event.target.value); }} onClick={(event) => event.stopPropagation()} className="mt-2 h-8 w-full rounded-md border bg-background px-2 text-xs">
+                    {variants.map((item: any) => <option key={item.id} value={item.id}>{item.title}{item.weight ? ` · ${item.weight}` : ""}</option>)}
+                  </select>}
 
                   <div className="mt-2 flex items-center flex-wrap gap-1.5">
                     <span className="font-medium text-foreground">
