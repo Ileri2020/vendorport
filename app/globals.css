@@ -25,14 +25,13 @@ body {
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
+    --background: 5 10% 97%;
     --foreground: 222 47% 10%;
     --card: 0 0% 100%;
     --card-foreground: 222 47% 10%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 10%;
-    /* Deep medical blue as primary */
-    --primary: 212 100% 45%;
+    --primary: 45 93% 62%;
     --primary-foreground: 210 40% 98%;
     /* Soft blue-gray surfaces */
     --secondary: 210 40% 97%;
@@ -40,7 +39,7 @@ body {
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
     /* Lemon accent inspired by logo */
-    --accent: 8365 100% 37%;
+    --accent: 8365 100% 25%;
     /* Supporting gold accent for contrast */
     --accent-secondary: 43 96% 56%;
     --accent-foreground: 222 47% 12%;
@@ -65,7 +64,7 @@ body {
     --popover: 222 47% 9%;
     --popover-foreground: 210 40% 98%;
     /* Invert: primary becomes lighter blue on dark */
-    --primary: 212 100% 65%;
+    --primary: 45 93% 62%;
     --primary-foreground: 222 47% 12%;
     --secondary: 217 33% 16%;
     --secondary-foreground: 210 40% 98%;

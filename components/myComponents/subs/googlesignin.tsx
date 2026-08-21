@@ -3,13 +3,29 @@
 
 import { signIn } from "@/auth";
 import { FcGoogle } from "react-icons/fc";
+import { headers } from "next/headers";
+
+async function getReturnUrl() {
+  const referer = (await headers()).get("referer");
+  if (!referer) return "/";
+  try {
+    const url = new URL(referer);
+    const isAllowed = url.hostname === "vport.store"
+      || url.hostname.endsWith(".vport.store")
+      || url.hostname === "localhost"
+      || url.hostname === "127.0.0.1";
+    return isAllowed ? url.toString() : "/";
+  } catch {
+    return "/";
+  }
+}
 
 /* ================= GOOGLE ================= */
 
 export const GoogleSignIn = async () => {
   const googleSignInAction = async () => {
     "use server";
-    await signIn("google");
+    await signIn("google", { redirectTo: await getReturnUrl() });
   };
 
   return (
@@ -29,7 +45,7 @@ export const GoogleSignIn = async () => {
 
 export const googleSignIn = async () => {
   "use server";
-  await signIn("google");
+  await signIn("google", { redirectTo: await getReturnUrl() });
 };
 
 /* ================= FACEBOOK ================= */

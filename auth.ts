@@ -9,13 +9,13 @@ const prisma = new PrismaClient();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
+  redirectProxyUrl: process.env.NODE_ENV === "production"
+    ? "https://vport.store/api/auth"
+    : undefined,
   providers: [
     Google({
       clientId: process.env.GOOGLE_ID,
       clientSecret: process.env.GOOGLE_SECRET,
-      redirectProxyUrl: process.env.NODE_ENV === "production"
-        ? "https://vport.store/api/auth"
-        : undefined,
     }),
 
     Credentials({
@@ -68,6 +68,21 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   ],
 
   callbacks: {
+    async redirect({ url, baseUrl }) {
+      try {
+        const target = new URL(url, baseUrl);
+        const allowedHost = target.hostname === "vport.store"
+          || target.hostname.endsWith(".vport.store")
+          || target.hostname === "localhost"
+          || target.hostname === "127.0.0.1";
+        if (allowedHost && ["http:", "https:"].includes(target.protocol)) {
+          return target.toString();
+        }
+      } catch {
+        // Fall through to the platform root for malformed callback URLs.
+      }
+      return baseUrl;
+    },
     async session({ session, token }) {
       if (token?.id) {
         session.user.id = token.id as string;

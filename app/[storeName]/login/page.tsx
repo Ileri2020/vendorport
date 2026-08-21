@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/getSession";
 import { FaGithub } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
+import { headers } from "next/headers";
 
 const Login = async () => {
   const session = await getSession();
@@ -16,7 +17,19 @@ const Login = async () => {
 
   const googleSignIn = async () => {
     'use server'
-    await signIn("google");
+    const referer = (await headers()).get("referer");
+    let returnUrl = "/";
+    if (referer) {
+      try {
+        const url = new URL(referer);
+        if (url.hostname === "vport.store" || url.hostname.endsWith(".vport.store")) {
+          returnUrl = url.toString();
+        }
+      } catch {
+        returnUrl = "/";
+      }
+    }
+    await signIn("google", { redirectTo: returnUrl });
   }
 
   return (
