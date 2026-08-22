@@ -120,7 +120,7 @@ export default function CategoryNavigator() {
         </div>
       )}
 
-      <div className="mb-2 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 grid-cols-2 max-w-sm">
+      <div className="mb-2 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 grid-cols-2 lg:grid-cols-4 mx-auto max-w-sm">
         <div className="relative w-full">
           <Button type="button" className="w-full" variant="outline" size="sm" onClick={() => setCategoryMenuOpen((open) => !open)}>
             Categories {selected.length ? `(${selected.length})` : ""}
@@ -144,7 +144,7 @@ export default function CategoryNavigator() {
           )}
         </div>
         <div>
-          <label htmlFor="store-location" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Available location</label>
+          {/* <label htmlFor="store-location" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Available location</label> */}
           <select id="store-location" multiple value={selectedLocations} onChange={(event) => {
             const next = Array.from(event.target.selectedOptions, (option) => option.value)
             const params = new URLSearchParams(searchParams.toString())
@@ -157,11 +157,11 @@ export default function CategoryNavigator() {
           </select>
         </div>
         <div>
-          <label htmlFor="store-min-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Minimum price</label>
+          {/* <label htmlFor="store-min-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Minimum price</label> */}
           <input id="store-min-price" type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="Minimum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <div>
-          <label htmlFor="store-max-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Maximum price</label>
+          {/* <label htmlFor="store-max-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Maximum price</label> */}
           <input id="store-max-price" type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="Maximum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
         </div>
         <div className="flex items-end gap-2">
