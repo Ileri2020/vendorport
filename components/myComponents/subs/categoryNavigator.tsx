@@ -133,10 +133,6 @@ export default function CategoryNavigator() {
             </div>
           )}
         </div>
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.16em] text-primary">Browse by category</p>
-          <p className="text-sm text-muted-foreground">Choose one or more categories to filter the store.</p>
-        </div>
       </div>
 
       {selectedCategories.length > 0 && (
@@ -149,12 +145,28 @@ export default function CategoryNavigator() {
         </div>
       )}
 
-      <div className="mb-4 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 md:grid-cols-2">
-        <div>
-          <label htmlFor="category-filter-button" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Categories</label>
-          <Button id="category-filter-button" type="button" variant="outline" onClick={() => setCategoryMenuOpen(true)} className="h-20 w-full justify-start px-3 font-normal">
-            {selected.length ? `${selected.length} categor${selected.length === 1 ? "y" : "ies"} selected` : "Categories"}
+      <div className="mb-2 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 grid-cols-2 max-w-sm">
+        <div className="relative order-first">
+          <Button type="button" variant="outline" size="sm" onClick={() => setCategoryMenuOpen((open) => !open)}>
+            Categories {selected.length ? `(${selected.length})` : ""}
           </Button>
+          {categoryMenuOpen && (
+            <div className="fixed left-1/2 top-1/2 z-40 w-[min(90vw,24rem)] -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-3 shadow-2xl sm:absolute sm:left-auto sm:right-0 sm:top-10 sm:w-72 sm:translate-x-0 sm:translate-y-0">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-bold text-muted-foreground">Select categories</span>
+                <button type="button" aria-label="Close category selection" onClick={() => setCategoryMenuOpen(false)}><X className="h-4 w-4" /></button>
+              </div>
+              <div className="max-h-64 space-y-1 overflow-y-auto">
+                {categories.map((category) => {
+                  const isSelected = selected.includes(category.name)
+                  return <button key={category.id} type="button" onClick={() => toggleCategory(category.name)} className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                    {isSelected && <Check className="h-3 w-3" />}{category.name}
+                  </button>
+                })}
+              </div>
+              <Button type="button" size="sm" className="mt-3 w-full" onClick={() => setCategoryMenuOpen(false)}>Apply</Button>
+            </div>
+          )}
         </div>
         <div>
           <label htmlFor="store-location" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Available location</label>
