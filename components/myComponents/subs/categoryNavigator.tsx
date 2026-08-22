@@ -152,17 +152,19 @@ export default function CategoryNavigator() {
             else params.delete("location")
             const query = params.toString()
             router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
-          }} className="w-full h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring" aria-label="Select one or more available locations">
+          }} className="w-full h-10 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring" aria-label="Select one or more available locations">
             {locations.length ? <><option disabled value="">Available location</option>{locations.map((location) => <option key={location} value={location}>{location}</option>)}</> : <option disabled>No locations configured</option>}
           </select>
         </div>
         <div>
-          {/* <label htmlFor="store-min-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Minimum price</label> */}
-          <input id="store-min-price" type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="Minimum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
-        </div>
-        <div>
-          {/* <label htmlFor="store-max-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Maximum price</label> */}
-          <input id="store-max-price" type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="Maximum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
+          <div>
+            {/* <label htmlFor="store-min-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Minimum price</label> */}
+            <input id="store-min-price" type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="Minimum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
+          </div>
+          <div>
+            {/* <label htmlFor="store-max-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Maximum price</label> */}
+            <input id="store-max-price" type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="Maximum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
+          </div>
         </div>
         <div className="flex items-end gap-2">
           <Button type="button" size="sm" onClick={applyFilters}>Apply filters</Button>
