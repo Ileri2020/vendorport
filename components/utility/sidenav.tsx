@@ -274,9 +274,13 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-xs font-black truncate">{user.name}</p>
-                                    <button 
-                                        onClick={() => {
-                                            signOut({ callbackUrl: "/" });
+                                     <button 
+                                        onClick={async () => {
+                                            try {
+                                                await signOut({ redirect: false });
+                                            } catch (e) {
+                                                console.error("Sign out error", e);
+                                            }
                                             setUser({
                                                 name: "visitor",
                                                 id: "nil",
@@ -287,6 +291,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                                                 walletBalance: 0,
                                                 walletCurrency: "₦"
                                             });
+                                            window.location.href = window.location.origin;
                                         }}
                                         className="text-[10px] font-black text-red-500 uppercase flex items-center gap-1 hover:text-red-600 transition-colors"
                                     >

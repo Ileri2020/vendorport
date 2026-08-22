@@ -50,7 +50,9 @@ const Login = async ({ params }: LoginProps) => {
       }
     }
 
-    await signIn("google", { redirectTo: returnUrl });
+    const rootDomain = isProduction ? "https://vport.store" : "";
+    const authStartUrl = `${rootDomain}/api/auth/google-start?returnUrl=${encodeURIComponent(returnUrl)}`;
+    redirect(authStartUrl);
   }
 
   return (

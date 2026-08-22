@@ -4,6 +4,7 @@
 import { signIn } from "@/auth";
 import { FcGoogle } from "react-icons/fc";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 // Login paths that should never be used as a return destination.
 const LOGIN_PATHS = ["/login", "/register", "/signup", "/sign-in", "/sign-up"];
@@ -75,7 +76,11 @@ async function getReturnUrl() {
 export const GoogleSignIn = async () => {
   const googleSignInAction = async () => {
     "use server";
-    await signIn("google", { redirectTo: await getReturnUrl() });
+    const returnUrl = await getReturnUrl();
+    const isProduction = process.env.NODE_ENV === "production";
+    const rootDomain = isProduction ? "https://vport.store" : "";
+    const authStartUrl = `${rootDomain}/api/auth/google-start?returnUrl=${encodeURIComponent(returnUrl)}`;
+    redirect(authStartUrl);
   };
 
   return (
@@ -95,7 +100,11 @@ export const GoogleSignIn = async () => {
 
 export const googleSignIn = async () => {
   "use server";
-  await signIn("google", { redirectTo: await getReturnUrl() });
+  const returnUrl = await getReturnUrl();
+  const isProduction = process.env.NODE_ENV === "production";
+  const rootDomain = isProduction ? "https://vport.store" : "";
+  const authStartUrl = `${rootDomain}/api/auth/google-start?returnUrl=${encodeURIComponent(returnUrl)}`;
+  redirect(authStartUrl);
 };
 
 /* ================= FACEBOOK ================= */

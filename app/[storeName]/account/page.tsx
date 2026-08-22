@@ -846,8 +846,12 @@ const Account = () => {
           <Button
             className="flex-1 border-2 border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground gap-2"
             variant="outline"
-            onClick={() => {
-              signOut({ callbackUrl: "/" })
+            onClick={async () => {
+              try {
+                await signOut({ redirect: false });
+              } catch (e) {
+                console.error("Sign out error", e);
+              }
               setUser({
                 name: "visitor",
                 id: "nil",
@@ -857,7 +861,8 @@ const Account = () => {
                 contact: "xxxx",
                 walletBalance: 0,
                 walletCurrency: "₦",
-              })
+              });
+              window.location.href = window.location.origin;
             }}
           >
             <LogOut className="h-4 w-4" />

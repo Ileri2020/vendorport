@@ -35,7 +35,10 @@ const Login = async () => {
         // keep "/"
       }
     }
-    await signIn("google", { redirectTo: returnUrl });
+    const isProduction = process.env.NODE_ENV === "production";
+    const rootDomain = isProduction ? "https://vport.store" : "";
+    const authStartUrl = `${rootDomain}/api/auth/google-start?returnUrl=${encodeURIComponent(returnUrl)}`;
+    redirect(authStartUrl);
   }
 
   return (

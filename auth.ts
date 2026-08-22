@@ -237,6 +237,72 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         domain: process.env.NODE_ENV === "production" ? ".vport.store" : undefined,
       },
     },
+    // Share OAuth state, PKCE, callback-url, and CSRF cookies across all
+    // subdomains (*.vport.store). Without this, the OAuth callback lands on
+    // vport.store but cannot read cookies that were set on adepoju05.vport.store,
+    // causing redirect_uri_mismatch and signOut CSRF failures.
+    callbackUrl: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-authjs.callback-url"
+        : "authjs.callback-url",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain: process.env.NODE_ENV === "production" ? ".vport.store" : undefined,
+      },
+    },
+    csrfToken: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Host-authjs.csrf-token"
+        : "authjs.csrf-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        // Note: __Host- prefix cookies cannot have a domain attribute.
+        // Only set domain for non-production (dev) or if not using __Host- prefix.
+        domain: undefined,
+      },
+    },
+    pkceCodeVerifier: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-authjs.pkce.code_verifier"
+        : "authjs.pkce.code_verifier",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain: process.env.NODE_ENV === "production" ? ".vport.store" : undefined,
+      },
+    },
+    state: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-authjs.state"
+        : "authjs.state",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain: process.env.NODE_ENV === "production" ? ".vport.store" : undefined,
+      },
+    },
+    nonce: {
+      name: process.env.NODE_ENV === "production"
+        ? "__Secure-authjs.nonce"
+        : "authjs.nonce",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        domain: process.env.NODE_ENV === "production" ? ".vport.store" : undefined,
+      },
+    },
   },
 
   jwt: {
