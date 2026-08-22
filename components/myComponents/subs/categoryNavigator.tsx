@@ -152,7 +152,7 @@ export default function CategoryNavigator() {
             else params.delete("location")
             const query = params.toString()
             router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
-          }} className="w-full rounded-md border bg-background px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-ring" aria-label="Select one or more available locations">
+          }} className="w-full h-8 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring" aria-label="Select one or more available locations">
             {locations.length ? <><option disabled value="">Available location</option>{locations.map((location) => <option key={location} value={location}>{location}</option>)}</> : <option disabled>No locations configured</option>}
           </select>
         </div>
