@@ -7,10 +7,35 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Search, ChevronLeft, ChevronRight, ArrowUpDown, X } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUpDown, X, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useAppContext } from '@/hooks/useAppContext';
 import { prepareImageForUpload } from '@/lib/compress-image';
+
+const PLAN_CATALOG = [
+  {
+    id: 'basic',
+    name: 'Basic',
+    productLimit: 15,
+    monthlyPrice: 500,
+    features: ['3 months free', 'Max 15 products', 'AI purchase disabled', 'Category selection only for new products'],
+  },
+  {
+    id: 'premium',
+    name: 'Premium',
+    productLimit: 200,
+    monthlyPrice: 5000,
+    features: ['3 months at N3,000', 'Gmail customer notifications', 'AI purchases enabled', 'Feature on home and store pages'],
+  },
+  {
+    id: 'custom',
+    name: 'Custom',
+    productLimit: Infinity,
+    monthlyPrice: 100000,
+    features: ['Custom website', 'Own domain', 'Dedicated database', 'Free servicing for first year'],
+  },
+] as const;
 
 const ITEMS_PER_PAGE = 10;
 
@@ -115,6 +140,9 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   const isPharmacy = String(currentBusiness?.template || "estore").toLowerCase() === "pharmacy";
   const [markupEnabled, setMarkupEnabled] = useState(false);
   const [markupPercentage, setMarkupPercentage] = useState(0);
+  const [showPlanDialog, setShowPlanDialog] = useState(false);
+  const [activePlanId, setActivePlanId] = useState(isPharmacy ? 'premium' : 'basic');
+  const productLimit = isPharmacy ? 200 : activePlanId === 'premium' ? 200 : 15;
 
   useEffect(() => {
     const loadPricingSettings = async () => {
@@ -298,6 +326,11 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (!editId && !isPharmacy && ((products?.length || 0) + 1) > productLimit) {
+      setShowPlanDialog(true);
+      return;
+    }
 
     if (!Number.isFinite(Number(formData.costPrice)) || Number(formData.costPrice) <= 0) {
       toast.error("Enter a valid cost price");
@@ -505,6 +538,45 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
   return (
     <div>
+      <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
+        <DialogContent className="max-w-5xl">
+          <DialogHeader>
+            <DialogTitle>Choose a store plan</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 lg:grid-cols-3">
+            {PLAN_CATALOG.map((plan) => {
+              const isSelected = activePlanId === plan.id || (isPharmacy && plan.id === 'premium');
+              return (
+                <div key={plan.id} className={`rounded-2xl border p-4 ${isSelected ? 'border-primary bg-primary/5 shadow-md shadow-primary/10' : 'bg-background'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-xl font-black">{plan.name}</h3>
+                    {isSelected && <Badge className="rounded-full">Current</Badge>}
+                  </div>
+                  <p className="mt-2 text-2xl font-black">
+                    {plan.id === 'custom' ? '₦100k - ₦800k' : `₦${plan.monthlyPrice.toLocaleString()}`}
+                  </p>
+                  <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
+                    {plan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-2">
+                        <CheckCircle className="mt-0.5 h-4 w-4 text-primary" />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button type="button" className="mt-5 w-full" onClick={() => {
+                    setActivePlanId(plan.id);
+                    setShowPlanDialog(false);
+                  }}>
+                    {isSelected ? 'Selected' : 'Select plan'}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <form onSubmit={handleSubmit} className='flex flex-col w-full max-w-sm gap-2 justify-center items-center p-3 border-2 border-secondary-foreground rounded-sm m-2 shadow-md bg-card'>
         <h2 className='font-bold text-xl mb-2 text-primary'>Product Management</h2>
 

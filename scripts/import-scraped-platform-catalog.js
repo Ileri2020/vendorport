@@ -4,6 +4,7 @@ require('dotenv/config');
 
 const fs = require('fs');
 const path = require('path');
+const cheerio = require('cheerio');
 const { v2: cloudinary } = require('cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaClient: PricepallyClient } = require('../generated/pricepally');
@@ -48,6 +49,15 @@ function writeSnapshot(filename, value) {
 
 function asText(value) {
   return value === null || value === undefined ? '' : String(value).trim();
+}
+
+function cleanDescription(value) {
+  const html = asText(value);
+  if (!html || !html.includes('<')) return html;
+
+  const $ = cheerio.load(html, null, false);
+  $('[style]').removeAttr('style');
+  return $.root().html().trim();
 }
 
 function asNumber(value, fallback = 0) {
@@ -271,9 +281,14 @@ async function createPlatformCatalog() {
     for (const sourceCategory of sourceData.categories) {
       const raw = sourceCategory.rawCategory || sourceCategory;
       const originalName = asText(raw.name || sourceCategory.name) || 'Uncategorized';
-      const key = categoryKey(raw);
+      const key = originalName.toLocaleLowerCase();
       const category = { key, name: originalName, raw };
-      categoriesByKey.set(key, category);
+      const existingCategory = categoriesByKey.get(key);
+      categoriesByKey.set(key, {
+        key,
+        name: originalName,
+        raw: existingCategory?.raw || raw,
+      });
       if (!sourceCategoryLookups.has(sourceData.source)) sourceCategoryLookups.set(sourceData.source, new Map());
       const lookup = sourceCategoryLookups.get(sourceData.source);
       for (const value of [raw.id, raw.handle, raw.slug, raw.name, originalName]) {
@@ -311,7 +326,7 @@ async function createPlatformCatalog() {
       const saved = await prisma.category.create({
         data: {
           name: category.name,
-          description: asText(category.raw.description) || undefined,
+          description: cleanDescription(category.raw.description) || undefined,
           image: asText(category.raw.image) || undefined,
           businessId: null,
         },
@@ -325,7 +340,7 @@ async function createPlatformCatalog() {
 
   const existingProducts = await prisma.product.findMany({
     where: { businessId: null },
-    select: { id: true, name: true, categoryId: true },
+    select: { id: true, name: true, categoryId: true, description: true, shortDescription: true },
   });
   const existingProductKeys = new Set(
     existingProducts.map((product) => `${asText(product.name).toLocaleLowerCase()}::${product.categoryId || ''}`)
@@ -339,21 +354,39 @@ async function createPlatformCatalog() {
       const references = categoryReferences(sourceData.source, sourceData.categories, product);
       const lookup = sourceCategoryLookups.get(sourceData.source) || new Map();
       const categoryIds = unique(references.map((category) => {
-        const resolvedKey = lookup.get(categoryKey(category)) || categoryKey(category);
+        const resolvedKey = lookup.get(categoryKey(category)) || asText(category.name).toLocaleLowerCase();
         return appCategories.get(resolvedKey);
       }).filter(Boolean));
       const variants = sourceData.source === 'pricepally'
         ? getPricepallyVariants(product)
         : getMarket2HomeVariants(product);
       const firstPrice = variants[0]?.prices?.[0]?.amount || asNumber(product.finalPrice ?? product.price);
+      const productName = asText(product.title || product.name) || `Imported ${SOURCE_LABELS[sourceData.source]} product`;
+      const productKey = `${productName.toLocaleLowerCase()}::${categoryIds[0] || ''}`;
+      if (existingProductKeys.has(productKey)) {
+        const existingProduct = existingProducts.find((item) => `${asText(item.name).toLocaleLowerCase()}::${item.categoryId || ''}` === productKey);
+        const description = cleanDescription(product.description);
+        const shortDescription = cleanDescription(product.shortDescription);
+        if (existingProduct && (existingProduct.description !== description || existingProduct.shortDescription !== shortDescription)) {
+          await prisma.product.update({
+            where: { id: existingProduct.id },
+            data: {
+              description: description || null,
+              shortDescription: shortDescription || null,
+            },
+          });
+        }
+        continue;
+      }
+
       const sourceImages = imageUrls(product.images);
       if (product.thumbnail) sourceImages.unshift(product.thumbnail);
       const images = await uploadImages(unique(sourceImages), imageCache);
 
       const productData = {
-        name: asText(product.title || product.name) || `Imported ${SOURCE_LABELS[sourceData.source]} product`,
-        description: asText(product.description) || undefined,
-        shortDescription: asText(product.shortDescription) || undefined,
+        name: productName,
+        description: cleanDescription(product.description) || undefined,
+        shortDescription: cleanDescription(product.shortDescription) || undefined,
         barcode: asText(product.barcode) || undefined,
         tags: Array.isArray(product.tags) ? product.tags.map(asText).filter(Boolean) : [],
         price: firstPrice,
@@ -379,12 +412,6 @@ async function createPlatformCatalog() {
           create: categoryIds.map((categoryId, position) => ({ categoryId, position })),
         },
       };
-
-      const productKey = `${productData.name.toLocaleLowerCase()}::${categoryIds[0] || ''}`;
-      if (existingProductKeys.has(productKey)) {
-        console.log(`Skipping existing platform product: ${productData.name}`);
-        continue;
-      }
 
       try {
         await prisma.product.create({ data: { ...productData, categoryId: categoryIds[0] || undefined } });

@@ -2,13 +2,14 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Mail, Phone, BriefcaseBusiness, UserRound } from "lucide-react";
+import { Mail, Phone, BriefcaseBusiness, UserRound, Handshake, UserPlus } from "lucide-react";
 
 export interface PortfolioCardProps {
   portfolio: {
     id: string;
     job?: string | null;
     jobDescription?: string | null;
+    jobType?: "accepting" | "giving" | null;
     images?: string[];
     contactCount?: number;
     activatedAt?: string | Date | null;
@@ -70,7 +71,10 @@ export function PortfolioCard({
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">Portfolio</p>
+              <p className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.22em] text-muted-foreground">
+                {portfolio.jobType === "giving" ? <Handshake className="h-3 w-3" /> : <UserPlus className="h-3 w-3" />}
+                {portfolio.jobType === "giving" ? "Giving jobs" : "Accepting jobs"}
+              </p>
               <h3 className="mt-1 text-xl font-black tracking-tight">{portfolio.job || "Untitled role"}</h3>
             </div>
           </div>

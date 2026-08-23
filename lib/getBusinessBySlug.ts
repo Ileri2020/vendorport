@@ -35,6 +35,7 @@ export interface StorefrontBusiness {
     contactPhone: string | null;
     contactDesc: string | null;
     address: string | null;
+    physicalLocation: string | null;
     facebook: string | null;
     instagram: string | null;
     twitter: string | null;
@@ -112,6 +113,7 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
           contactPhone: true,
           contactDesc: true,
           address: true,
+          physicalLocation: true,
           facebook: true,
           instagram: true,
           twitter: true,

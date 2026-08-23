@@ -49,7 +49,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const businessId = currentBusiness?.id;
+                const businessId = business?.id || currentBusiness?.id;
                 const categoryQuery = businessId ? `?model=category&businessId=${businessId}` : "?model=category";
                 const [catRes, concernRes] = await Promise.all([
                     axios.get(`/api/dbhandler${categoryQuery}`),
@@ -62,13 +62,13 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
             }
         };
         fetchData();
-    }, [currentBusiness?.id]);
+    }, [business?.id, currentBusiness?.id]);
 
     const closeSheet = () => setOpen(false);
-    const homeHref = basePath || "/";
+    const homeHref = basePath ? `${basePath}/home` : "/";
 
     const resolveHref = (path: string) => {
-        if (path === "/home") return basePath || "/";
+        if (path === "/home") return homeHref;
         if (!basePath) return path;
         return `${basePath}${path}`;
     };

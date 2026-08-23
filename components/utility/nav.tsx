@@ -22,8 +22,9 @@ const Nav = ({ basePath }: NavProps) => {
   const { currentBusiness, user } = useAppContext();
   const { data: session } = useSession();
 
+  const homeHref = basePath ? `${basePath}/home` : "/";
   const resolveHref = (path: string) => {
-    if (path === "/home") return basePath || "/";
+    if (path === "/home") return homeHref;
     if (!basePath) return path;
     return `${basePath}${path}`;
   };

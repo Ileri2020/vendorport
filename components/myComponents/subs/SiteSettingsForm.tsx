@@ -436,6 +436,10 @@ const SiteSettingsForm: React.FC = () => {
                   <Label>Address</Label>
                   <Textarea value={valOf("address", "22 Akinagbe, Alapere, Ketu, Lagos State")} onChange={(e: any) => handleChange("address", e.target.value)} />
                 </div>
+                <div className="md:col-span-2">
+                  <Label>Physical Business Location (optional)</Label>
+                  <Input value={valOf("physicalLocation", "")} onChange={(e: any) => handleChange("physicalLocation", e.target.value)} placeholder="e.g. 12 Allen Avenue, Ikeja, Lagos, Nigeria" />
+                </div>
               </div>
             </CollapsibleContent>
           </div>

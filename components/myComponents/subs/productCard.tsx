@@ -33,6 +33,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+
+function cleanProductDescription(value: unknown) {
+  const html = typeof value === "string" ? value : "";
+  if (!html || typeof window === "undefined" || !html.includes("<")) return html;
+
+  const document = new DOMParser().parseFromString(html, "text/html");
+  document.querySelectorAll("style, [style]").forEach((element) => {
+    if (element.tagName.toLowerCase() === "style") element.remove();
+    else element.removeAttribute("style");
+  });
+  return document.body.innerHTML;
+}
 import ProductForm from "@/prisma/forms/ProductForm";
 import axios from "axios";
 import { VariantCard, getVariantAmount, getVariantPriceRange } from "./variantCard";
@@ -47,6 +59,7 @@ type ProductCardProps = Omit<
   product: any;
   variant?: "compact" | "default";
   showDiscount?: boolean;
+  priceEditor?: React.ReactNode;
 };
 
 export function ProductCard({
@@ -57,6 +70,7 @@ export function ProductCard({
   product,
   variant = "default",
   showDiscount = false,
+  priceEditor,
   ...props
 }: ProductCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
@@ -270,7 +284,7 @@ export function ProductCard({
               
               <div className="mt-8 text-base text-foreground prose dark:prose-invert max-w-none">
                  {product?.description ? (
-                     <div dangerouslySetInnerHTML={{ __html: product.description }} />
+                     <div dangerouslySetInnerHTML={{ __html: cleanProductDescription(product.description) }} />
                  ) : (
                      <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
                        <Eye className="h-12 w-12 mb-4 opacity-50" />
@@ -429,7 +443,7 @@ export function ProductCard({
 
                   <div className="mt-2 flex items-center flex-wrap gap-1.5">
                     <span className="font-medium text-foreground">
-                      {variantPriceLabel}{displayLabel && <span className="text-xs text-muted-foreground ml-0.5">{displayLabel}</span>}
+                      {priceEditor || <>{variantPriceLabel}{displayLabel && <span className="text-xs text-muted-foreground ml-0.5">{displayLabel}</span>}</>}
                     </span>
                     {hasDiscount && (
                       <span className="text-sm text-muted-foreground line-through">
@@ -531,7 +545,7 @@ export function ProductCard({
                 <div className="flex w-full items-center justify-between">
                   <div className="flex items-center gap-1.5">
                       <span className="font-medium text-foreground">
-                      {variantPriceLabel}{displayLabel && <span className="text-xs text-muted-foreground ml-0.5">{displayLabel}</span>}
+                      {priceEditor || <>{variantPriceLabel}{displayLabel && <span className="text-xs text-muted-foreground ml-0.5">{displayLabel}</span>}</>}
                     </span>
                     {hasDiscount && (
                       <span className="text-sm text-muted-foreground line-through">

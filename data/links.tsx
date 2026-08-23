@@ -1,10 +1,18 @@
-import {AiOutlineSearch, AiOutlineHome, AiOutlineShop, AiOutlineMan, AiOutlineContacts, AiOutlineWoman, AiOutlineProfile, AiOutlineInfoCircle} from "react-icons/ai"
+import {AiOutlineSearch, AiOutlineHome, AiOutlineShop, AiOutlineMan, AiOutlineContacts, AiOutlineWoman, AiOutlineProfile, AiOutlineRead} from "react-icons/ai"
 import { BiPhoneCall, BiSolidContact, BiPhone,} from "react-icons/bi"
 import { CiShoppingCart, } from "react-icons/ci"
 import { IoMdHelp } from "react-icons/io";
 import { VscAccount } from "react-icons/vsc";
 import { IoFastFoodOutline } from "react-icons/io5";
 import { HiBriefcase, HiOutlineQuestionMarkCircle } from "react-icons/hi2";
+
+export const platformSocialLinks = {
+  facebook: "https://www.facebook.com/ileritech",
+  twitter: "https://x.com/ileritech",
+  instagram: "https://www.instagram.com/ileritech",
+  linkedin: "https://www.linkedin.com/company/ileritech",
+  email: "mailto:hello@ileritech.com",
+};
 
 export default {Links : [
     {
@@ -23,7 +31,7 @@ export default {Links : [
       path: "/new-product",
     },
     {
-      name: <AiOutlineInfoCircle />,
+      name: <AiOutlineRead />,
       title: "About",
       path: "/about",
     },

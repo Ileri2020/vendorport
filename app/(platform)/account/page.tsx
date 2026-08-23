@@ -6,6 +6,7 @@ import EditUser from "@/components/myComponents/subs/useredit"
 import dynamic from 'next/dynamic'
 const Login = dynamic(() => import('@/components/myComponents/subs').then((e) => e.Login), { ssr: false })
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -23,6 +24,9 @@ import { AdminBulkManager } from "@/components/myComponents/subs/AdminBulkManage
 import { AffiliateDialog } from "@/components/myComponents/subs/AffiliateDialog"
 import { PortfolioCard } from "@/components/myComponents/subs/PortfolioCard"
 import { ProfileSkeleton, TableSkeleton } from "@/components/skeletons"
+import MonnifyPaymentButton from "@/components/payment/monnify"
+import { ManualTransfer } from "@/components/payment/manual"
+import { getBrowserLocation, getSavedUserLocation, saveUserLocation, type UserLocation } from "@/lib/user-location"
 import {
   User,
   Mail,
@@ -50,6 +54,84 @@ import {
   Upload
 } from "lucide-react"
 
+const STORE_PLAN_CATALOG = [
+  {
+    id: "basic",
+    name: "Basic",
+    price: 500,
+    first3MonthsFree: true,
+    productLimit: 15,
+    highlight: "For starting businesses",
+    features: [
+      "3 months free on activation",
+      "Max 15 products",
+      "N500/month",
+      "AI purchase disabled",
+      "Add products from new products only; not a whole category",
+      "Category add from new product page is allowed, but not all category products",
+    ],
+  },
+  {
+    id: "premium",
+    name: "Premium",
+    price: 5000,
+    first3MonthsPrice: 3000,
+    productLimit: 200,
+    highlight: "For fast-growing stores",
+    features: [
+      "N3,000 for first 3 months",
+      "N5,000/month after that",
+      "Gmail purchase notifications",
+      "Up to 200 products",
+      "Add a category and all its products, or pick selected items from a category",
+      "Customer AI purchase access",
+      "Featured on platform home and store page",
+    ],
+  },
+  {
+    id: "custom",
+    name: "Custom",
+    price: 100000,
+    priceRange: "₦100,000 - ₦800,000",
+    productLimit: Infinity,
+    highlight: "Built for large businesses",
+    features: [
+      "Your personal website",
+      "Your own domain name",
+      "Dedicated database",
+      "Free servicing for the first year",
+      "Free upgrade proposal for the first 3 months",
+      "Everything in Premium, including AI",
+    ],
+  },
+] as const;
+
+const getPlanById = (planId: string) => STORE_PLAN_CATALOG.find((plan) => plan.id === planId) || STORE_PLAN_CATALOG[0];
+
+const getPlanMultiplier = (planId: string, count: number, unit: "month" | "year") => {
+  if (planId === "custom") return count * 100000;
+  const monthMultiplier = unit === "year" ? 12 : 1;
+  const basePrice = planId === "premium" ? 5000 : 500;
+  const first3MonthsPrice = planId === "premium" ? 3000 : 0;
+  const months = count * monthMultiplier;
+  if (planId === "basic") return months * basePrice;
+  if (planId === "premium") {
+    if (months <= 3) return first3MonthsPrice;
+    return Math.max(0, months - 3) * basePrice + first3MonthsPrice;
+  }
+  return basePrice;
+};
+
+const getCountdownParts = (expiresAt: Date | null) => {
+  if (!expiresAt) return { years: 0, months: 0, days: 0 };
+  const diffMs = Math.max(0, expiresAt.getTime() - Date.now());
+  const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const years = Math.floor(totalDays / 365);
+  const months = Math.floor((totalDays % 365) / 30);
+  const days = totalDays % 30;
+  return { years, months, days };
+};
+
 const Account = () => {
   const { user, setUser } = useAppContext()
   const [cardOrientation, setCardOrientation] = useState<"horizontal" | "vertical">("horizontal");
@@ -64,10 +146,76 @@ const Account = () => {
   const [affiliatePopupSeen, setAffiliatePopupSeen] = useState(false);
   const [portfolios, setPortfolios] = useState<any[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
+  const [ownedBusinesses, setOwnedBusinesses] = useState<any[]>([]);
+  const [planCheckout, setPlanCheckout] = useState<null | { businessId: string; businessName: string; planId: string; amount: number; durationCount: number; durationUnit: "month" | "year" }>(null);
+  const [planDurations, setPlanDurations] = useState<Record<string, { count: number; unit: "month" | "year" }>>({});
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+  const [manualLocation, setManualLocation] = useState("");
+  const [locationLoading, setLocationLoading] = useState(false);
   const AFFILIATE_ACCOUNT_POPUP_KEY = 'hc_affiliate_account_popup_shown';
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://localhost:3000";
+
+  useEffect(() => {
+    const savedLocation = getSavedUserLocation();
+    if (savedLocation) {
+      setUserLocation(savedLocation);
+      return;
+    }
+    const timer = window.setTimeout(() => setLocationDialogOpen(true), 10000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  const detectUserLocation = async () => {
+    setLocationLoading(true);
+    try {
+      const location = await getBrowserLocation();
+      saveUserLocation(location);
+      setUserLocation(location);
+      setLocationDialogOpen(false);
+      toast.success(`Location saved: ${location.label}`);
+    } catch {
+      toast.error("Could not access your location. Enter your area manually instead.");
+    } finally {
+      setLocationLoading(false);
+    }
+  };
+
+  const saveManualLocation = () => {
+    const label = manualLocation.trim();
+    if (!label) return toast.error("Enter a city, state, or area");
+    const location: UserLocation = { label, source: "manual" };
+    saveUserLocation(location);
+    setUserLocation(location);
+    setManualLocation("");
+    setLocationDialogOpen(false);
+    toast.success(`Location saved: ${label}`);
+  };
+
+  useEffect(() => {
+    if (!user?.id || user.id === "nil") return;
+
+    const fetchBusinesses = async () => {
+      try {
+        const response = await axios.get(`/api/dbhandler?model=business&ownerId=${user.id}`);
+        const businesses = Array.isArray(response.data) ? response.data : response.data ? [response.data] : [];
+        setOwnedBusinesses(
+          businesses.map((business: any) => ({
+            ...business,
+            template: business.template || "estore",
+            plan: business.template === "pharmacy" ? "premium" : (business.plan || "basic"),
+            planExpiresAt: business.planExpiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+          }))
+        );
+      } catch (error) {
+        console.error("Failed to fetch business plans", error);
+      }
+    };
+
+    fetchBusinesses();
+  }, [user?.id]);
 
   useEffect(() => {
     const saved = localStorage.getItem('store-card-orientation');
@@ -163,6 +311,34 @@ const Account = () => {
       console.error("Activate portfolio failed", error);
       toast.error("Could not activate this portfolio.");
     }
+  };
+
+  const handlePlanPurchase = (business: any, planId: string, durationCount: number, durationUnit: "month" | "year") => {
+    const selectedPlan = getPlanById(planId);
+    const amount = planId === "custom"
+      ? Math.min(800000, Math.max(100000, durationCount * (durationUnit === "year" ? 100000 : 100000)))
+      : getPlanMultiplier(planId, durationCount, durationUnit);
+
+    setPlanCheckout({
+      businessId: business.id,
+      businessName: business.name,
+      planId,
+      amount,
+      durationCount,
+      durationUnit,
+    });
+
+    if (!planId) return;
+    toast.success(`${business.name} ready for ${selectedPlan.name} payment.`);
+  };
+
+  const finalizeBusinessPlan = (businessId: string, planId: string, durationCount: number, durationUnit: "month" | "year") => {
+    const months = durationUnit === "year" ? durationCount * 12 : durationCount;
+    const expiresAt = new Date(Date.now() + months * 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    setOwnedBusinesses((current) => current.map((business) => business.id === businessId ? { ...business, plan: planId, planExpiresAt: expiresAt } : business));
+    setPlanCheckout(null);
+    toast.success(`Plan updated to ${getPlanById(planId).name}.`);
   };
 
   const copyAffiliateId = async () => {
@@ -527,6 +703,151 @@ const Account = () => {
             </div>
           </div>
         </div>
+
+        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+              <div>
+                <h2 className="text-sm font-bold">Find businesses near you</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {userLocation ? `Your location: ${userLocation.label}` : "Set your location to help us show nearby businesses first."}
+                </p>
+              </div>
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={() => setLocationDialogOpen(true)}>
+              {userLocation ? "Change" : "Set location"}
+            </Button>
+          </div>
+        </div>
+
+        <Dialog open={locationDialogOpen} onOpenChange={setLocationDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Show businesses near you?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">Allow location access so the store can show businesses and products closest to your current area first. You can also enter your location manually.</p>
+            <div className="space-y-3">
+              <Button type="button" className="w-full" onClick={detectUserLocation} disabled={locationLoading}>
+                <MapPin className="mr-2 h-4 w-4" /> {locationLoading ? "Detecting location..." : "Use my current location"}
+              </Button>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground"><Separator className="flex-1" /> or <Separator className="flex-1" /></div>
+              <Input placeholder="Enter city, state, or area" value={manualLocation} onChange={(event) => setManualLocation(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveManualLocation(); }} />
+              <Button type="button" variant="outline" className="w-full" onClick={saveManualLocation}>Save location</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {ownedBusinesses.length > 0 && (
+          <div className="rounded-xl border bg-card shadow-sm p-4 space-y-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">My Stores</h2>
+              <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">
+                {ownedBusinesses.length} store{ownedBusinesses.length > 1 ? "s" : ""}
+              </Badge>
+            </div>
+
+            <div className="space-y-6">
+              {ownedBusinesses.map((business: any) => {
+                const activePlanId = business.template === "pharmacy" ? "premium" : (business.plan || "basic");
+                const activePlan = getPlanById(activePlanId);
+                const currentExpiry = business.planExpiresAt ? new Date(business.planExpiresAt) : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+                const countdown = getCountdownParts(currentExpiry);
+                const selectedDuration = planDurations[business.id] || { count: 1, unit: "month" };
+
+                return (
+                  <div key={business.id} className="rounded-2xl border bg-muted/20 p-4 shadow-sm">
+                    <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.25em] text-muted-foreground">Store</p>
+                        <h3 className="text-xl font-black">{business.name}</h3>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge className="rounded-full border-primary/20 bg-primary/10 text-primary">
+                          {business.template === "pharmacy" ? "Pharmacy template" : "E-store template"}
+                        </Badge>
+                        <Badge variant="secondary" className="rounded-full">
+                          {activePlan.name} plan
+                        </Badge>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-4 xl:grid-cols-3">
+                      {STORE_PLAN_CATALOG.map((plan) => {
+                        const isCurrent = activePlanId === plan.id || (business.template === "pharmacy" && plan.id === "premium");
+                        const amount = plan.id === "custom"
+                          ? selectedDuration.unit === "year" ? 100000 * selectedDuration.count : 100000
+                          : getPlanMultiplier(plan.id, selectedDuration.count, selectedDuration.unit);
+
+                        return (
+                          <div key={plan.id} className={`relative rounded-2xl border p-4 ${isCurrent ? "border-primary bg-primary/5 shadow-md shadow-primary/10" : "bg-background"}`}>
+                            {isCurrent && (
+                              <div className="absolute right-3 top-3 rounded-full bg-primary px-2 py-1 text-[9px] font-black uppercase tracking-[0.2em] text-primary-foreground">Current</div>
+                            )}
+                            <div className="space-y-3">
+                              <div>
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">{plan.highlight}</p>
+                                <h4 className="mt-2 text-2xl font-black">{plan.name}</h4>
+                              </div>
+
+                              <div className="rounded-xl border bg-background/60 p-3">
+                                <p className="text-xs text-muted-foreground">Price</p>
+                                <p className="text-xl font-black">
+                                  {plan.id === "custom" ? plan.priceRange : `₦${amount.toLocaleString()}`}
+                                </p>
+                              </div>
+
+                              <div className="space-y-2 text-sm text-muted-foreground">
+                                {plan.features.map((feature) => (
+                                  <div key={feature} className="flex items-start gap-2">
+                                    <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                    <span>{feature}</span>
+                                  </div>
+                                ))}
+                              </div>
+
+                              <div className="flex items-center gap-2 pt-2">
+                                <select
+                                  value={`${selectedDuration.count}-${selectedDuration.unit}`}
+                                  onChange={(event) => {
+                                    const [count, unit] = event.target.value.split("-");
+                                    setPlanDurations((previous) => ({ ...previous, [business.id]: { count: Number(count), unit: unit as "month" | "year" } }));
+                                  }}
+                                  className="h-10 flex-1 rounded-md border bg-background px-2 text-sm"
+                                >
+                                  <option value="1-month">1 month</option>
+                                  <option value="3-month">3 months</option>
+                                  <option value="6-month">6 months</option>
+                                  <option value="1-year">1 year</option>
+                                  <option value="2-year">2 years</option>
+                                </select>
+                              </div>
+
+                              {isCurrent && (
+                                <div className="rounded-lg border border-dashed border-primary/40 bg-primary/5 p-2 text-[11px] font-semibold text-primary">
+                                  Current plan expiry: {countdown.years}y {countdown.months}m {countdown.days}d
+                                </div>
+                              )}
+
+                              <Button
+                                type="button"
+                                onClick={() => handlePlanPurchase(business, plan.id, selectedDuration.count, selectedDuration.unit)}
+                                className="w-full"
+                                variant={isCurrent ? "secondary" : "default"}
+                              >
+                                {isCurrent ? "Manage plan" : "Pay now"}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="rounded-xl border bg-card shadow-sm p-4 space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -961,6 +1282,45 @@ const Account = () => {
         </div>
 
       </div>
+
+      {planCheckout && (
+        <Dialog open={!!planCheckout} onOpenChange={(open) => !open && setPlanCheckout(null)}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Upgrade {planCheckout.businessName}</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="rounded-2xl border bg-primary/5 p-4">
+                <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Selected plan</p>
+                <div className="mt-2 flex items-center justify-between">
+                  <span className="text-xl font-black">{getPlanById(planCheckout.planId).name}</span>
+                  <span className="text-xl font-black text-primary">₦{planCheckout.amount.toLocaleString()}</span>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">{planCheckout.durationCount} {planCheckout.durationUnit}{planCheckout.durationCount > 1 ? "s" : ""}</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <MonnifyPaymentButton
+                  amount={planCheckout.amount}
+                  email={user.email || "owner@healthclique.ng"}
+                  name={user.name || "Business Owner"}
+                  reference={`store-plan-${planCheckout.businessId}-${Date.now()}`}
+                  onSuccess={() => finalizeBusinessPlan(planCheckout.businessId, planCheckout.planId, planCheckout.durationCount, planCheckout.durationUnit)}
+                  onFailure={() => toast.error("Monnify payment was not completed.")}
+                />
+                <ManualTransfer
+                  tx_ref={`store-plan-${planCheckout.businessId}-${Date.now()}`}
+                  amount={planCheckout.amount}
+                  cartId={`store-plan-${planCheckout.businessId}`}
+                  userId={user.id || "guest"}
+                  guestDetails={{ name: user.name || "Business Owner", email: user.email || "owner@healthclique.ng" }}
+                />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </motion.section>
   )
 }

@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import ProductForm from "@/prisma/forms/ProductForm";
+import { getSavedUserLocation, locationMatchesBusiness } from "@/lib/user-location";
 
 const ITEMS_PER_PAGE = 30;
 
@@ -42,6 +43,7 @@ const Stocks = () => {
   const locationFilter = searchParams.get("location");
   const isFeatured = searchParams.get("featured") === "true";
   const isDiscounted = searchParams.get("discounted") === "true";
+  const closestToMe = searchParams.get("closest") === "true";
   
   const { addItem } = useCart();
   const [products, setProducts] = useState<any[]>([]);
@@ -59,7 +61,7 @@ const Stocks = () => {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted]);
+  }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted, closestToMe]);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -83,6 +85,13 @@ const Stocks = () => {
         const res = await axios.get(url);
         let data = res.data.data || res.data; // Handle potential format change just in case
 
+        if (closestToMe) {
+          const savedLocation = getSavedUserLocation();
+          if (savedLocation) {
+            data = [...data].sort((first: any, second: any) => Number(locationMatchesBusiness(savedLocation, second.business)) - Number(locationMatchesBusiness(savedLocation, first.business)));
+          }
+        }
+
         if (isFeatured) {
           const featRes = await axios.get(`/api/dbhandler?model=featuredProduct&minimal=true${bizQ}`);
           const featIds = new Set(featRes.data.map((f: any) => f.productId));
@@ -95,7 +104,7 @@ const Stocks = () => {
           data = data.filter((p: any) => discIds.has(p.id));
         }
 
-        const shuffled = shuffleArray(data);
+        const shuffled = closestToMe ? data : shuffleArray(data);
         setProducts(shuffled);
         setTotalProducts(shuffled.length);
       } else {
@@ -104,7 +113,11 @@ const Stocks = () => {
         url += `&limit=5000`;
         const res = await axios.get(url);
         const fetchedProducts = res.data.data || res.data;
-        const shuffled = shuffleArray(fetchedProducts);
+        const savedLocation = closestToMe ? getSavedUserLocation() : null;
+        const prioritizedProducts = savedLocation
+          ? [...fetchedProducts].sort((first: any, second: any) => Number(locationMatchesBusiness(savedLocation, second.business)) - Number(locationMatchesBusiness(savedLocation, first.business)))
+          : fetchedProducts;
+        const shuffled = closestToMe ? prioritizedProducts : shuffleArray(prioritizedProducts);
 
         const pagedProducts = shuffled.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
         setProducts(pagedProducts);
@@ -116,7 +129,7 @@ const Stocks = () => {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted, isAdmin, currentPage, businessId]);
+  }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted, closestToMe, isAdmin, currentPage, businessId]);
 
   useEffect(() => {
     fetchProducts();

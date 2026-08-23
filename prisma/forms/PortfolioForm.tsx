@@ -22,7 +22,15 @@ const ACCEPTED_FILE_TYPES = [
 
 const MAX_FILES_PER_SET = 3;
 
-export default function PortfolioForm({ onSubmitted }: { onSubmitted?: () => void }) {
+export default function PortfolioForm({
+  onSubmitted,
+  jobType: initialJobType = "accepting",
+  allowCreateNew = false,
+}: {
+  onSubmitted?: () => void;
+  jobType?: "accepting" | "giving";
+  allowCreateNew?: boolean;
+}) {
   const { user } = useAppContext();
   const [loading, setLoading] = useState(false);
   const [portfolio, setPortfolio] = useState<any | null>(null);
@@ -31,9 +39,11 @@ export default function PortfolioForm({ onSubmitted }: { onSubmitted?: () => voi
   const [images, setImages] = useState<File[]>([]);
   const [cvDocs, setCvDocs] = useState<File[]>([]);
   const [certDocs, setCertDocs] = useState<File[]>([]);
+  const [jobType, setJobType] = useState<"accepting" | "giving">(initialJobType);
 
   useEffect(() => {
     const loadPortfolio = async () => {
+      if (allowCreateNew) return;
       if (!user?.id || user.id === "nil") return;
       try {
         const res = await axios.get(`/api/dbhandler?model=portfolio&userId=${user.id}`);
@@ -49,7 +59,7 @@ export default function PortfolioForm({ onSubmitted }: { onSubmitted?: () => voi
     };
 
     loadPortfolio();
-  }, [user?.id]);
+  }, [allowCreateNew, user?.id]);
 
   const totalImageCount = useMemo(() => images.length, [images]);
   const totalCvCount = useMemo(() => cvDocs.length, [cvDocs]);
@@ -109,12 +119,13 @@ export default function PortfolioForm({ onSubmitted }: { onSubmitted?: () => voi
       formData.append("userId", user.id);
       formData.append("job", job);
       formData.append("jobDescription", jobDescription);
+      formData.append("jobType", jobType);
 
       images.forEach((file) => formData.append("images", file));
       cvDocs.forEach((file) => formData.append("cvDocuments", file));
       certDocs.forEach((file) => formData.append("certificationDocuments", file));
 
-      if (portfolio?.id) {
+      if (portfolio?.id && !allowCreateNew) {
         await axios.put(`/api/dbhandler?model=portfolio&id=${portfolio.id}`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
@@ -123,7 +134,7 @@ export default function PortfolioForm({ onSubmitted }: { onSubmitted?: () => voi
         await axios.post(`/api/dbhandler?model=portfolio`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });
-        toast.success("Portfolio created successfully.");
+        toast.success(`${jobType === "giving" ? "Job offer" : "Job request"} created successfully.`);
       }
 
       onSubmitted?.();
@@ -137,6 +148,21 @@ export default function PortfolioForm({ onSubmitted }: { onSubmitted?: () => voi
 
   return (
     <div className="space-y-5">
+      <div className="space-y-2">
+        <Label>Job profile type</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" variant={jobType === "accepting" ? "default" : "outline"} onClick={() => setJobType("accepting")}>
+            Accepting jobs
+          </Button>
+          <Button type="button" variant={jobType === "giving" ? "default" : "outline"} onClick={() => setJobType("giving")}>
+            Giving jobs
+          </Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {jobType === "accepting" ? "You are available for people or businesses to hire." : "You are offering a job or project to someone else."}
+        </p>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="portfolio-job">Job title</Label>
         <Input
@@ -174,7 +200,7 @@ export default function PortfolioForm({ onSubmitted }: { onSubmitted?: () => voi
       </div>
 
       <Button type="button" onClick={submitPortfolio} disabled={loading} className="w-full">
-        {loading ? "Saving..." : portfolio ? "Update portfolio" : "Create portfolio"}
+        {loading ? "Saving..." : portfolio && !allowCreateNew ? "Update portfolio" : "Create job profile"}
       </Button>
     </div>
   );

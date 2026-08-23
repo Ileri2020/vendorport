@@ -459,6 +459,44 @@ export async function GET(req: NextRequest) {
         return NextResponse.json(await prisma.product.findMany(query));
       }
 
+      if (model === "portfolio") {
+        const query = searchParams.get("query")?.trim();
+        const jobType = searchParams.get("jobType");
+        const requestedUserId = searchParams.get("userId");
+        const where: any = {};
+
+        if (requestedUserId) {
+          where.userId = requestedUserId;
+        }
+
+        if (jobType === "accepting" || jobType === "giving") {
+          where.jobType = jobType;
+        }
+        if (query) {
+          where.OR = [
+            { job: { contains: query, mode: "insensitive" } },
+            { jobDescription: { contains: query, mode: "insensitive" } },
+            { user: { name: { contains: query, mode: "insensitive" } } },
+          ];
+        }
+
+        const take = Math.min(Math.max(limit, 1), 20);
+        const [data, total] = await Promise.all([
+          prisma.portfolio.findMany({
+            where,
+            take,
+            skip: Math.max(offset, 0),
+            orderBy: { createdAt: "desc" },
+            include: { user: { select: { id: true, name: true, image: true } } },
+          }),
+          prisma.portfolio.count({ where }),
+        ]);
+
+        return searchParams.get("pagination") === "true"
+          ? NextResponse.json({ data, total })
+          : NextResponse.json(data);
+      }
+
       if (model === "category") {
         return NextResponse.json(await prisma.category.findMany({
           take: limit,
@@ -639,7 +677,10 @@ export async function POST(req: NextRequest) {
 
   const protectedModels = ["product", "category", "featuredProduct", "stock", "coupon", "brand", "post"];
 
-  if (model === "portfolio" && !body.userId && session?.user?.id) {
+  if (model === "portfolio") {
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Please sign in before creating a job profile." }, { status: 401 });
+    }
     body.userId = String((session.user as any).id);
   }
 
@@ -744,14 +785,22 @@ export async function POST(req: NextRequest) {
     }
 
     if (model === "portfolio") {
-      if (body.userId) {
-        const portfolioCount = await prisma.portfolio.count({
-          where: { userId: String(body.userId) },
-        });
-        if (portfolioCount >= 3) {
-          return NextResponse.json({ error: "A user can only create up to 3 portfolios." }, { status: 400 });
-        }
+      const jobType = body.jobType === "giving" ? "giving" : "accepting";
+      const limit = jobType === "giving" ? 10 : 3;
+      const portfolioCount = await prisma.portfolio.count({
+        where: {
+          userId: String(body.userId),
+          ...(jobType === "accepting"
+            ? { OR: [{ jobType: "accepting" }, { jobType: null }] }
+            : { jobType }),
+        },
+      });
+      if (portfolioCount >= limit) {
+        return NextResponse.json({
+          error: `You can create up to ${limit} ${jobType} job profiles per account.`,
+        }, { status: 400 });
       }
+      body.jobType = jobType;
 
       if (body.contactCount !== undefined) {
         body.contactCount = Number(body.contactCount) || 0;

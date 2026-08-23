@@ -1,11 +1,20 @@
 "use client";
 import React from "react";
-import { Facebook, Instagram, Linkedin, Twitter, Users } from "lucide-react";
+import { Facebook, Instagram, Linkedin, Mail, Twitter, Users, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { SEO_CONFIG } from "../../../app/layout";
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button";
 import { AffiliateDialog } from "./AffiliateDialog";
+import { platformSocialLinks } from "@/data/links";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export interface FooterProps {
   className?: string;
@@ -16,14 +25,17 @@ export interface FooterProps {
 
 export function Footer({ className, basePath, business, businessId }: FooterProps) {
   const [categories, setCategories] = React.useState<{ id: string, name: string }[]>([]);
+  const isStorefront = Boolean(basePath || businessId || business);
 
   React.useEffect(() => {
     const fetchCategories = async () => {
       try {
-        const bizQ = businessId ? `&businessId=${businessId}` : "";
-        const res = await fetch(`/api/dbhandler?model=category${bizQ}`);
+        const scopeQuery = businessId
+          ? `&businessId=${encodeURIComponent(businessId)}`
+          : "&platform=true";
+        const res = await fetch(`/api/dbhandler?model=category${scopeQuery}&limit=100`);
         const data = await res.json();
-        setCategories(data.slice(0, 5)); // Take first 5 for footer
+        setCategories(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Footer: Failed to fetch categories", err);
       }
@@ -37,45 +49,45 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
   };
   const brandName = business?.name || SEO_CONFIG.name;
   const footerDescription = business?.siteSettings?.aboutText || "Modern professional smart web solution built to grow your business.";
+  const settings = business?.siteSettings;
+  const socialLinks = isStorefront
+    ? [
+        { href: settings?.facebook, icon: Facebook, label: "Facebook" },
+        { href: settings?.twitter, icon: Twitter, label: "Twitter" },
+        { href: settings?.instagram, icon: Instagram, label: "Instagram" },
+        { href: settings?.linkedin, icon: Linkedin, label: "LinkedIn" },
+        { href: settings?.contactEmail ? `mailto:${settings.contactEmail}` : undefined, icon: Mail, label: "Email" },
+      ]
+    : [
+        { href: platformSocialLinks.facebook, icon: Facebook, label: "Facebook" },
+        { href: platformSocialLinks.twitter, icon: Twitter, label: "Twitter" },
+        { href: platformSocialLinks.instagram, icon: Instagram, label: "Instagram" },
+        { href: platformSocialLinks.linkedin, icon: Linkedin, label: "LinkedIn" },
+        { href: platformSocialLinks.email, icon: Mail, label: "Email" },
+      ];
 
-  const socialMediaLinks = [
-    { href: "#", icon: <Facebook className="h-4 w-4" />, label: "Facebook" },
-    { href: "#", icon: <Twitter className="h-4 w-4" />, label: "Twitter" },
-    { href: "#", icon: <Instagram className="h-4 w-4" />, label: "Instagram" },
-    { href: "#", icon: <Linkedin className="h-4 w-4" />, label: "LinkedIn" },
-  ];
-  
   const pageLinks = [
     { href: resolveHref("/home"), label: "Home" },
     { href: resolveHref("/about"), label: "About Us" },
     { href: resolveHref("/store"), label: "Store" },
-    { href: resolveHref("/account"), label: "User Account" },
+    { href: resolveHref("/help"), label: "Help Center" },
+    { href: resolveHref("/contact"), label: "Contact Us" },
   ];
-  
-  const categoryLinks = categories.length > 0 
-    ? categories.map(c => ({ href: resolveHref(`/store?category=${encodeURIComponent(c.name)}`), label: c.name }))
+
+  const visibleCategories = categories.slice(0, 5);
+  const categoryLinks = visibleCategories.length > 0
+    ? visibleCategories.map(c => ({ href: resolveHref(`/store?category=${encodeURIComponent(c.name)}`), label: c.name }))
     : [
         { href: resolveHref("/store"), label: "All Categories" },
       ];
-  
+
+  const categoryHref = (categoryName: string) => resolveHref(`/store?category=${encodeURIComponent(categoryName)}`);
+
   const supportLinks = [
     { href: resolveHref("/help"), label: "Help Center" },
     { href: resolveHref("/contact"), label: "Contact Us" },
     { href: resolveHref("/privacy"), label: "Privacy Policy" },  
     { href: resolveHref("/terms"), label: "Terms of Service" },
-  ];
-
-  const advertLinks = [
-    { href: resolveHref("/contact"), label: "Advertise with Us" },
-    { href: resolveHref("/contact"), label: "Health Consult" },
-    { href: resolveHref("/contact"), label: "Corporate Partnership" },
-  ];
-  
-  const footerLinks = [
-    { href: resolveHref("/privacy"), label: "Privacy" },
-    { href: resolveHref("/terms"), label: "Terms" },
-    { href: resolveHref("/cookies"), label: "Cookies" },
-    { href: resolveHref("/sitemap"), label: "Sitemap" },
   ];
 
   const columns = [
@@ -91,10 +103,6 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
       label : 'Support',
       links : supportLinks,
     },
-    {
-      label : 'Advert',
-      links : advertLinks,
-    },
   ];
   
   
@@ -107,7 +115,7 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
           <Link className="flex items-center gap-0" href={basePath || "/"}>
             <span
               className={`
-                text-left text-2xl font-black text-primary tracking-tighter text-accent
+                text-left text-2xl font-black text-primary tracking-tighter
               `}
             >
               {brandName}
@@ -117,27 +125,22 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
             {footerDescription}
           </p>
 
-          <div className="flex space-x-4">
-             <Button
-                className="h-9 w-9 rounded-xl bg-secondary hover:bg-secondary/80 text-secondary-foreground"
-                size="icon"
-                variant="ghost"
-                asChild
-              >
-                <Link href="https://www.instagram.com/healthclique_specialties?utm_source=qr" target="_blank">
-                  <Instagram className="h-5 w-5" />
-                </Link>
-              </Button>
+          <div className="flex flex-wrap gap-3">
+            {socialLinks.filter((link) => link.href).map(({ href, icon: Icon, label }) => (
               <Button
-                className="h-9 w-9 rounded-xl bg-secondary hover:bg-secondary/80 text-secondary-foreground"
+                key={label}
+                title={label}
+                aria-label={label}
+                className="h-9 w-9 rounded-xl bg-secondary text-secondary-foreground hover:bg-secondary/80"
                 size="icon"
                 variant="ghost"
                 asChild
               >
-                <Link href="mailto:healthcliquespecialties@gmail.com">
-                  <Facebook className="h-5 w-5" />
+                <Link href={href!} target={href!.startsWith("http") ? "_blank" : undefined} rel={href!.startsWith("http") ? "noopener noreferrer" : undefined}>
+                  <Icon className="h-5 w-5" />
                 </Link>
               </Button>
+            ))}
           </div>
 
           <div className="pt-4">
@@ -152,7 +155,7 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
           </div>
         </div>
 
-        <div className={`grid grid-cols-2 gap-8 md:grid-cols-4`}>
+          <div className={`grid grid-cols-2 gap-8 md:grid-cols-3`}>
           {columns.map((column, index) => (
             <div key={index}>
               <h3 className="mb-4 text-sm font-semibold">{column.label}</h3>
@@ -167,6 +170,36 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
                     </Link>
                   </li>
                 ))}
+                {column.label === "Categories" && categories.length > 5 && (
+                  <li>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <button type="button" className="inline-flex items-center gap-1 text-primary transition-colors hover:text-foreground">
+                          More categories <ChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>{isStorefront ? "Store categories" : "Platform categories"}</DialogTitle>
+                          <DialogDescription>
+                            Browse all categories available in this {isStorefront ? "store" : "platform"}.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid max-h-[55vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                          {categories.map((category) => (
+                            <Link
+                              key={category.id}
+                              href={categoryHref(category.name)}
+                              className="rounded-md border px-3 py-2 text-sm text-muted-foreground transition-colors hover:border-primary/50 hover:bg-primary/5 hover:text-foreground"
+                            >
+                              {category.name}
+                            </Link>
+                          ))}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </li>
+                )}
               </ul>
             </div>
           ))}
@@ -182,18 +215,9 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
               &copy; {new Date().getFullYear()} {SEO_CONFIG.name}. All rights
               reserved.
             </p>
-            <div
-              className={
-                "flex items-center gap-4 text-sm text-muted-foreground"
-              }
-            >
-              {
-                footerLinks.map((link, index)=>(
-                  <Link key={index} className="hover:text-foreground" href={link.href}>
-                    {link.label}
-                  </Link>
-                ))
-              }
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <Link className="hover:text-foreground" href={resolveHref("/privacy")}>Privacy</Link>
+              <Link className="hover:text-foreground" href={resolveHref("/terms")}>Terms</Link>
             </div>
           </div>
         </div>

@@ -79,6 +79,21 @@ export async function POST(request: NextRequest) {
       activeIngredients: [],
       for: [],
       creatorId: userId,
+      ...(Array.isArray(body.variants) && body.variants.length > 0 ? {
+        variants: {
+          create: body.variants.filter((variant: any) => String(variant?.title || "").trim()).map((variant: any) => ({
+            title: String(variant.title).trim(),
+            weight: variant.weight ? String(variant.weight) : undefined,
+            volume: variant.volume ? String(variant.volume) : undefined,
+            prices: {
+              create: [{
+                amount: Number(variant.price) || 0,
+                currencyCode: "ngn",
+              }],
+            },
+          })),
+        },
+      } : {}),
       ...(body.categoryId ? { categoryId: String(body.categoryId) } : {}),
     },
   });

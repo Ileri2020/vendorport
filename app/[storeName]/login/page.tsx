@@ -10,49 +10,26 @@ import { FaGithub } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
 import { headers } from "next/headers";
 
-interface LoginProps {
-  params: Promise<{ storeName: string }>;
-}
-
-const Login = async ({ params }: LoginProps) => {
-  const { storeName } = await params;
+const Login = async () => {
   const session = await getSession();
   const user = session?.user;
   // if (user) redirect("/");
 
   const googleSignIn = async () => {
     'use server'
-    const { storeName: store } = await params;
-
-    // Build a subdomain fallback URL using the route's storeName so the user
-    // always returns to their store after the OAuth roundtrip through vport.store.
-    const isProduction = process.env.NODE_ENV === "production";
-    const storeFallback = isProduction
-      ? `https://${store}.vport.store/`
-      : `http://localhost:3000/${store}`;
-
     const referer = (await headers()).get("referer");
-    let returnUrl = storeFallback;
-
+    let returnUrl = "/";
     if (referer) {
       try {
         const url = new URL(referer);
-        const isAllowed =
-          url.hostname === "vport.store" ||
-          url.hostname.endsWith(".vport.store") ||
-          url.hostname === "localhost" ||
-          url.hostname === "127.0.0.1";
-        if (isAllowed) {
+        if (url.hostname === "vport.store" || url.hostname.endsWith(".vport.store")) {
           returnUrl = url.toString();
         }
       } catch {
-        // keep storeFallback
+        returnUrl = "/";
       }
     }
-
-    const rootDomain = isProduction ? "https://vport.store" : "";
-    const authStartUrl = `${rootDomain}/api/auth/google-start?returnUrl=${encodeURIComponent(returnUrl)}`;
-    redirect(authStartUrl);
+    await signIn("google", { redirectTo: returnUrl });
   }
 
   return (

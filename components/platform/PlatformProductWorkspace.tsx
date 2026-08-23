@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Search, PackagePlus, Link2, Check } from "lucide-react";
+import { Search, PackagePlus, Link2, Check, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", price: "", costPrice: "", categoryId: "" });
+  const [form, setForm] = useState({ name: "", description: "", price: "", costPrice: "", categoryId: "", variants: [] as Array<{ title: string; weight: string; volume: string; price: string }> });
   const [newCategory, setNewCategory] = useState({ name: "", description: "" });
   const [showNewCategory, setShowNewCategory] = useState(false);
 
@@ -78,7 +78,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not create product");
-      setForm({ name: "", description: "", price: "", costPrice: "", categoryId: "" });
+      setForm({ name: "", description: "", price: "", costPrice: "", categoryId: "", variants: [] });
       toast.success("Platform product created");
       await loadProducts();
     } catch (error) {
@@ -124,6 +124,18 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         </p>
       </header>
 
+      <section className="rounded-2xl border border-primary/25 bg-primary/5 p-5 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-primary p-2 text-primary-foreground"><PackagePlus className="h-5 w-5" /></div>
+          <div>
+            <h2 className="text-lg font-black">Are you a company or business with new products?</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+              You can create cards for your products for your sellers to be able to add your products and all its variants to their store easily without stress.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
         <form onSubmit={createProduct} className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex items-center gap-2 font-bold"><PackagePlus className="h-5 w-5 text-primary" /> Create platform product</div>
@@ -149,7 +161,19 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
               <div className="flex gap-2"><Button type="button" size="sm" onClick={createCategory}>Create category</Button><Button type="button" size="sm" variant="ghost" onClick={() => setShowNewCategory(false)}>Cancel</Button></div>
             </div>}
           </div>
-          <Button type="submit" disabled={loading} className="w-full">{loading ? "Creating..." : "Create Product"}</Button>
+          <div className="space-y-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div><Label>Product variants</Label><p className="text-xs text-muted-foreground">Add sizes, packs, or other options sellers can offer.</p></div>
+              <Button type="button" size="sm" variant="outline" onClick={() => setForm({ ...form, variants: [...form.variants, { title: "", weight: "", volume: "", price: "" }] })}><Plus className="mr-1 h-3 w-3" /> Add variant</Button>
+            </div>
+            {form.variants.map((variant, index) => <div key={index} className="relative grid gap-2 rounded-lg border bg-background p-3 sm:grid-cols-3">
+              <Button type="button" variant="ghost" size="icon" className="absolute -right-1 -top-1 h-6 w-6 text-destructive" onClick={() => setForm({ ...form, variants: form.variants.filter((_, itemIndex) => itemIndex !== index) })}><X className="h-3 w-3" /></Button>
+              <Input placeholder="Variant name (e.g. 1 carton)" value={variant.title} onChange={(e) => { const variants = [...form.variants]; variants[index] = { ...variant, title: e.target.value }; setForm({ ...form, variants }); }} />
+              <Input placeholder="Weight or volume" value={variant.weight || variant.volume} onChange={(e) => { const variants = [...form.variants]; variants[index] = { ...variant, weight: e.target.value }; setForm({ ...form, variants }); }} />
+              <Input type="number" min="0" placeholder="Variant price" value={variant.price} onChange={(e) => { const variants = [...form.variants]; variants[index] = { ...variant, price: e.target.value }; setForm({ ...form, variants }); }} />
+            </div>)}
+          </div>
+          <Button type="submit" disabled={loading} className="w-full">{loading ? "Creating..." : "Create Product Card"}</Button>
         </form>
 
         <section className="rounded-2xl border bg-card p-5 shadow-sm">
@@ -162,7 +186,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
               const checked = selected.includes(product.id);
               return <button type="button" key={product.id} onClick={() => setSelected((items) => checked ? items.filter((id) => id !== product.id) : [...items, product.id])} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${checked ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
                 <span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span>
-                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()} · by {product.creator?.name || "Vport user"}</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()} · {product.variants?.length || 0} variant{product.variants?.length === 1 ? "" : "s"} · by {product.creator?.name || "Vport user"}</span></span>
               </button>;
             })}
           </div>

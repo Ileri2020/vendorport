@@ -8,7 +8,6 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/getSession";
 import { FaGithub } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
-import { headers } from "next/headers";
 
 const Login = async () => {
   const session = await getSession();
@@ -17,28 +16,7 @@ const Login = async () => {
 
   const googleSignIn = async () => {
     'use server'
-    // Return users to whatever platform page they came from, not just "/".
-    const referer = (await headers()).get("referer");
-    let returnUrl = "/";
-    if (referer) {
-      try {
-        const url = new URL(referer);
-        const isAllowed =
-          url.hostname === "vport.store" ||
-          url.hostname.endsWith(".vport.store") ||
-          url.hostname === "localhost" ||
-          url.hostname === "127.0.0.1";
-        if (isAllowed) {
-          returnUrl = url.toString();
-        }
-      } catch {
-        // keep "/"
-      }
-    }
-    const isProduction = process.env.NODE_ENV === "production";
-    const rootDomain = isProduction ? "https://vport.store" : "";
-    const authStartUrl = `${rootDomain}/api/auth/google-start?returnUrl=${encodeURIComponent(returnUrl)}`;
-    redirect(authStartUrl);
+    await signIn("google", { redirectTo: "/" });
   }
 
   return (

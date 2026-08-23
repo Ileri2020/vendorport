@@ -5,6 +5,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAppContext } from "@/hooks/useAppContext"
+import { buildStoreFilterUrl } from "@/lib/store-filter-url"
+import { getBrowserLocation, getSavedUserLocation, saveUserLocation, type UserLocation } from "@/lib/user-location"
 
 type Category = {
   id: string
@@ -44,12 +46,16 @@ export default function CategoryNavigator() {
   const selectedLocations = useMemo(() => splitLocations(searchParams.get("location")), [searchParams])
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "")
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "")
+  const closestToMe = searchParams.get("closest") === "true"
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false)
+  const [manualLocation, setManualLocation] = useState("")
+  const [locationLoading, setLocationLoading] = useState(false)
 
   useEffect(() => {
-    const isPlatformStore = pathname.replace(/\/$/, "") === "/store"
-    const query = isPlatformStore
-      ? "&platform=true"
-      : currentBusiness?.id ? `&businessId=${encodeURIComponent(currentBusiness.id)}` : ""
+    const isPlatformStore = pathname.replace(/\/$/, "") === "/store" && !currentBusiness?.id
+    const query = currentBusiness?.id
+      ? `&businessId=${encodeURIComponent(currentBusiness.id)}`
+      : isPlatformStore ? "&platform=true" : ""
     fetch(`/api/dbhandler?model=category&limit=500${query}`)
       .then((response) => response.ok ? response.json() : [])
       .then((data) => setCategories(Array.isArray(data) ? data.filter((category) => category?._count?.products !== 0) : []))
@@ -70,11 +76,15 @@ export default function CategoryNavigator() {
   }, [searchParams])
 
   function updateSelection(next: string[]) {
-    const params = new URLSearchParams(searchParams.toString())
-    if (next.length) params.set("category", next.join(","))
-    else params.delete("category")
-    const query = params.toString()
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    const nextUrl = buildStoreFilterUrl({
+      categories: next,
+      locations: selectedLocations,
+      minPrice: minPrice.trim() ? minPrice : null,
+      maxPrice: maxPrice.trim() ? maxPrice : null,
+      pathname,
+      currentQuery: Object.fromEntries(searchParams.entries()),
+    })
+    router.push(nextUrl, { scroll: false })
   }
 
   function toggleCategory(name: string) {
@@ -82,26 +92,73 @@ export default function CategoryNavigator() {
   }
 
   function applyFilters() {
-    const params = new URLSearchParams(searchParams.toString())
-    if (minPrice.trim() && Number.isFinite(Number(minPrice))) params.set("minPrice", String(Math.max(0, Number(minPrice))))
-    else params.delete("minPrice")
-    if (maxPrice.trim() && Number.isFinite(Number(maxPrice))) params.set("maxPrice", String(Math.max(0, Number(maxPrice))))
-    else params.delete("maxPrice")
-    if (selectedLocations.length) params.set("location", selectedLocations.join("|"))
-    else params.delete("location")
-    const query = params.toString()
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    const nextUrl = buildStoreFilterUrl({
+      categories: selected,
+      locations: selectedLocations,
+      minPrice: minPrice.trim() ? minPrice : null,
+      maxPrice: maxPrice.trim() ? maxPrice : null,
+      pathname,
+      currentQuery: Object.fromEntries(searchParams.entries()),
+    })
+    router.push(nextUrl, { scroll: false })
   }
 
   function clearFilters() {
     setMinPrice("")
     setMaxPrice("")
-    const params = new URLSearchParams(searchParams.toString())
-    params.delete("minPrice")
-    params.delete("maxPrice")
-    params.delete("location")
-    const query = params.toString()
-    router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    const nextUrl = buildStoreFilterUrl({
+      categories: selected,
+      locations: [],
+      minPrice: null,
+      maxPrice: null,
+      pathname,
+      currentQuery: Object.fromEntries(searchParams.entries()),
+    })
+    router.push(nextUrl, { scroll: false })
+  }
+
+  function enableClosestToMe() {
+    const location: UserLocation | null = getSavedUserLocation()
+    if (!location) {
+      setLocationDialogOpen(true)
+      return
+    }
+    const nextQuery = new URLSearchParams(searchParams.toString())
+    nextQuery.set("closest", "true")
+    router.push(`${pathname}?${nextQuery.toString()}`, { scroll: false })
+  }
+
+  function disableClosestToMe() {
+    const nextQuery = new URLSearchParams(searchParams.toString())
+    nextQuery.delete("closest")
+    router.push(`${pathname}${nextQuery.toString() ? `?${nextQuery.toString()}` : ""}`, { scroll: false })
+  }
+
+  async function useCurrentLocation() {
+    setLocationLoading(true)
+    try {
+      const location = await getBrowserLocation()
+      saveUserLocation(location)
+      setLocationDialogOpen(false)
+      const nextQuery = new URLSearchParams(searchParams.toString())
+      nextQuery.set("closest", "true")
+      router.push(`${pathname}?${nextQuery.toString()}`, { scroll: false })
+    } catch {
+      setLocationLoading(false)
+      return
+    }
+    setLocationLoading(false)
+  }
+
+  function saveManualLocationValue() {
+    const label = manualLocation.trim()
+    if (!label) return
+    saveUserLocation({ label, source: "manual" })
+    setManualLocation("")
+    setLocationDialogOpen(false)
+    const nextQuery = new URLSearchParams(searchParams.toString())
+    nextQuery.set("closest", "true")
+    router.push(`${pathname}?${nextQuery.toString()}`, { scroll: false })
   }
 
   const selectedCategories = categories.filter((category) => selected.includes(category.name))
@@ -143,20 +200,27 @@ export default function CategoryNavigator() {
             </div>
           )}
         </div>
+        <Button type="button" size="sm" variant={closestToMe ? "default" : "outline"} onClick={closestToMe ? disableClosestToMe : enableClosestToMe}>
+          {closestToMe ? "Closest to me" : "Closest to me"}
+        </Button>
         <div>
           {/* <label htmlFor="store-location" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Available location</label> */}
           <select id="store-location" multiple value={selectedLocations} onChange={(event) => {
             const next = Array.from(event.target.selectedOptions, (option) => option.value)
-            const params = new URLSearchParams(searchParams.toString())
-            if (next.length) params.set("location", next.join("|"))
-            else params.delete("location")
-            const query = params.toString()
-            router.push(query ? `${pathname}?${query}` : pathname, { scroll: false })
+            const nextUrl = buildStoreFilterUrl({
+              categories: selected,
+              locations: next,
+              minPrice: minPrice.trim() ? minPrice : null,
+              maxPrice: maxPrice.trim() ? maxPrice : null,
+              pathname,
+              currentQuery: Object.fromEntries(searchParams.entries()),
+            })
+            router.push(nextUrl, { scroll: false })
           }} className="w-full h-10 rounded-md border bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-ring" aria-label="Select one or more available locations">
             {locations.length ? <><option disabled value="">Available location</option>{locations.map((location) => <option key={location} value={location}>{location}</option>)}</> : <option disabled>No locations configured</option>}
           </select>
         </div>
-        <div>
+        <div className="flex flex-row gap-2">
           <div>
             {/* <label htmlFor="store-min-price" className="mb-1 hidden text-xs font-bold text-muted-foreground md:block">Minimum price</label> */}
             <input id="store-min-price" type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="Minimum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
@@ -166,11 +230,25 @@ export default function CategoryNavigator() {
             <input id="store-max-price" type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="Maximum price" className="h-9 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring" />
           </div>
         </div>
-        <div className="flex items-end gap-2">
-          <Button type="button" size="sm" onClick={applyFilters}>Apply filters</Button>
+        <div className="flex items-end gap-2 w-full flex-1">
+          <Button className="flex-1" type="button" size="sm" onClick={applyFilters}>Apply filters</Button>
           {(minPrice || maxPrice || selectedLocations.length) && <Button type="button" size="sm" variant="ghost" onClick={clearFilters}>Clear</Button>}
         </div>
       </div>
+
+      {locationDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="location-dialog-title">
+          <div className="w-full max-w-sm rounded-xl border bg-background p-5 shadow-2xl">
+            <h2 id="location-dialog-title" className="text-lg font-bold">Set your location</h2>
+            <p className="mt-2 text-sm text-muted-foreground">Allow location access or enter your area manually to see nearby businesses first.</p>
+            <div className="mt-4 space-y-3">
+              <Button type="button" className="w-full" onClick={useCurrentLocation} disabled={locationLoading}>{locationLoading ? "Finding you..." : "Use my current location"}</Button>
+              <input value={manualLocation} onChange={(event) => setManualLocation(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") saveManualLocationValue() }} placeholder="City, state, or area" className="h-10 w-full rounded-md border bg-background px-3 text-sm" />
+              <div className="flex gap-2"><Button type="button" variant="outline" className="flex-1" onClick={saveManualLocationValue}>Save location</Button><Button type="button" variant="ghost" onClick={() => setLocationDialogOpen(false)}>Cancel</Button></div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-2 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
         {lanes.map((lane) => {

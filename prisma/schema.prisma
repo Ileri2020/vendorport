@@ -50,6 +50,7 @@ model Portfolio {
   user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   job                    String?
   jobDescription         String?
+  jobType                String    @default("accepting") // accepting: looking for work, giving: offering work
   images                 String[]  @default([])
   cvDocuments            String[]  @default([])
   certificationDocuments String[]  @default([])
@@ -154,6 +155,7 @@ model SiteSettings {
   headerCTA             String?  @default("Join Now")
   footerText            String?  @default("Your trusted partner in quality products.")
   address               String?  @default("22 Akinagbe, Alapere, Ketu, Lagos State")
+  physicalLocation      String?
   newsletterTitle       String?  @default("Join our Newsletter")
   newsletterText        String?  @default("Be the first to know about new arrivals and exclusive offers.")
   badgeText             String?  @default("NAFDAC Approved Pharmacy")

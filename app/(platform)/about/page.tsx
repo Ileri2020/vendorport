@@ -1,306 +1,112 @@
 "use client";
 
-import React from "react";
 import { motion } from "framer-motion";
+import Link from "next/link";
+import {
+  ArrowRight,
+  Building2,
+  Check,
+  Cloud,
+  Code2,
+  Database,
+  Globe,
+  Instagram,
+  Layers3,
+  Linkedin,
+  Mail,
+  Palette,
+  Rocket,
+  Search,
+  ShieldCheck,
+  ShoppingBag,
+  Smartphone,
+  Sparkles,
+  Target,
+  Users,
+  Zap,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, HeartPulse, BrainCircuit, Activity, Pill, Users, Building, MapPin, Truck } from "lucide-react";
 
-import Countup from "react-countup";
-import Stats from "@/data/stats";
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-
-const chartData = [
-  { name: "Jan", prescriptions: 400 },
-  { name: "Feb", prescriptions: 600 },
-  { name: "Mar", prescriptions: 1000 },
-  { name: "Apr", prescriptions: 1400 },
-  { name: "May", prescriptions: 2500 },
-  { name: "Jun", prescriptions: 4000 },
-  { name: "Jul", prescriptions: 7200 },
+const services = [
+  { icon: Globe, title: "Websites that make an entrance", text: "Landing pages, portfolios, and company websites with clear messaging, responsive layouts, and a polished identity." },
+  { icon: ShoppingBag, title: "Digital storefronts that work", text: "E-commerce and pharmacy platforms with catalogues, checkout, payments, orders, customer accounts, and admin tools." },
+  { icon: Smartphone, title: "Mobile experiences", text: "Purposeful mobile apps that put your products, services, and workflows where your customers already are." },
+  { icon: Layers3, title: "Content platforms", text: "Media websites designed for frequent publishing, search, rich uploads, cloud storage, and growing audiences." },
 ];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
-};
+const audiences = [
+  { icon: Users, title: "Individuals & personal brands", text: "Portfolio websites and landing pages that communicate your work clearly and help the right people find you." },
+  { icon: Building2, title: "Companies & organisations", text: "Professional websites that explain what you do, build confidence, and support enquiries from customers and partners." },
+  { icon: Target, title: "Growing digital businesses", text: "Web and mobile products with the data, workflows, and integrations needed to turn attention into useful action." },
+];
 
-const staggerContainer = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.15 }
-  }
-};
+const websitePlans = [
+  { name: "Basic Static Website", price: "About N100,000", label: "Start simple", description: "A focused, fast online presence for a portfolio, personal brand, landing page, or small business.", icon: Globe, includes: ["Responsive modern design", "Landing page or portfolio layout", "About, services, gallery, and contact sections", "Deployment and basic SEO setup", "No database required"] },
+  { name: "Company Website", price: "N400,000", label: "Build credibility", description: "A professional digital home for a company that needs more depth without a heavy database.", icon: Building2, includes: ["Everything in Basic", "Multiple pages and service sections", "Company profile, team, and enquiry sections", "Contact and enquiry forms", "Lightweight content management and analytics"] },
+  { name: "E-commerce & Pharmacy Website", price: "N800,000", label: "Sell online", description: "A complete selling platform with the data and workflows needed to run a growing online business.", icon: ShoppingBag, includes: ["Product catalogue, categories, and variants", "Cart, checkout, payments, and order management", "Customer accounts and administration", "Full database setup", "Deployment and launch support"] },
+  { name: "Media Website", price: "N1,000,000", label: "Publish at scale", description: "A content-rich platform for publishers, communities, and organisations with substantial media.", icon: Cloud, includes: ["Content publishing workflow", "Large database and cloud bucket setup", "Image, video, and document uploads", "Search and organised content library", "Performance and deployment optimisation"] },
+];
 
-const About = () => {
+const principles = [
+  { icon: Palette, title: "Clarity before decoration", text: "Every screen has a job. We shape content and interfaces so visitors know what to do next." },
+  { icon: Zap, title: "Optimised for real use", text: "We care about speed, responsive behaviour, accessible interactions, and maintainable foundations." },
+  { icon: ShieldCheck, title: "Built with care", text: "Your product deserves dependable engineering, thoughtful testing, and support beyond launch day." },
+];
+
+const process = [
+  "Understand your audience, goals, and business workflow",
+  "Plan the experience and technical foundation",
+  "Design, build, test, and refine the product",
+  "Deploy with support for what comes next",
+];
+
+const fadeUp = { hidden: { opacity: 0, y: 24 }, visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } } };
+
+export default function About() {
+  const socialLinks = [
+    { label: "Instagram", href: "https://www.instagram.com/ileritech", icon: Instagram },
+    { label: "LinkedIn", href: "https://www.linkedin.com/company/ileritech", icon: Linkedin },
+    { label: "Email us", href: "mailto:hello@ileritech.com", icon: Mail },
+  ];
+
   return (
-    <div className="min-h-screen bg-muted/20 py-12 px-4 md:px-8">
-      <motion.div 
-        initial="hidden" 
-        animate="visible" 
-        variants={staggerContainer}
-        className="max-w-5xl mx-auto space-y-12"
-      >
-        {/* Header Section */}
-        <motion.div variants={fadeUp} className="text-center space-y-4 max-w-3xl mx-auto">
-          <Badge variant="outline" className="px-4 py-1 text-sm border-primary/30 text-primary">About Us</Badge>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground">
-            Healthclique <span className="text-primary">Limited</span>
-          </h1>
-          <p className="text-lg text-muted-foreground leading-relaxed">
-            We believe that access to safe, effective, and affordable medicines should never be a privilege—it should be a standard. We are a forward-thinking healthcare company dedicated to solving the complex challenges surrounding medicine access in Nigeria and across underserved African communities.
-          </p>
-        </motion.div>
-
-        {/* Who We Are & Vision Combo */}
-        <motion.div variants={fadeUp} className="grid md:grid-cols-2 gap-6">
-          <Card className="border-t-4 border-t-primary shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader>
-              <Users className="h-8 w-8 text-primary mb-2" />
-              <CardTitle className="text-2xl">Who We Are</CardTitle>
-            </CardHeader>
-            <CardContent className="text-muted-foreground leading-relaxed">
-              Healthclique Limited is owned and managed by licensed Pharmacists with deep expertise in pharmaceutical care, supply chain management, and patient-centered service delivery. We operate in full compliance with all regulatory requirements governing the pharmaceutical sector, ensuring that every product and service we provide meets the highest standards of safety, quality, and authenticity.
-            </CardContent>
-          </Card>
-
-          <Card className="border-t-4 border-t-indigo-500 shadow-sm hover:shadow-md transition-shadow">
-            <CardHeader>
-              <HeartPulse className="h-8 w-8 text-indigo-500 mb-2" />
-              <CardTitle className="text-2xl">Our Vision & Promise</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 text-muted-foreground leading-relaxed">
-              <p>
-                <strong>Vision:</strong> To become Africa’s most trusted digital healthcare platform, transforming how medicines are accessed and delivered—one community at a time.
-              </p>
-              <p>
-                <strong>Promise:</strong> From the moment you place an order to the time it arrives at your doorstep, we are committed to delivering a smooth, secure, and memorable experience. At Healthclique Limited, your health is not just our business—it is our purpose.
-              </p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* ----- COUNTUP STATS SECTION ----- */}
-        <motion.div variants={fadeUp} className="py-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {Stats.stats.map((stat, index) => (
-              <div key={index} className="bg-card border rounded-2xl p-6 shadow-sm text-center flex flex-col justify-center items-center hover:shadow-md transition-all">
-                <Countup 
-                  end={stat.num}
-                  duration={4}
-                  delay={0.5}
-                  separator=","
-                  enableScrollSpy={true}
-                  scrollSpyDelay={100}
-                  scrollSpyOnce={true}
-                  className="text-4xl md:text-5xl font-black text-primary mb-2"
-                />
-                <div className="text-sm font-semibold text-muted-foreground">{stat.text}</div>
-              </div>
-            ))}
+    <main className="min-h-screen overflow-hidden bg-muted/20">
+      <motion.div initial="hidden" animate="visible" variants={{ visible: { transition: { staggerChildren: 0.1 } } }}>
+        <motion.section variants={fadeUp} className="relative px-4 py-20 md:px-8 md:py-28">
+          <div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 bg-primary/10 [clip-path:polygon(38%_0,100%_0,100%_100%,0_100%)]" />
+          <div className="relative mx-auto max-w-6xl">
+            <div className="max-w-4xl">
+              <Badge variant="outline" className="border-primary/50 px-4 py-1 text-sm text-primary animate-pulse">About IleriTech</Badge>
+              <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.98] tracking-tight md:text-7xl">We turn good ideas into <span className="text-primary">useful digital products.</span></h1>
+              <p className="mt-7 max-w-2xl text-lg leading-relaxed md:text-xl">IleriTech (IT) LTD creates modern, optimised websites and mobile apps for people and businesses ready to be taken seriously online.</p>
+              <div className="mt-9 flex flex-wrap gap-3"><Link href="/contact#website-plans" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-bold text-primary-foreground transition hover:bg-primary/90">Start a project <ArrowRight className="h-4 w-4" /></Link><a href="#website-plans" className="inline-flex items-center gap-2 rounded-md border-2 px-5 py-3 font-semibold transition hover:border-primary/70 hover:text-primary/70 border-primary text-primary">Explore plans <ArrowRight className="h-4 w-4" /></a></div>
+            </div>
+            <div className="mt-16 grid max-w-3xl grid-cols-2 gap-px overflow-hidden rounded-xl border border-background/15 bg-background/15 sm:grid-cols-4">{[{ value: "01", label: "Clear strategy" }, { value: "02", label: "Strong design" }, { value: "03", label: "Reliable build" }, { value: "04", label: "Launch support" }].map((item) => <div key={item.value} className="bg-foreground/90 p-4"><p className="text-2xl font-black text-primary">{item.value}</p><p className="mt-1 text-xs font-semibold uppercase tracking-wider text-background/60">{item.label}</p></div>)}</div>
           </div>
-        </motion.div>
+        </motion.section>
 
-        <Separator />
+        <div className="mx-auto max-w-6xl space-y-20 px-4 py-16 md:px-8 md:py-24">
+          <motion.section variants={fadeUp} className="grid gap-10 md:grid-cols-[0.8fr_1.2fr] md:items-end"><div><p className="text-sm font-black uppercase tracking-[0.2em] text-primary">Who we are</p><h2 className="mt-3 text-3xl font-black tracking-tight md:text-5xl">Technology should feel like momentum.</h2></div><div className="space-y-4 text-lg leading-relaxed text-muted-foreground"><p>IleriTech is a technology company focused on making digital products clearer, faster, and more valuable. We bring design thinking and practical engineering together so your website or app supports the way your business actually works.</p><p>From the first conversation to deployment and beyond, we help turn a rough idea into a dependable experience your customers can trust.</p></div></motion.section>
 
-        {/* What We Do Section */}
-        <motion.div variants={fadeUp} className="space-y-8">
-          <div className="text-center max-w-2xl mx-auto">
-            <h2 className="text-3xl font-bold mb-4">What We Do</h2>
-            <p className="text-muted-foreground">
-              We leverage a holistic, technology-driven approach to bridge the gap between patients, healthcare professionals, and essential medicines. Our robust platform is designed to serve:
-            </p>
-          </div>
-          
-          <div className="grid sm:grid-cols-3 gap-6">
-             <Card className="bg-background/60 backdrop-blur-sm border-primary/10">
-               <CardHeader className="text-center pb-2">
-                 <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-                   <Users className="h-6 w-6 text-primary" />
-                 </div>
-                 <CardTitle className="text-lg">Individuals & Families</CardTitle>
-               </CardHeader>
-               <CardContent className="text-center text-sm text-muted-foreground">
-                 Who need to conveniently fill prescriptions safely and affordably.
-               </CardContent>
-             </Card>
+          <motion.section variants={fadeUp} className="space-y-8"><div className="mx-auto max-w-2xl text-center"><p className="text-sm font-black uppercase tracking-[0.2em] text-primary">What we do</p><h2 className="mt-3 text-3xl font-black md:text-4xl">Digital foundations with a clear purpose.</h2><p className="mt-4 leading-relaxed text-muted-foreground">Our work combines strategy, interface design, engineering, and optimisation to create products that look right and work reliably.</p></div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{services.map(({ icon: Icon, title, text }) => <Card key={title} className="border-border/70 bg-card/80 shadow-sm transition hover:-translate-y-1 hover:border-primary/50 hover:shadow-md"><CardHeader><div className="mb-2 flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10 text-primary"><Icon className="h-5 w-5" /></div><CardTitle className="text-lg leading-tight">{title}</CardTitle></CardHeader><CardContent className="text-sm leading-relaxed text-muted-foreground">{text}</CardContent></Card>)}</div></motion.section>
 
-             <Card className="bg-background/60 backdrop-blur-sm border-primary/10">
-               <CardHeader className="text-center pb-2">
-                 <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-                   <Activity className="h-6 w-6 text-primary" />
-                 </div>
-                 <CardTitle className="text-lg">Healthcare Professionals</CardTitle>
-               </CardHeader>
-               <CardContent className="text-center text-sm text-muted-foreground">
-                 Sourcing authentic medications for personal use or for their patients.
-               </CardContent>
-             </Card>
+          <motion.section variants={fadeUp} className="grid gap-5 sm:grid-cols-3">{audiences.map(({ icon: Icon, title, text }) => <Card key={title} className="bg-background/60"><CardHeader className="text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"><Icon className="h-6 w-6" /></div><CardTitle className="text-lg">{title}</CardTitle></CardHeader><CardContent className="text-center text-sm leading-relaxed text-muted-foreground">{text}</CardContent></Card>)}</motion.section>
 
-             <Card className="bg-background/60 backdrop-blur-sm border-primary/10">
-               <CardHeader className="text-center pb-2">
-                 <div className="mx-auto bg-primary/10 w-12 h-12 rounded-full flex items-center justify-center mb-2">
-                   <Building className="h-6 w-6 text-primary" />
-                 </div>
-                 <CardTitle className="text-lg">Organizations</CardTitle>
-               </CardHeader>
-               <CardContent className="text-center text-sm text-muted-foreground">
-                 Institutions requiring bulk or highly specialized medicine supply.
-               </CardContent>
-             </Card>
-          </div>
-          
-          <div className="grid md:grid-cols-2 gap-6 items-stretch">
-            <Card className="bg-primary/5 border-primary/20 h-full">
-              <CardContent className="flex flex-col items-start gap-4 p-8 h-full justify-center">
-                <div className="bg-primary/10 p-4 rounded-full">
-                  <BrainCircuit className="h-10 w-10 text-primary" />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold mb-3">AI-Powered System</h3>
-                  <p className="text-muted-foreground text-sm leading-relaxed">
-                    With our advanced AI-powered system, accessing medications has never been easier. Simply upload your prescription or request, and our intelligent platform handles verification, sourcing, and fulfillment—delivering a seamless, stress-free experience from start to finish.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          <motion.section variants={fadeUp} className="grid gap-6 md:grid-cols-2"><Card className="border-primary/20 bg-primary/5"><CardContent className="flex h-full flex-col items-start gap-5 p-8"><div className="rounded-xl bg-primary/10 p-4"><Code2 className="h-9 w-9 text-primary" /></div><div><h3 className="text-2xl font-bold">Smart systems, not just pretty screens</h3><p className="mt-3 text-sm leading-relaxed text-muted-foreground">We connect thoughtful interfaces to the right technical foundation: databases, authentication, payments, content workflows, cloud storage, analytics, and automation where they add real value.</p></div></CardContent></Card><Card className="border shadow-sm"><CardHeader><CardTitle className="text-xl">Our standards</CardTitle><CardDescription>What we bring to every project.</CardDescription></CardHeader><CardContent className="space-y-4">{principles.map(({ icon: Icon, title, text }) => <div key={title} className="flex gap-3"><Icon className="mt-1 h-5 w-5 shrink-0 text-primary" /><div><p className="font-bold">{title}</p><p className="mt-1 text-sm leading-relaxed text-muted-foreground">{text}</p></div></div>)}</CardContent></Card></motion.section>
 
-            {/* ----- GRAPHS SECTION ----- */}
-            <Card className="border shadow-sm h-full flex flex-col">
-              <CardHeader className="pb-0">
-                <CardTitle className="text-lg">Our Growth Impact (2026)</CardTitle>
-                <CardDescription>Monthly Prescriptions Processed</CardDescription>
-              </CardHeader>
-              <CardContent className="flex-1 pb-4 pt-4 h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorFills" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip 
-                      contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                      itemStyle={{ color: '#10b981', fontWeight: 'bold' }}
-                    />
-                    <Area type="monotone" dataKey="prescriptions" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorFills)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-        </motion.div>
+          <Separator />
 
-        {/* Quality & Integrity */}
-        <motion.div variants={fadeUp} className="bg-card border rounded-2xl p-8 shadow-sm">
+          <motion.section variants={fadeUp} id="website-plans" className="scroll-mt-8 space-y-9"><div className="grid gap-6 md:grid-cols-[1fr_0.8fr] md:items-end"><div><Badge variant="outline" className="border-primary/40 px-4 py-1 text-sm text-primary">Website plans</Badge><h2 className="mt-4 text-3xl font-black tracking-tight md:text-5xl">A practical starting point for every stage.</h2></div><p className="leading-relaxed text-muted-foreground">These plans give you a clear direction without forcing every project into the same box. Final scope is confirmed around your goals, content, integrations, data, and storage needs.</p></div><div className="grid gap-5 lg:grid-cols-2">{websitePlans.map((plan, index) => { const Icon = plan.icon; return <Card key={plan.name} className={`relative flex h-full flex-col overflow-hidden ${index === 2 ? "border-primary shadow-lg shadow-primary/10" : "shadow-sm"}`}><div className="absolute right-0 top-0 rounded-bl-lg bg-primary/10 px-3 py-1 text-xs font-bold text-primary">{plan.label}</div><CardHeader className="pb-4"><Icon className="mb-4 h-8 w-8 text-primary" /><CardTitle className="max-w-[80%] text-2xl">{plan.name}</CardTitle><p className="text-3xl font-black text-primary">{plan.price}</p><CardDescription className="leading-relaxed">{plan.description}</CardDescription></CardHeader><CardContent className="flex flex-1 flex-col justify-between gap-7"><div className="space-y-3">{plan.includes.map((item) => <div key={item} className="flex items-start gap-2 text-sm"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><span>{item}</span></div>)}</div><Link href="/contact#website-plans" className="inline-flex items-center gap-2 font-bold text-primary hover:underline">Discuss this plan <ArrowRight className="h-4 w-4" /></Link></CardContent></Card>; })}</div></motion.section>
 
-           <div className="flex flex-col md:flex-row gap-10">
-             <div className="md:w-1/3 space-y-4">
-               <ShieldCheck className="h-12 w-12 text-primary" />
-               <h2 className="text-2xl font-bold">Commitment to Quality & Integrity</h2>
-               <p className="text-muted-foreground text-sm">
-                 Integrity is the foundation of everything we do. Our mission aligns closely with the Nigerian National Drug Policy.
-               </p>
-             </div>
-             <div className="md:w-2/3 grid sm:grid-cols-2 gap-4 auto-rows-min">
-               <div className="flex gap-3">
-                 <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                 <p className="text-sm">Medicines are safe, effective, and of the highest quality.</p>
-               </div>
-               <div className="flex gap-3">
-                 <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                 <p className="text-sm">Pricing remains fair and accessible.</p>
-               </div>
-               <div className="flex gap-3">
-                 <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                 <p className="text-sm">Supply chains are secure, transparent, and reliable.</p>
-               </div>
-               <div className="flex gap-3">
-                 <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
-                 <p className="text-sm">Sourcing highly specialized and extemporaneous medications tailored to patient needs.</p>
-               </div>
-             </div>
-           </div>
-        </motion.div>
+          <motion.section variants={fadeUp} className="grid gap-6 md:grid-cols-[1.1fr_0.9fr]"><div className="rounded-2xl bg-primary p-8 text-primary-foreground md:p-10"><Sparkles className="h-8 w-8" /><h2 className="mt-6 text-3xl font-black md:text-4xl">More than a launch.</h2><p className="mt-4 max-w-xl leading-relaxed text-primary-foreground/80">Every app and website we create comes with three months of free testing after deployment. During that period, we help identify issues, make fixes, and discuss upgrades that keep your product moving forward.</p><div className="mt-7 flex flex-wrap gap-2 text-sm font-semibold"><span className="rounded-full bg-primary-foreground/15 px-3 py-2">Testing</span><span className="rounded-full bg-primary-foreground/15 px-3 py-2">Fixes</span><span className="rounded-full bg-primary-foreground/15 px-3 py-2">Upgrade guidance</span></div></div><div className="rounded-2xl border bg-card p-8 md:p-10"><Rocket className="h-8 w-8 text-primary" /><h2 className="mt-6 text-2xl font-black">How we work</h2><div className="mt-6 space-y-5">{process.map((step, index) => <div key={step} className="flex gap-4"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-black text-primary-foreground">{index + 1}</span><p className="pt-1 text-sm leading-relaxed text-muted-foreground">{step}</p></div>)}</div></div></motion.section>
 
-        {/* Why Choose Us */}
-        <motion.div variants={fadeUp} className="space-y-6 pb-10">
-          <h2 className="text-3xl font-bold text-center mb-8">Why Choose Healthclique?</h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-             <Card>
-               <CardHeader>
-                 <ShieldCheck className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Trusted Expertise</CardTitle>
-                 <CardDescription>Led by qualified Pharmacists who understand your healthcare needs.</CardDescription>
-               </CardHeader>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <Pill className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Convenience</CardTitle>
-                 <CardDescription>Easy prescription uploads and fast processing.</CardDescription>
-               </CardHeader>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <BrainCircuit className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Innovation</CardTitle>
-                 <CardDescription>AI-driven solutions for smarter, faster access to medicines.</CardDescription>
-               </CardHeader>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <MapPin className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Wide Coverage</CardTitle>
-                 <CardDescription>Serving both individuals and healthcare providers anywhere.</CardDescription>
-               </CardHeader>
-             </Card>
-             <Card>
-               <CardHeader>
-                 <Truck className="w-6 h-6 text-primary mb-2" />
-                 <CardTitle className="text-lg">Reliable Delivery</CardTitle>
-                 <CardDescription>A robust supply chain that ensures prompt doorstep delivery.</CardDescription>
-               </CardHeader>
-             </Card>
-          </div>
-        </motion.div>
+          <motion.section variants={fadeUp} className="relative overflow-hidden rounded-2xl bg-foreground p-8 text-background md:p-12"><div className="relative z-10 max-w-3xl"><p className="text-sm font-black uppercase tracking-[0.2em] text-primary">Custom plan</p><h2 className="mt-4 text-3xl font-black md:text-5xl">Have a bigger idea or a different kind of problem?</h2><p className="mt-5 leading-relaxed text-background/70">Tell us what you want to build. We will help you choose the right features, architecture, database, cloud storage, and support plan instead of selling you complexity you do not need.</p><Link href="/contact#website-plans" className="mt-8 inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-bold text-primary-foreground transition hover:bg-primary/90">Talk to IleriTech <ArrowRight className="h-4 w-4" /></Link></div><Search className="absolute -bottom-10 -right-5 h-56 w-56 rotate-12 text-primary/10" /></motion.section>
 
-        {/* Footer Note */}
-        <motion.div variants={fadeUp} className="text-center pt-8 border-t border-primary/10">
-           <p className="text-primary font-bold text-lg mb-6">
-             Healthclique Limited — Simplifying access to quality medicines through innovation, integrity, and care.
-           </p>
-
-           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm font-medium">
-             <a 
-               href="https://www.instagram.com/healthclique_specialties?utm_source=qr" 
-               target="_blank"
-               rel="noopener"
-               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
-               Follow us on Instagram
-             </a>
-             
-             <a 
-               href="mailto:healthcliquespecialties@gmail.com" 
-               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
-               Email Us
-             </a>
-           </div>
-        </motion.div>
-
+          <motion.footer variants={fadeUp} className="border-t border-primary/10 pt-8 text-center"><p className="text-lg font-bold text-primary">IleriTech (IT) LTD</p><p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">Modern websites. Useful apps. Thoughtful technology for businesses ready to grow.</p><div className="mt-6 flex flex-wrap items-center justify-center gap-3">{socialLinks.map(({ label, href, icon: Icon }) => <a key={label} href={href} target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noopener noreferrer" : undefined} className="inline-flex items-center gap-2 rounded-md bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"><Icon className="h-4 w-4" />{label}</a>)}<Link href="/contact" className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition hover:bg-primary/90">Contact us <ArrowRight className="h-4 w-4" /></Link></div></motion.footer>
+        </div>
       </motion.div>
-    </div>
+    </main>
   );
-};
-
-export default About;
+}
