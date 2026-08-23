@@ -143,7 +143,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                         <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 px-2">Main Menu</h3>
                         <nav className="flex flex-col gap-1">
                             {(() => {
-                                const navLinks = [...Links.Links];
+                                const navLinks = Links.Links.filter((link) => !(basePath && link.path === "/jobs"));
                                 const isStoreOwner =
                                     basePath &&
                                     currentBusiness?.ownerId &&
