@@ -23,7 +23,7 @@ const ColorInjector: React.FC<ColorInjectorProps> = ({ business }) => {
     const platformColors = {
       primary: "45 93% 62%",
       accent: "8365 100% 37%",
-      accentSecondary: "43 96% 56%",
+      accentSecondary: "45 93% 62%",
       accentForeground: "222 47% 12%",
     };
 
@@ -40,6 +40,7 @@ const ColorInjector: React.FC<ColorInjectorProps> = ({ business }) => {
       const accent = localColors?.[isDark ? "accentDark" : "accentLight"] || colors.accent || platformColors.accent;
       const accentSecondary = localColors?.[isDark ? "accentSecondaryDark" : "accentSecondaryLight"] || colors.accentSecondary || platformColors.accentSecondary;
       root.style.setProperty("--accent", accent);
+      root.style.setProperty("--primary", accentSecondary);
       root.style.setProperty("--accent-secondary", accentSecondary);
       root.style.setProperty("--accent-foreground", localColors?.[isDark ? "accentForegroundDark" : "accentForegroundLight"] || colors.accentForeground || platformColors.accentForeground);
     };
