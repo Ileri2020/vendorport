@@ -20,7 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import ProductForm from "@/prisma/forms/ProductForm";
-import { getSavedUserLocation, locationMatchesBusiness } from "@/lib/user-location";
+import { getSavedUserLocation, locationMatchesBusiness, rankByDistance, USER_LOCATION_CHANGED_EVENT } from "@/lib/user-location";
 
 const ITEMS_PER_PAGE = 30;
 
@@ -57,6 +57,13 @@ const Stocks = () => {
   const [totalProducts, setTotalProducts] = useState(0);
   const [cardOrientation, setCardOrientation] = useState<"horizontal" | "vertical">("horizontal");
   const [showOrientationPopup, setShowOrientationPopup] = useState(false);
+  const [locationRevision, setLocationRevision] = useState(0);
+
+  useEffect(() => {
+    const refreshLocation = () => setLocationRevision((revision) => revision + 1);
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, refreshLocation);
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, refreshLocation);
+  }, []);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -85,12 +92,7 @@ const Stocks = () => {
         const res = await axios.get(url);
         let data = res.data.data || res.data; // Handle potential format change just in case
 
-        if (closestToMe) {
-          const savedLocation = getSavedUserLocation();
-          if (savedLocation) {
-            data = [...data].sort((first: any, second: any) => Number(locationMatchesBusiness(savedLocation, second.business)) - Number(locationMatchesBusiness(savedLocation, first.business)));
-          }
-        }
+        if (closestToMe) data = await rankByDistance(data, getSavedUserLocation(), (product: any) => product.business);
 
         if (isFeatured) {
           const featRes = await axios.get(`/api/dbhandler?model=featuredProduct&minimal=true${bizQ}`);
@@ -114,8 +116,8 @@ const Stocks = () => {
         const res = await axios.get(url);
         const fetchedProducts = res.data.data || res.data;
         const savedLocation = closestToMe ? getSavedUserLocation() : null;
-        const prioritizedProducts = savedLocation
-          ? [...fetchedProducts].sort((first: any, second: any) => Number(locationMatchesBusiness(savedLocation, second.business)) - Number(locationMatchesBusiness(savedLocation, first.business)))
+        const prioritizedProducts = closestToMe
+          ? await rankByDistance(fetchedProducts, savedLocation, (product: any) => product.business)
           : fetchedProducts;
         const shuffled = closestToMe ? prioritizedProducts : shuffleArray(prioritizedProducts);
 
@@ -134,6 +136,10 @@ const Stocks = () => {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    if (locationRevision > 0) fetchProducts();
+  }, [fetchProducts, locationRevision]);
 
   // Load card orientation from localStorage
   useEffect(() => {

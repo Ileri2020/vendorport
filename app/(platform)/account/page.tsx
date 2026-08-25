@@ -26,7 +26,7 @@ import { PortfolioCard } from "@/components/myComponents/subs/PortfolioCard"
 import { ProfileSkeleton, TableSkeleton } from "@/components/skeletons"
 import MonnifyPaymentButton from "@/components/payment/monnify"
 import { ManualTransfer } from "@/components/payment/manual"
-import { getBrowserLocation, getSavedUserLocation, saveUserLocation, type UserLocation } from "@/lib/user-location"
+import { getBrowserLocation, getLocationPermissionStatus, getSavedUserLocation, rankByDistance, saveUserLocation, type UserLocation } from "@/lib/user-location"
 import {
   User,
   Mail,
@@ -147,6 +147,8 @@ const Account = () => {
   const [portfolios, setPortfolios] = useState<any[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [ownedBusinesses, setOwnedBusinesses] = useState<any[]>([]);
+  const [staffApplications, setStaffApplications] = useState<any[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
   const [planCheckout, setPlanCheckout] = useState<null | { businessId: string; businessName: string; planId: string; amount: number; durationCount: number; durationUnit: "month" | "year" }>(null);
   const [planDurations, setPlanDurations] = useState<Record<string, { count: number; unit: "month" | "year" }>>({});
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
@@ -164,6 +166,7 @@ const Account = () => {
       setUserLocation(savedLocation);
       return;
     }
+    if (getLocationPermissionStatus() === "denied" || getLocationPermissionStatus() === "unavailable") return;
     const timer = window.setTimeout(() => setLocationDialogOpen(true), 10000);
     return () => window.clearTimeout(timer);
   }, []);
@@ -216,6 +219,40 @@ const Account = () => {
 
     fetchBusinesses();
   }, [user?.id]);
+
+  useEffect(() => {
+    if (!ownedBusinesses.length) return;
+    let cancelled = false;
+    setStaffLoading(true);
+    Promise.all(ownedBusinesses.map((business) => fetch(`/api/staff?businessId=${business.id}`).then((response) => response.ok ? response.json() : [])))
+      .then((results) => {
+        if (!cancelled) setStaffApplications(results.flat());
+      })
+      .catch(() => { if (!cancelled) setStaffApplications([]); })
+      .finally(() => { if (!cancelled) setStaffLoading(false); });
+    return () => { cancelled = true; };
+  }, [ownedBusinesses]);
+
+  const decideStaffApplication = async (id: string, status: "accepted" | "rejected") => {
+    try {
+      const response = await fetch("/api/staff", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not update application");
+      setStaffApplications((current) => current.map((application) => application.id === id ? { ...application, status } : application));
+      toast.success(`Application ${status}.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update application");
+    }
+  };
+
+  useEffect(() => {
+    if (!userLocation || ownedBusinesses.length === 0) return;
+    let cancelled = false;
+    rankByDistance(ownedBusinesses, userLocation, (business) => business).then((ranked) => {
+      if (!cancelled) setOwnedBusinesses(ranked);
+    });
+    return () => { cancelled = true; };
+  }, [ownedBusinesses.length, userLocation]);
 
   useEffect(() => {
     const saved = localStorage.getItem('store-card-orientation');
@@ -737,6 +774,19 @@ const Account = () => {
             </div>
           </DialogContent>
         </Dialog>
+
+        {ownedBusinesses.length > 0 && (
+          <div className="mb-6 rounded-xl border border-primary/20 bg-card p-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Staff applications</h2>
+                <p className="mt-1 text-xs text-muted-foreground">Review people who want to help manage your businesses.</p>
+              </div>
+              <Badge variant="outline">{staffApplications.filter((application) => application.status === "pending").length} pending</Badge>
+            </div>
+            {staffLoading ? <p className="mt-4 text-sm text-muted-foreground">Loading applications...</p> : staffApplications.length === 0 ? <p className="mt-4 text-sm text-muted-foreground">No staff applications yet.</p> : <div className="mt-4 grid gap-4 md:grid-cols-2">{staffApplications.map((application) => <div key={application.id} className="rounded-lg border bg-background p-4"><div className="flex items-start justify-between gap-3"><div><p className="font-bold">{application.user?.name || application.name}</p><p className="text-sm text-primary">{application.role}</p><p className="mt-2 text-sm leading-relaxed text-muted-foreground">{application.bio || "No application note provided."}</p><p className="mt-2 text-xs text-muted-foreground">Business: {ownedBusinesses.find((business) => business.id === application.businessId)?.name || "Business"}</p></div><Badge variant={application.status === "accepted" ? "default" : application.status === "rejected" ? "destructive" : "secondary"}>{application.status}</Badge></div>{application.status === "pending" && <div className="mt-4 flex gap-2"><Button size="sm" onClick={() => decideStaffApplication(application.id, "accepted")}>Accept</Button><Button size="sm" variant="outline" onClick={() => decideStaffApplication(application.id, "rejected")}>Reject</Button></div>}</div>)}</div>}
+          </div>
+        )}
 
         {ownedBusinesses.length > 0 && (
           <div className="rounded-xl border bg-card shadow-sm p-4 space-y-5">

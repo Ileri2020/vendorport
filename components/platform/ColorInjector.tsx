@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useAppContext } from "@/hooks/useAppContext";
+import { getBusinessColorOverrides, COLOR_OVERRIDES_CHANGED_EVENT } from "@/lib/business-colors";
 
 /**
  * Injects business-specific accent colors into CSS variables
@@ -25,52 +26,48 @@ const ColorInjector: React.FC<ColorInjectorProps> = ({ business }) => {
       accentForeground: "222 47% 12%",
     };
 
-    if (!activeBusiness?.siteSettings) {
+    const businessKey = activeBusiness?.id || activeBusiness?.name;
+    const applyColors = () => {
+      const isDark = root.classList.contains("dark");
+      const settings = activeBusiness?.siteSettings;
+      const localColors = businessKey ? getBusinessColorOverrides(String(businessKey)) : null;
+      const colors = {
+        accent: isDark ? settings?.accentDark : settings?.accentLight,
+        accentSecondary: isDark ? settings?.accentSecondaryDark : settings?.accentSecondaryLight,
+        accentForeground: isDark ? settings?.accentForegroundDark : settings?.accentForegroundLight,
+      };
+      root.style.setProperty("--accent", localColors?.[isDark ? "accentDark" : "accentLight"] || colors.accent || platformColors.accent);
+      root.style.setProperty("--accent-secondary", localColors?.[isDark ? "accentSecondaryDark" : "accentSecondaryLight"] || colors.accentSecondary || platformColors.accentSecondary);
+      root.style.setProperty("--accent-foreground", localColors?.[isDark ? "accentForegroundDark" : "accentForegroundLight"] || colors.accentForeground || platformColors.accentForeground);
+    };
+
+    if (!activeBusiness?.siteSettings && !businessKey) {
       root.style.setProperty("--accent", platformColors.accent);
       root.style.setProperty("--accent-secondary", platformColors.accentSecondary);
       root.style.setProperty("--accent-foreground", platformColors.accentForeground);
       return;
     }
 
-    const {
-      accentLight,
-      accentDark,
-      accentSecondaryLight,
-      accentSecondaryDark,
-      accentForegroundLight,
-      accentForegroundDark,
-    } = activeBusiness.siteSettings;
-
-    // Apply light mode colors to root (default, light mode)
-    if (accentLight) root.style.setProperty("--accent", accentLight);
-    if (accentSecondaryLight) root.style.setProperty("--accent-secondary", accentSecondaryLight);
-    if (accentForegroundLight) root.style.setProperty("--accent-foreground", accentForegroundLight);
+    applyColors();
 
     // Listen for dark mode changes and update accordingly
     const updateDarkModeColors = () => {
-      const isDark = root.classList.contains("dark");
-      if (isDark) {
-        if (accentDark) root.style.setProperty("--accent", accentDark);
-        if (accentSecondaryDark) root.style.setProperty("--accent-secondary", accentSecondaryDark);
-        if (accentForegroundDark) root.style.setProperty("--accent-foreground", accentForegroundDark);
-      } else {
-        if (accentLight) root.style.setProperty("--accent", accentLight);
-        if (accentSecondaryLight) root.style.setProperty("--accent-secondary", accentSecondaryLight);
-        if (accentForegroundLight) root.style.setProperty("--accent-foreground", accentForegroundLight);
-      }
+      applyColors();
     };
 
     // Watch for dark class changes using MutationObserver
     const observer = new MutationObserver(updateDarkModeColors);
     observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    window.addEventListener(COLOR_OVERRIDES_CHANGED_EVENT, applyColors);
 
     return () => {
       observer.disconnect();
+      window.removeEventListener(COLOR_OVERRIDES_CHANGED_EVENT, applyColors);
       root.style.setProperty("--accent", platformColors.accent);
       root.style.setProperty("--accent-secondary", platformColors.accentSecondary);
       root.style.setProperty("--accent-foreground", platformColors.accentForeground);
     };
-  }, [activeBusiness?.siteSettings]);
+  }, [activeBusiness?.id, activeBusiness?.name, activeBusiness?.siteSettings]);
 
   return null;
 };

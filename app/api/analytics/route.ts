@@ -131,7 +131,7 @@ export async function GET(req: Request) {
         createdAt: { gte: from, lte: to },
         ...(businessId && { businessId }),
       },
-      select: { createdAt: true, path: true },
+      select: { createdAt: true },
     });
 
     const visitsByDay: Record<string, number> = {};
@@ -233,8 +233,8 @@ export async function GET(req: Request) {
         createdAt: { gte: from, lte: to },
         ...(businessId && { businessId }),
       },
-      select: { browserId: true },
-      distinct: ['browserId']
+      select: { fingerprint: true },
+      distinct: ['fingerprint']
     });
 
     const totalUniqueBrowsers = uniqueBrowsers.length;

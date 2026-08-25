@@ -13,15 +13,21 @@ export async function GET(request: NextRequest) {
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const query = new URL(request.url).searchParams.get("query")?.trim() || "";
+  const categoryId = new URL(request.url).searchParams.get("categoryId")?.trim() || "";
   const products = await prisma.product.findMany({
     where: {
       businessId: null,
+      ...(categoryId ? { categoryId } : {}),
       ...(query ? { OR: [
         { name: { contains: query, mode: "insensitive" } },
         { description: { contains: query, mode: "insensitive" } },
       ] } : {}),
     },
-    include: { category: true, creator: { select: { id: true, name: true } } },
+    include: {
+      category: true,
+      variants: { include: { prices: true, inventoryItems: true } },
+      creator: { select: { id: true, name: true } },
+    },
     orderBy: { createdAt: "desc" },
     take: 50,
   });
@@ -53,6 +59,28 @@ export async function POST(request: NextRequest) {
 
     const result = await prisma.product.updateMany({
       where: { id: { in: productIds }, businessId: null },
+      data: { businessId, categoryId },
+    });
+    return NextResponse.json({ attached: result.count });
+  }
+
+  if (action === "attach-category") {
+    const businessId = String(body.businessId || "");
+    const categoryId = String(body.categoryId || "");
+    const sourceCategoryId = String(body.sourceCategoryId || "");
+    if (!businessId || !categoryId || !sourceCategoryId) {
+      return NextResponse.json({ error: "Business and both categories are required" }, { status: 400 });
+    }
+    const business = await prisma.business.findUnique({ where: { id: businessId } });
+    if (!business || (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const targetCategory = await prisma.category.findFirst({ where: { id: categoryId, businessId } });
+    if (!targetCategory) return NextResponse.json({ error: "Store category was not found" }, { status: 400 });
+    const sourceCategory = await prisma.category.findFirst({ where: { id: sourceCategoryId, businessId: null } });
+    if (!sourceCategory) return NextResponse.json({ error: "Platform category was not found" }, { status: 400 });
+    const result = await prisma.product.updateMany({
+      where: { businessId: null, categoryId: sourceCategoryId },
       data: { businessId, categoryId },
     });
     return NextResponse.json({ attached: result.count });

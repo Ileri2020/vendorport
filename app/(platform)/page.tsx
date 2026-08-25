@@ -21,6 +21,7 @@ import axios from 'axios'
 import { toast } from 'sonner'
 import { Signup } from '@/components/myComponents/subs'
 import PortfolioForm from '@/prisma/forms/PortfolioForm'
+import { getSavedUserLocation, rankByDistance } from '@/lib/user-location'
 
 interface Business {
   id: string
@@ -31,6 +32,9 @@ interface Business {
   isArchived?: boolean
   siteSettings?: {
     storefrontImageUrl?: string | null
+    address?: string | null
+    physicalLocation?: string | null
+    operatingStates?: string[]
   } | null
   owner: {
     name: string | null
@@ -153,6 +157,16 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
     loadFeaturedBusinesses();
   }, [businessList.length, businesses]);
 
+  useEffect(() => {
+    const location = getSavedUserLocation();
+    if (!location || businessList.length === 0) return;
+    let cancelled = false;
+    rankByDistance(businessList, location, (business) => business).then((ranked) => {
+      if (!cancelled) setBusinessList(ranked);
+    });
+    return () => { cancelled = true; };
+  }, [businessList.length]);
+
   const handleAssistantSearch = async (value = assistantQuery) => {
     const normalizedQuery = value.trim();
     if (!normalizedQuery) {
@@ -189,7 +203,7 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
   };
 
   // Order by ratings double-check (already done in page.tsx but safety)
-  const sortedBusinesses = [...businessList].sort((a, b) => b.ratings - a.ratings);
+  const sortedBusinesses = [...businessList];
 
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: 'start' }, [Autoplay({ delay: 2200, stopOnInteraction: false, stopOnMouseEnter: true })]);
 

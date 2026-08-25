@@ -1,5 +1,6 @@
 "use client"
 
+import React from "react"
 import { motion } from "framer-motion"
 import Social from "@/components/utility/social"
 import ContactForm from "@/components/utility/contactForm"
@@ -8,9 +9,21 @@ import { useAppContext } from "@/hooks/useAppContext"
 import { FaEnvelope } from "react-icons/fa"
 import { MdOutlinePhone } from "react-icons/md"
 import { CiLocationOn } from "react-icons/ci"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { BriefcaseBusiness } from "lucide-react"
+import { useSession } from "next-auth/react"
+import { toast } from "sonner"
 
 const Contact = () => {
   const { currentBusiness } = useAppContext();
+  const { data: session } = useSession();
+  const [staffDialogOpen, setStaffDialogOpen] = React.useState(false);
+  const [staffRole, setStaffRole] = React.useState("");
+  const [staffBio, setStaffBio] = React.useState("");
+  const [staffLoading, setStaffLoading] = React.useState(false);
   const settings = currentBusiness?.siteSettings || {};
 
   const contactDescription = settings.contactDesc !== undefined ? settings.contactDesc : "If you have any questions, inquiries, or would like to hire me, I would love to hear from you. Please feel free to reach out using the contact information provided below:";
@@ -35,6 +48,28 @@ const Contact = () => {
       value: contactAddress,
     },
   ];
+
+  const applyForStaff = async () => {
+    if (!session?.user?.id) {
+      toast.error("Please sign in before applying for a staff position.");
+      return;
+    }
+    if (!staffRole.trim() || !currentBusiness?.id) return toast.error("Enter the role you want to apply for.");
+    setStaffLoading(true);
+    try {
+      const response = await fetch("/api/staff", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId: currentBusiness.id, role: staffRole, bio: staffBio }) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Application failed");
+      toast.success("Staff application submitted.");
+      setStaffRole("");
+      setStaffBio("");
+      setStaffDialogOpen(false);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Application failed");
+    } finally {
+      setStaffLoading(false);
+    }
+  };
 
   return (
     <motion.section
@@ -73,6 +108,19 @@ const Contact = () => {
               />
             </div>
           </div>
+        </div>
+
+        <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-primary/20 bg-primary/5 p-6 text-center">
+          <BriefcaseBusiness className="mx-auto h-8 w-8 text-primary" />
+          <h2 className="mt-3 text-2xl font-bold">Work with {currentBusiness?.name || "this business"}</h2>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">Apply to join this business team. Approved staff can help manage the store and add new products, while business owners keep control of edits and removals.</p>
+          <Dialog open={staffDialogOpen} onOpenChange={setStaffDialogOpen}>
+            <DialogTrigger asChild><Button className="mt-5">Apply for a staff position</Button></DialogTrigger>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader><DialogTitle>Apply as business staff</DialogTitle><DialogDescription>Tell the owner what role you want and how you can help.</DialogDescription></DialogHeader>
+              <div className="space-y-4 py-2"><Input value={staffRole} onChange={(event) => setStaffRole(event.target.value)} placeholder="Desired role, e.g. Store manager" /><Textarea value={staffBio} onChange={(event) => setStaffBio(event.target.value)} placeholder="Briefly describe your experience" /><Button type="button" className="w-full" onClick={applyForStaff} disabled={staffLoading}>{staffLoading ? "Submitting..." : "Submit application"}</Button></div>
+            </DialogContent>
+          </Dialog>
         </div>
 
         {/* Chat with Pharmacist Section */}

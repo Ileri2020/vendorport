@@ -42,6 +42,7 @@ model User {
   heavilyDiscountedProducts HeavilyDiscountedProduct[]
   createdProducts           Product[]                  @relation("UserCreatedProducts")
   portfolio                 Portfolio[]
+  staffApplications         Staff[]                    @relation("UserStaffApplications")
 }
 
 model Portfolio {
@@ -115,6 +116,9 @@ model Staff {
   name       String
   role       String
   bio        String?
+  userId     String?  @db.ObjectId
+  user       User?    @relation("UserStaffApplications", fields: [userId], references: [id], onDelete: Cascade)
+  status     String   @default("pending")
   image      String?
   businessId String   @db.ObjectId
   business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)

@@ -6,13 +6,14 @@ import { Check, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAppContext } from "@/hooks/useAppContext"
 import { buildStoreFilterUrl } from "@/lib/store-filter-url"
-import { getBrowserLocation, getSavedUserLocation, saveUserLocation, type UserLocation } from "@/lib/user-location"
+import { getBrowserLocation, getSavedUserLocation, rankByDistance, saveUserLocation, USER_LOCATION_CHANGED_EVENT, type UserLocation } from "@/lib/user-location"
 
 type Category = {
   id: string
   name: string
   description?: string | null
   _count?: { products?: number }
+  business?: any
 }
 
 const CATEGORY_LANES = 3
@@ -50,6 +51,7 @@ export default function CategoryNavigator() {
   const [locationDialogOpen, setLocationDialogOpen] = useState(false)
   const [manualLocation, setManualLocation] = useState("")
   const [locationLoading, setLocationLoading] = useState(false)
+  const [locationRevision, setLocationRevision] = useState(0)
 
   useEffect(() => {
     const isPlatformStore = pathname.replace(/\/$/, "") === "/store" && !currentBusiness?.id
@@ -58,7 +60,12 @@ export default function CategoryNavigator() {
       : isPlatformStore ? "&platform=true" : ""
     fetch(`/api/dbhandler?model=category&limit=500${query}`)
       .then((response) => response.ok ? response.json() : [])
-      .then((data) => setCategories(Array.isArray(data) ? data.filter((category) => category?._count?.products !== 0) : []))
+      .then(async (data) => {
+        const available = Array.isArray(data) ? data.filter((category) => category?._count?.products !== 0) : []
+        const savedLocation = getSavedUserLocation()
+        const ranked = await rankByDistance(available, savedLocation, (category) => category.business)
+        setCategories(ranked)
+      })
       .catch(() => setCategories([]))
 
     const locationsQuery = !isPlatformStore && currentBusiness?.id
@@ -68,7 +75,20 @@ export default function CategoryNavigator() {
       .then((response) => response.ok ? response.json() : [])
       .then((data) => setLocations(Array.isArray(data) ? data : []))
       .catch(() => setLocations([]))
-  }, [currentBusiness?.id, pathname])
+  }, [currentBusiness?.id, pathname, locationRevision])
+
+  useEffect(() => {
+    const refreshCategories = () => setLocationRevision((revision) => revision + 1)
+    window.addEventListener(USER_LOCATION_CHANGED_EVENT, refreshCategories)
+    return () => window.removeEventListener(USER_LOCATION_CHANGED_EVENT, refreshCategories)
+  }, [])
+
+  useEffect(() => {
+    if (!getSavedUserLocation() || searchParams.get("closest") === "true") return
+    const nextQuery = new URLSearchParams(searchParams.toString())
+    nextQuery.set("closest", "true")
+    router.replace(`${pathname}?${nextQuery.toString()}`, { scroll: false })
+  }, [pathname, router, searchParams])
 
   useEffect(() => {
     setMinPrice(searchParams.get("minPrice") || "")

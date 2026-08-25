@@ -210,7 +210,14 @@ async function canManageBusinessResource(session: any, model: string | null, bus
   const effectiveUserId = userId || sessionUserId;
   const isAdminOrStaff = role === "admin" || role === "staff";
 
-  if (isAdminOrStaff) return true;
+  if (role === "admin") return true;
+  if (role === "staff") {
+    if (!businessId || !effectiveUserId) return false;
+    const staffMembership = await prisma.staff.findFirst({
+      where: { userId: String(effectiveUserId), businessId: String(businessId), status: "accepted" },
+    });
+    return Boolean(staffMembership);
+  }
 
   const businessScopedModels = new Set([
     "category",
@@ -274,7 +281,7 @@ export async function GET(req: NextRequest) {
           take: Math.min(limit, 12),
           skip: offset,
           orderBy: [{ ratings: 'desc' as const }, { createdAt: 'desc' as const }],
-          include: { siteSettings: { select: { storefrontImageUrl: true } } },
+          include: { siteSettings: { select: { storefrontImageUrl: true, address: true, physicalLocation: true, operatingStates: true } } },
         });
 
         const ownerIds = businesses.map(b => b.ownerId).filter(Boolean);
@@ -341,7 +348,7 @@ export async function GET(req: NextRequest) {
             products: { take: 3, select: { images: true } },
             productCategories: { take: 3, include: { product: { select: { id: true, name: true, images: true } } } },
             _count: { select: { products: true } },
-            business: true,
+            business: { include: { siteSettings: { select: { address: true, physicalLocation: true, operatingStates: true } } } },
           }
         }));
       }
@@ -438,7 +445,7 @@ export async function GET(req: NextRequest) {
         }
 
         // Always include business data so UI can render ownership badges correctly.
-        include.business = true;
+        include.business = { include: { siteSettings: { select: { address: true, physicalLocation: true, operatingStates: true } } } };
 
         const query = {
           where,
@@ -695,6 +702,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 
+  if (model === "product" && (session?.user as any)?.role === "staff") {
+    const membership = await prisma.staff.findFirst({
+      where: { userId: String((session?.user as any)?.id), businessId: String(businessId || ""), status: "accepted" },
+    });
+    if (!membership) return NextResponse.json({ error: "Staff access is not approved for this business" }, { status: 403 });
+  }
+
   try {
     if (model === "business") {
       const businessName = (body.name || "").toString().trim();
@@ -946,6 +960,10 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 
+  if (model !== "user" && (session?.user as any)?.role === "staff") {
+    return NextResponse.json({ error: "Staff accounts cannot update records" }, { status: 403 });
+  }
+
   // Support for bulk brand reordering
   if (model === "brand" && Array.isArray(body)) {
     try {
@@ -1111,6 +1129,10 @@ export async function DELETE(req: NextRequest) {
 
   if (!canManage) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  }
+
+  if ((session?.user as any)?.role === "staff") {
+    return NextResponse.json({ error: "Staff accounts cannot delete records" }, { status: 403 });
   }
 
   try {

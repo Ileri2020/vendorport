@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Search, PackagePlus, Link2, Check, Plus, X } from "lucide-react";
+import { Search, PackagePlus, Link2, Check, Plus, X, ChevronLeft, ChevronRight, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface PlatformProductWorkspaceProps {
   business?: { id: string; ownerId: string; name: string } | null;
@@ -14,17 +15,28 @@ interface PlatformProductWorkspaceProps {
 
 export default function PlatformProductWorkspace({ business = null }: PlatformProductWorkspaceProps) {
   const { data: session } = useSession();
-  const isOwner = Boolean(business && session?.user?.id && String(business.ownerId) === String(session.user.id));
+  const isOwner = Boolean(business && session?.user?.id && (String(business.ownerId) === String(session.user.id) || session.user.role === "admin"));
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [businessCategories, setBusinessCategories] = useState<any[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", price: "", costPrice: "", categoryId: "", variants: [] as Array<{ title: string; weight: string; volume: string; price: string }> });
   const [newCategory, setNewCategory] = useState({ name: "", description: "" });
   const [showNewCategory, setShowNewCategory] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [catalogMode, setCatalogMode] = useState<"products" | "categories" | null>(null);
+  const [productPage, setProductPage] = useState(1);
+  const [categoryPage, setCategoryPage] = useState(1);
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [categoryDialog, setCategoryDialog] = useState<any | null>(null);
+  const [categoryProducts, setCategoryProducts] = useState<any[]>([]);
+  const [categoryProductsLoading, setCategoryProductsLoading] = useState(false);
+  const [categoryProductSelection, setCategoryProductSelection] = useState<string[]>([]);
+  const ITEMS_PER_PAGE = 20;
 
   const loadProducts = async () => {
     const response = await fetch(`/api/platform-products?query=${encodeURIComponent(query)}`);
@@ -50,6 +62,24 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       .then(setCategories)
       .catch(() => toast.error("Could not load categories"));
   }, []);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [query]);
+
+  useEffect(() => {
+    setCategoryPage(1);
+  }, [categoryQuery]);
+
+  useEffect(() => {
+    if (!categoryDialog) return;
+    setCategoryProductsLoading(true);
+    fetch(`/api/platform-products?categoryId=${encodeURIComponent(categoryDialog.id)}`)
+      .then((response) => response.ok ? response.json() : [])
+      .then(setCategoryProducts)
+      .catch(() => toast.error("Could not load category products"))
+      .finally(() => setCategoryProductsLoading(false));
+  }, [categoryDialog]);
 
   const createCategory = async () => {
     if (!newCategory.name.trim()) return toast.error("Enter a category name");
@@ -110,6 +140,63 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     }
   };
 
+  const attachCategories = async () => {
+    if (!business || selectedCategories.length === 0 || !categoryId) return toast.error("Select categories and a store category");
+    setLoading(true);
+    try {
+      const results = await Promise.all(selectedCategories.map(async (sourceCategoryId) => {
+        const response = await fetch("/api/platform-products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId, sourceCategoryId }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not attach category");
+        return result.attached || 0;
+      }));
+      toast.success(`${results.reduce((total, count) => total + count, 0)} products added to ${business.name}`);
+      setSelectedCategories([]);
+      setCategoryId("");
+      await loadProducts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not attach categories");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const attachCategoryProducts = async (allProducts: boolean) => {
+    if (!business || !categoryDialog || !categoryId) return toast.error("Select a store category first");
+    const productIds = allProducts ? categoryProducts.map((product) => product.id) : categoryProductSelection;
+    if (productIds.length === 0) return toast.error("Select at least one product");
+    setLoading(true);
+    try {
+      const response = await fetch("/api/platform-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "attach", businessId: business.id, categoryId, productIds }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not attach category products");
+      toast.success(`${result.attached} product${result.attached === 1 ? "" : "s"} added to ${business.name}`);
+      setCategoryDialog(null);
+      setCategoryProducts([]);
+      setCategoryProductSelection([]);
+      setCategoryId("");
+      await loadProducts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not attach category products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCategories = categories.filter((category) => !category.businessId && category.name.toLowerCase().includes(categoryQuery.toLowerCase()));
+  const visibleProducts = products.slice((productPage - 1) * ITEMS_PER_PAGE, productPage * ITEMS_PER_PAGE);
+  const visibleCategories = filteredCategories.slice((categoryPage - 1) * ITEMS_PER_PAGE, categoryPage * ITEMS_PER_PAGE);
+  const productPages = Math.max(1, Math.ceil(products.length / ITEMS_PER_PAGE));
+  const categoryPages = Math.max(1, Math.ceil(filteredCategories.length / ITEMS_PER_PAGE));
+
   if (!session?.user?.id) {
     return <div className="mx-auto max-w-xl p-10 text-center">Sign in to create and manage platform products.</div>;
   }
@@ -136,8 +223,14 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <form onSubmit={createProduct} className="space-y-4 rounded-2xl border bg-card p-5 shadow-sm">
+      <section className="grid gap-4 sm:grid-cols-2">
+        <Button type="button" size="lg" variant={createOpen ? "default" : "outline"} className="h-auto justify-start gap-3 p-5 text-left" onClick={() => setCreateOpen((open) => !open)}><PackagePlus className="h-5 w-5" /><span><span className="block font-bold">Create product for the platform</span><span className="mt-1 block text-xs font-normal opacity-75">Open the product card form</span></span></Button>
+        {isOwner && <Button type="button" size="lg" variant={catalogMode === "products" ? "default" : "outline"} className="h-auto justify-start gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "products" ? null : "products")}><Link2 className="h-5 w-5" /><span><span className="block font-bold">Add platform products</span><span className="mt-1 block text-xs font-normal opacity-75">Search and choose product cards</span></span></Button>}
+        {isOwner && <Button type="button" size="lg" variant={catalogMode === "categories" ? "default" : "outline"} className="h-auto justify-start gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "categories" ? null : "categories")}><FolderPlus className="h-5 w-5" /><span><span className="block font-bold">Add platform categories</span><span className="mt-1 block text-xs font-normal opacity-75">Browse category cards and products</span></span></Button>}
+      </section>
+
+      {createOpen && <section className="rounded-2xl border bg-card p-5 shadow-sm">
+        <form onSubmit={createProduct} className="space-y-4">
           <div className="flex items-center gap-2 font-bold"><PackagePlus className="h-5 w-5 text-primary" /> Create platform product</div>
           <div><Label htmlFor="platform-product-name">Name</Label><Input id="platform-product-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
           <div><Label htmlFor="platform-product-description">Description</Label><Input id="platform-product-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
@@ -175,32 +268,65 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           </div>
           <Button type="submit" disabled={loading} className="w-full">{loading ? "Creating..." : "Create Product Card"}</Button>
         </form>
+      </section>}
 
-        <section className="rounded-2xl border bg-card p-5 shadow-sm">
+      {catalogMode === "products" && <section className="rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div><h2 className="font-bold">Platform products</h2><p className="text-xs text-muted-foreground">Search products created by the community.</p></div>
             <div className="relative w-full sm:max-w-xs"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search products" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
           </div>
           <div className="mt-5 space-y-2">
-            {products.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No unassigned platform products found.</p> : products.map((product) => {
+            {visibleProducts.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No unassigned platform products found.</p> : visibleProducts.map((product) => {
               const checked = selected.includes(product.id);
               return <button type="button" key={product.id} onClick={() => setSelected((items) => checked ? items.filter((id) => id !== product.id) : [...items, product.id])} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${checked ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
                 <span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span>
+                <span className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-muted">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-4 h-5 w-5 text-muted-foreground" />}</span>
                 <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()} · {product.variants?.length || 0} variant{product.variants?.length === 1 ? "" : "s"} · by {product.creator?.name || "Vport user"}</span></span>
               </button>;
             })}
           </div>
-        </section>
-      </section>
+          {productPages > 1 && <div className="mt-4 flex items-center justify-center gap-3"><Button type="button" size="icon" variant="outline" disabled={productPage === 1} onClick={() => setProductPage((page) => page - 1)}><ChevronLeft className="h-4 w-4" /></Button><span className="text-xs text-muted-foreground">Page {productPage} of {productPages}</span><Button type="button" size="icon" variant="outline" disabled={productPage === productPages} onClick={() => setProductPage((page) => page + 1)}><ChevronRight className="h-4 w-4" /></Button></div>}
+        </section>}
 
-      {isOwner && <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5">
-        <div className="flex items-center gap-2 font-bold"><Link2 className="h-5 w-5 text-primary" /> Add selected products to {business?.name}</div>
+      {catalogMode === "categories" && isOwner && <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-bold">Platform categories</h2><p className="text-xs text-muted-foreground">Each card shows products available in that category.</p></div><div className="relative w-full sm:max-w-xs"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search categories" value={categoryQuery} onChange={(e) => setCategoryQuery(e.target.value)} /></div></div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {visibleCategories.map((category) => <button type="button" key={category.id} onClick={() => { setCategoryDialog(category); setCategoryProductSelection([]); }} className="overflow-hidden rounded-xl border bg-background text-left transition hover:border-primary hover:shadow-md"><div className="grid h-28 grid-cols-3 gap-1 bg-muted p-1">{(category.products || []).slice(0, 3).map((product: any, index: number) => <div key={index} className="overflow-hidden rounded-md bg-background">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-auto mt-9 h-5 w-5 text-muted-foreground" />}</div>)}</div><div className="p-3"><h3 className="font-bold">{category.name}</h3><p className="mt-1 text-xs text-muted-foreground">{category._count?.products || 0} products</p><span className="mt-3 inline-block text-xs font-bold text-primary">Choose products</span></div></button>)}
+        </div>
+        {categoryPages > 1 && <div className="flex items-center justify-center gap-3"><Button type="button" size="icon" variant="outline" disabled={categoryPage === 1} onClick={() => setCategoryPage((page) => page - 1)}><ChevronLeft className="h-4 w-4" /></Button><span className="text-xs text-muted-foreground">Page {categoryPage} of {categoryPages}</span><Button type="button" size="icon" variant="outline" disabled={categoryPage === categoryPages} onClick={() => setCategoryPage((page) => page + 1)}><ChevronRight className="h-4 w-4" /></Button></div>}
+      </section>}
+
+      {isOwner && catalogMode === "products" && <section className="space-y-6 rounded-2xl border border-primary/20 bg-primary/5 p-5">
+        <div><div className="flex items-center gap-2 font-bold"><Link2 className="h-5 w-5 text-primary" /> Add products or categories to {business?.name}</div><p className="mt-1 text-sm text-muted-foreground">Select individual product cards, or select one or more platform categories to add their available products and variants together.</p></div>
+        <div className="space-y-3 rounded-xl border bg-background/70 p-4">
+          <div className="flex items-center justify-between gap-2"><div><h3 className="font-bold">Select categories</h3><p className="text-xs text-muted-foreground">Choose source categories from the shared catalog.</p></div><span className="text-xs font-bold text-primary">{selectedCategories.length} selected</span></div>
+          <div className="grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
+            {categories.filter((category) => !category.businessId).map((category) => {
+              const checked = selectedCategories.includes(category.id);
+              return <button type="button" key={category.id} onClick={() => setSelectedCategories((items) => checked ? items.filter((id) => id !== category.id) : [...items, category.id])} className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span><span className="truncate">{category.name}</span></button>;
+            })}
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row"><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm sm:max-w-xs"><option value="">Store category for selected items</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Button onClick={attachCategories} disabled={loading || selectedCategories.length === 0 || !categoryId}>Add selected categories</Button></div>
+        </div>
+        <div className="border-t pt-5">
+        <h3 className="font-bold">Add selected product cards</h3>
         <p className="mt-1 text-sm text-muted-foreground">Choose one of your categories. Selected platform products will become part of this website.</p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm sm:max-w-xs"><option value="">Select category</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
           <Button onClick={attachProducts} disabled={loading || selected.length === 0 || !categoryId}>Add {selected.length || "selected"} product{selected.length === 1 ? "" : "s"} to website</Button>
         </div>
+        </div>
       </section>}
+
+      <Dialog open={Boolean(categoryDialog)} onOpenChange={(open) => { if (!open) { setCategoryDialog(null); setCategoryProducts([]); setCategoryProductSelection([]); } }}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader><DialogTitle>Add products from {categoryDialog?.name}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Add every product in this category or choose only the products you want for your store.</p>
+          <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Select your store category</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
+          {categoryProductsLoading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading products...</p> : <div className="grid gap-2 sm:grid-cols-2">{categoryProducts.map((product) => { const checked = categoryProductSelection.includes(product.id); return <button type="button" key={product.id} onClick={() => setCategoryProductSelection((items) => checked ? items.filter((id) => id !== product.id) : [...items, product.id])} className={`flex items-center gap-2 rounded-lg border p-2 text-left ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-3 h-5 w-5 text-muted-foreground" />}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()}</span></span>{checked && <Check className="h-4 w-4 text-primary" />}</button>; })}</div>}
+          <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row"><Button type="button" className="flex-1" disabled={loading || !categoryId || categoryProducts.length === 0} onClick={() => attachCategoryProducts(true)}>Add all products</Button><Button type="button" variant="outline" className="flex-1" disabled={loading || !categoryId || categoryProductSelection.length === 0} onClick={() => attachCategoryProducts(false)}>Add selected ({categoryProductSelection.length})</Button></div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

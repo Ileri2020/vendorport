@@ -78,7 +78,10 @@ export default function About() {
           <div className="pointer-events-none absolute right-0 top-0 h-full w-1/2 bg-primary/10 [clip-path:polygon(38%_0,100%_0,100%_100%,0_100%)]" />
           <div className="relative mx-auto max-w-6xl">
             <div className="max-w-4xl">
-              <Badge variant="outline" className="border-primary/50 px-4 py-1 text-sm text-primary animate-pulse">About IleriTech</Badge>
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge variant="outline" className="border-primary/50 px-4 py-1 text-sm text-primary animate-pulse">About IleriTech</Badge>
+                <Badge className="gap-2 border-primary bg-primary/15 px-4 py-1 text-sm text-primary shadow-sm"><Sparkles className="h-3.5 w-3.5" /> Nigeria&apos;s No. 1 website, mobile &amp; desktop app developers</Badge>
+              </div>
               <h1 className="mt-7 max-w-4xl text-5xl font-black leading-[0.98] tracking-tight md:text-7xl">We turn good ideas into <span className="text-primary">useful digital products.</span></h1>
               <p className="mt-7 max-w-2xl text-lg leading-relaxed md:text-xl">IleriTech (IT) LTD creates modern, optimised websites and mobile apps for people and businesses ready to be taken seriously online.</p>
               <div className="mt-9 flex flex-wrap gap-3"><Link href="/contact#website-plans" className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-3 font-bold text-primary-foreground transition hover:bg-primary/90">Start a project <ArrowRight className="h-4 w-4" /></Link><a href="#website-plans" className="inline-flex items-center gap-2 rounded-md border-2 px-5 py-3 font-semibold transition hover:border-primary/70 hover:text-primary/70 border-primary text-primary">Explore plans <ArrowRight className="h-4 w-4" /></a></div>

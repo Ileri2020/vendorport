@@ -11,6 +11,7 @@ import { useAppContext } from "@/hooks/useAppContext";
 import { toast } from "sonner";
 import { PlusCircle, Trash2, ChevronDown } from "lucide-react";
 import { prepareImageForUpload } from "@/lib/compress-image";
+import { saveBusinessColorOverrides } from "@/lib/business-colors";
 
 const accentColorOptions = [
   { name: "Emerald", hsl: "152 68% 38%" },
@@ -58,6 +59,13 @@ const SiteSettingsForm: React.FC = () => {
   const handleAccentSelect = (hsl: string) => {
     handleChange("accentLight", hsl);
     handleChange("accentDark", hsl);
+    if (currentBusiness?.id) {
+      saveBusinessColorOverrides(String(currentBusiness.id), {
+        ...form,
+        accentLight: hsl,
+        accentDark: hsl,
+      });
+    }
   };
 
   const addOperatingState = () => {
@@ -147,6 +155,7 @@ const SiteSettingsForm: React.FC = () => {
       if (!res.ok) throw new Error("Save failed");
       const updated = await res.json();
       setForm(updated);
+      saveBusinessColorOverrides(String(currentBusiness.id), updated);
       toast.success("Site settings saved");
     } catch (err) {
       console.error(err);
@@ -170,6 +179,32 @@ const SiteSettingsForm: React.FC = () => {
       </div>
 
       <div className="space-y-4">
+        {/* Branding */}
+        <Collapsible open={openSection === "branding"} onOpenChange={(v) => setOpenSection(v ? "branding" : null)}>
+          <div className="border rounded-md bg-accent/5">
+            <CollapsibleTrigger asChild>
+              <button className="w-full p-3 text-left font-semibold bg-accent/20 shadow-md shadow-accent/70 flex items-center justify-between">
+                <span>Branding</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${openSection === "branding" ? "rotate-180" : ""}`} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="p-3 space-y-4">
+              <div>
+                <Label>Store Logo</Label>
+                <Input type="file" accept="image/*" onChange={handleLogoFileChange} className="mt-2" />
+                <p className="mt-1 text-xs text-muted-foreground">Upload a logo up to 100 KB. Save settings after uploading to apply it.</p>
+                {valOf("logoImageUrl", "") ? <div className="mt-3 rounded-md border bg-white/70 p-3"><img src={valOf("logoImageUrl", "")} alt="Store logo preview" className="max-h-20 w-auto object-contain" /></div> : null}
+              </div>
+              <div>
+                <Label>Storefront Image</Label>
+                <Input type="file" accept="image/*" onChange={handleStorefrontFileChange} className="mt-2" />
+                <p className="mt-1 text-xs text-muted-foreground">Optional image shown on the platform home page and website carousel. Must be smaller than 50 KB.</p>
+                {valOf("storefrontImageUrl", "") ? <div className="mt-3 h-32 overflow-hidden rounded-md border bg-white/70"><img src={valOf("storefrontImageUrl", "")} alt="Storefront preview" className="h-full w-full object-cover" /></div> : null}
+              </div>
+            </CollapsibleContent>
+          </div>
+        </Collapsible>
+
         {/* Home Page */}
         <Collapsible open={openSection === "home"} onOpenChange={(v) => setOpenSection(v ? "home" : null)}>
           <div className="border rounded-md bg-accent/5">
@@ -272,30 +307,6 @@ const SiteSettingsForm: React.FC = () => {
                 <div className="md:col-span-2">
                   <Label>Hero Image URL</Label>
                   <Input value={valOf("heroImage", "")} onChange={(e: any) => handleChange("heroImage", e.target.value)} />
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Store Logo</Label>
-                  <Input type="file" accept="image/*" onChange={handleLogoFileChange} className="mt-2" />
-                  <p className="mt-1 text-xs text-muted-foreground">Image files must be 100 KB or smaller and are uploaded to Cloudinary.</p>
-                  {valOf("logoImageUrl", "") ? (
-                    <div className="mt-3 rounded-md border bg-white/70 p-3">
-                      <img
-                        src={valOf("logoImageUrl", "")}
-                        alt="Store logo preview"
-                        className="max-h-20 w-auto object-contain"
-                      />
-                    </div>
-                  ) : null}
-                </div>
-                <div className="md:col-span-2">
-                  <Label>Storefront Image</Label>
-                  <Input type="file" accept="image/*" onChange={handleStorefrontFileChange} className="mt-2" />
-                  <p className="mt-1 text-xs text-muted-foreground">Optional image shown on the platform home page and Top Rated Websites carousel. Must be smaller than 50 KB.</p>
-                  {valOf("storefrontImageUrl", "") ? (
-                    <div className="mt-3 h-32 overflow-hidden rounded-md border bg-white/70">
-                      <img src={valOf("storefrontImageUrl", "")} alt="Storefront preview" className="h-full w-full object-cover" />
-                    </div>
-                  ) : null}
                 </div>
               </div>
             </CollapsibleContent>

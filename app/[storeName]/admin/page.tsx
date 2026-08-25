@@ -93,6 +93,7 @@ const Admin = () => {
 
     const isAdmin = session?.user?.role === "admin";
     const isStaff = session?.user?.role === "staff";
+    const [staffAccess, setStaffAccess] = useState(false);
 
     const toggleForm = (name: string) => {
       setSelectedForms((prev) =>
@@ -111,9 +112,9 @@ const Admin = () => {
     const filteredForms = useMemo(
       () =>
         forms.filter((f) =>
-          f.name.toLowerCase().includes(searchQuery.toLowerCase())
+          (!isStaff || f.name === "Product") && f.name.toLowerCase().includes(searchQuery.toLowerCase())
         ),
-      [searchQuery]
+      [isStaff, searchQuery]
     );
 
     const allSelected = selectedForms.length === filteredForms.length && filteredForms.length > 0;
@@ -188,12 +189,23 @@ const Admin = () => {
 
     useEffect(() => {
       const redirectTarget = storeName ? getStoreUrl(storeName) : "/";
+      const checkStaffAccess = async () => {
+        if (!session?.user?.id || !currentBusiness?.id || !isStaff) return false;
+        const response = await fetch(`/api/staff?businessId=${currentBusiness.id}`);
+        if (!response.ok) return false;
+        const applications = await response.json();
+        return applications.some((application: any) => application.userId === session.user.id && application.status === "accepted");
+      };
       if (status !== "loading" && currentBusiness) {
-        if (!session || !isBusinessOwner) {
+        if (session && isBusinessOwner) {
+          setStaffAccess(false);
+        } else if (session && isStaff) {
+          checkStaffAccess().then(setStaffAccess);
+        } else {
           router.replace(redirectTarget);
         }
       }
-    }, [status, session, router, currentBusiness, isBusinessOwner, storeName]);
+    }, [status, session, router, currentBusiness, isBusinessOwner, isStaff, storeName]);
 
     useEffect(() => {
       if (!isAdmin && !isStaff) return;
@@ -251,7 +263,8 @@ const Admin = () => {
       return () => clearTimeout(debounce);
     }, [isAdmin, isStaff, cartSearch]);
 
-    if (status === "loading" || !currentBusiness || !isBusinessOwner) {
+    const canAccessAdmin = Boolean(isBusinessOwner || staffAccess);
+    if (status === "loading" || !currentBusiness || !canAccessAdmin) {
       return null;
     }
 
@@ -331,12 +344,15 @@ const Admin = () => {
 
         {selectedForms.map((name) => {
           const FormComponent = forms.find((f) => f.name === name)?.component;
-          return FormComponent ? <FormComponent key={name} /> : null;
+          if (!FormComponent) return null;
+          return name === "Product" && isStaff
+            ? <ProductForm key={name} hideList={true} />
+            : <FormComponent key={name} />;
         })}
       </div>
 
       {/* ORDER MANAGEMENT SECTION */}
-      <div className="mt-12 bg-card p-6 rounded-2xl border shadow-sm col-span-full">
+      {!isStaff && <div className="mt-12 bg-card p-6 rounded-2xl border shadow-sm col-span-full">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
           <div>
             <h3 className="text-2xl font-black tracking-tight flex items-center gap-2">
@@ -363,7 +379,7 @@ const Admin = () => {
             onRowClick={handleCartRowClick}
           />
         )}
-      </div>
+      </div>}
 
       <CartDetailsDialog 
         open={cartDialogOpen}
