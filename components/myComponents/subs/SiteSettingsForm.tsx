@@ -25,7 +25,7 @@ const accentColorOptions = [
 ];
 
 const SiteSettingsForm: React.FC = () => {
-  const { currentBusiness } = useAppContext();
+  const { currentBusiness, setCurrentBusiness } = useAppContext();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingSection, setSavingSection] = useState<string | null>(null);
@@ -111,6 +111,7 @@ const SiteSettingsForm: React.FC = () => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Logo upload failed");
       handleChange("logoImageUrl", result.url);
+      event.target.value = "";
       toast.success(`${preparedFile !== file ? "Logo compressed and " : ""}uploaded. Save settings to apply it.`);
     } catch (error) {
       event.target.value = "";
@@ -138,6 +139,7 @@ const SiteSettingsForm: React.FC = () => {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Storefront image upload failed");
       handleChange("storefrontImageUrl", result.url);
+      event.target.value = "";
       toast.success("Storefront image uploaded. Save settings to apply it.");
     } catch (error) {
       event.target.value = "";
@@ -178,9 +180,36 @@ const SiteSettingsForm: React.FC = () => {
     }
   };
 
+  const syncCurrentBusinessSettings = (nextSettings: Record<string, any>) => {
+    if (!currentBusiness?.id) return;
+
+    setCurrentBusiness((previous: any) => {
+      if (!previous) return previous;
+
+      const nextBusiness = {
+        ...previous,
+        siteSettings: {
+          ...(previous.siteSettings || {}),
+          ...nextSettings,
+        },
+      };
+
+      if (previous.slug) {
+        try {
+          window.localStorage.setItem(`storefront.business.${previous.slug}`, JSON.stringify(nextBusiness));
+        } catch (error) {
+          console.warn("Failed to sync cached business logo state", error);
+        }
+      }
+
+      return nextBusiness;
+    });
+  };
+
   const handleSave = async () => {
     const payload = { ...form, businessId: currentBusiness?.id };
-    await saveSettings(payload, { sectionLabel: "Site settings" });
+    const result = await saveSettings(payload, { sectionLabel: "Site settings" });
+    if (result) syncCurrentBusinessSettings(result);
   };
 
   const handleSaveSection = async (sectionKey: string, sectionLabel: string, keys: string[]) => {
@@ -191,7 +220,8 @@ const SiteSettingsForm: React.FC = () => {
       }
     }
 
-    await saveSettings(payload, { isSection: true, sectionKey, sectionLabel });
+    const result = await saveSettings(payload, { isSection: true, sectionKey, sectionLabel });
+    if (result) syncCurrentBusinessSettings(result);
   };
 
   const renderSectionSaveButton = (sectionKey: string, sectionLabel: string, keys: string[]) => (

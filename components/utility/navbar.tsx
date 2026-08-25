@@ -41,10 +41,10 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
   const customLogo = (() => {
     const candidates = basePath
       ? [
-          business?.siteSettings?.logoImageUrl,
-          business?.siteSettings?.logoUrl,
           currentBusiness?.siteSettings?.logoImageUrl,
           currentBusiness?.siteSettings?.logoUrl,
+          business?.siteSettings?.logoImageUrl,
+          business?.siteSettings?.logoUrl,
         ]
       : [];
 

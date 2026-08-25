@@ -39,11 +39,11 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
         ? business?.name || currentBusiness?.name || "VendorPort"
         : "VendorPort";
     const customLogo = basePath
-        ? business?.siteSettings?.logoImageUrl ||
-          business?.siteSettings?.logoUrl ||
-          currentBusiness?.siteSettings?.logoImageUrl ||
-          currentBusiness?.siteSettings?.logoUrl ||
-          greenlogo
+                ? currentBusiness?.siteSettings?.logoImageUrl ||
+                    currentBusiness?.siteSettings?.logoUrl ||
+                    business?.siteSettings?.logoImageUrl ||
+                    business?.siteSettings?.logoUrl ||
+                    greenlogo
         : greenlogo;
 
     useEffect(() => {
