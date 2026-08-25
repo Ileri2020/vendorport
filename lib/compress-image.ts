@@ -1,35 +1,36 @@
 import imageCompression from "browser-image-compression";
 
-const MAX_IMAGE_BYTES = 100 * 1024;
-const TARGET_SIZE_MB = 0.095;
+const DEFAULT_MAX_BYTES = 100 * 1024;
 
-/** Preserve small originals; convert oversized images to a WebP under 100 KB. */
-export async function prepareImageForUpload(file: File): Promise<File> {
+/** Preserve small originals; convert oversized images to a WebP under the target size. */
+export async function prepareImageForUpload(file: File, maxBytes = DEFAULT_MAX_BYTES): Promise<File> {
   if (!file.type.startsWith("image/")) {
     throw new Error("Please select an image file");
   }
 
-  if (file.size < MAX_IMAGE_BYTES) {
+  if (file.size < maxBytes) {
     return file;
   }
 
+  const targetSizeMb = Math.min(Math.max((maxBytes / (1024 * 1024)) * 0.9, 0.05), 0.2);
   const attempts = [
     { maxWidthOrHeight: 1920, initialQuality: 0.8 },
-    { maxWidthOrHeight: 1280, initialQuality: 0.7 },
-    { maxWidthOrHeight: 900, initialQuality: 0.6 },
-    { maxWidthOrHeight: 640, initialQuality: 0.5 },
+    { maxWidthOrHeight: 1600, initialQuality: 0.72 },
+    { maxWidthOrHeight: 1280, initialQuality: 0.64 },
+    { maxWidthOrHeight: 900, initialQuality: 0.56 },
+    { maxWidthOrHeight: 640, initialQuality: 0.48 },
   ];
 
   for (const attempt of attempts) {
     const compressed = await imageCompression(file, {
-      maxSizeMB: TARGET_SIZE_MB,
+      maxSizeMB: targetSizeMb,
       maxWidthOrHeight: attempt.maxWidthOrHeight,
       initialQuality: attempt.initialQuality,
       fileType: "image/webp",
       useWebWorker: true,
     });
 
-    if (compressed.size < MAX_IMAGE_BYTES) {
+    if (compressed.size < maxBytes) {
       return new File(
         [compressed],
         `${file.name.replace(/\.[^/.]+$/, "")}.webp`,
@@ -38,5 +39,5 @@ export async function prepareImageForUpload(file: File): Promise<File> {
     }
   }
 
-  throw new Error("Image could not be compressed below 100 KB. Please choose a smaller image.");
+  throw new Error(`Image could not be compressed below ${Math.round(maxBytes / 1024)} KB. Please choose a smaller image.`);
 }

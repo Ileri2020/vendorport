@@ -93,7 +93,13 @@ const SiteSettingsForm: React.FC = () => {
     if (!file) return;
 
     try {
-      const preparedFile = await prepareImageForUpload(file);
+      const preparedFile = await prepareImageForUpload(file, 100 * 1024);
+      if (preparedFile.size >= 100 * 1024) {
+        event.target.value = "";
+        toast.error("Compressed logo is still above 100 KB. Please choose a smaller image.");
+        return;
+      }
+
       const uploadData = new FormData();
       uploadData.append("businessId", currentBusiness?.id || "");
       uploadData.append("file", preparedFile);
@@ -116,19 +122,15 @@ const SiteSettingsForm: React.FC = () => {
   const handleStorefrontFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file || !currentBusiness?.id) return;
-    if (file.size >= 50 * 1024) {
-      event.target.value = "";
-      toast.error("Storefront image must be smaller than 50 KB");
-      return;
-    }
 
     try {
-      const preparedFile = await prepareImageForUpload(file);
+      const preparedFile = await prepareImageForUpload(file, 50 * 1024);
       if (preparedFile.size >= 50 * 1024) {
         event.target.value = "";
-        toast.error("Compressed storefront image must be smaller than 50 KB");
+        toast.error("Compressed storefront image is still above 50 KB. Please choose a smaller image.");
         return;
       }
+
       const uploadData = new FormData();
       uploadData.append("businessId", currentBusiness.id);
       uploadData.append("file", preparedFile);
@@ -227,13 +229,13 @@ const SiteSettingsForm: React.FC = () => {
               <div>
                 <Label>Store Logo</Label>
                 <Input type="file" accept="image/*" onChange={handleLogoFileChange} className="mt-2" />
-                <p className="mt-1 text-xs text-muted-foreground">Upload a logo up to 100 KB. Save settings after uploading to apply it.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Upload a logo smaller than 100 KB. The browser will compress oversized images before upload.</p>
                 {valOf("logoImageUrl", "") ? <div className="mt-3 rounded-md border bg-white/70 p-3"><img src={valOf("logoImageUrl", "")} alt="Store logo preview" className="max-h-20 w-auto object-contain" /></div> : null}
               </div>
               <div>
                 <Label>Storefront Image</Label>
                 <Input type="file" accept="image/*" onChange={handleStorefrontFileChange} className="mt-2" />
-                <p className="mt-1 text-xs text-muted-foreground">Optional image shown on the platform home page and website carousel. Must be smaller than 50 KB.</p>
+                <p className="mt-1 text-xs text-muted-foreground">Optional image shown on the platform home page and website carousel. It must be smaller than 50 KB, and oversized images are compressed in-browser before upload.</p>
                 {valOf("storefrontImageUrl", "") ? <div className="mt-3 h-32 overflow-hidden rounded-md border bg-white/70"><img src={valOf("storefrontImageUrl", "")} alt="Storefront preview" className="h-full w-full object-cover" /></div> : null}
               </div>
               {renderSectionSaveButton("branding", "Branding", ["logoImageUrl", "storefrontImageUrl"])}
