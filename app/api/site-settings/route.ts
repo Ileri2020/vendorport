@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/auth";
 
@@ -70,6 +71,7 @@ export async function PUT(req: NextRequest) {
       }
 
       const updated = await prisma.siteSettings.findUnique({ where: { businessId } });
+      revalidateTag("business", "max");
       return NextResponse.json(updated ?? created);
     }
 
@@ -81,6 +83,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const updated = await prisma.siteSettings.findUnique({ where: { businessId } });
+  revalidateTag("business", "max");
     return NextResponse.json(updated ?? existing);
   } catch (err) {
     console.error("site-settings PUT error", err);
