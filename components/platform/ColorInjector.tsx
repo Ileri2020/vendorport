@@ -33,14 +33,14 @@ const ColorInjector: React.FC<ColorInjectorProps> = ({ business }) => {
       const settings = activeBusiness?.siteSettings;
       const localColors = businessKey ? getBusinessColorOverrides(String(businessKey)) : null;
       const colors = {
-        accent: isDark ? settings?.accentSecondaryDark : settings?.accentSecondaryLight,
+        accent: isDark ? settings?.accentDark : settings?.accentLight,
         accentSecondary: isDark ? settings?.accentSecondaryDark : settings?.accentSecondaryLight,
         accentForeground: isDark ? settings?.accentForegroundDark : settings?.accentForegroundLight,
       };
-      const businessAccent = localColors?.[isDark ? "accentSecondaryDark" : "accentSecondaryLight"] || colors.accent;
-      root.style.setProperty("--primary", businessAccent || platformColors.primary);
-      root.style.setProperty("--accent", businessAccent || platformColors.accent);
-      root.style.setProperty("--accent-secondary", businessAccent || platformColors.accentSecondary);
+      const accent = localColors?.[isDark ? "accentDark" : "accentLight"] || colors.accent || platformColors.accent;
+      const accentSecondary = localColors?.[isDark ? "accentSecondaryDark" : "accentSecondaryLight"] || colors.accentSecondary || platformColors.accentSecondary;
+      root.style.setProperty("--accent", accent);
+      root.style.setProperty("--accent-secondary", accentSecondary);
       root.style.setProperty("--accent-foreground", localColors?.[isDark ? "accentForegroundDark" : "accentForegroundLight"] || colors.accentForeground || platformColors.accentForeground);
     };
 
