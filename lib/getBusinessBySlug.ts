@@ -25,7 +25,6 @@ export interface StorefrontBusiness {
   siteSettings: {
     id: string;
     logoImageUrl: string | null;
-    logoUrl: string | null;
     aboutText: string;
     heroTitle: string;
     heroSubtitle: string;
@@ -105,7 +104,6 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
         select: {
           id: true,
           logoImageUrl: true,
-          logoUrl: true,
           aboutText: true,
           heroTitle: true,
           heroSubtitle: true,
