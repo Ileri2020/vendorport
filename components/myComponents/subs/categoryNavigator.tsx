@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { Check, X } from "lucide-react"
+import { Check, ChevronDown, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useAppContext } from "@/hooks/useAppContext"
 import { buildStoreFilterUrl } from "@/lib/store-filter-url"
@@ -43,6 +43,7 @@ export default function CategoryNavigator() {
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<string[]>([])
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
+  const [filterOpen, setFilterOpen] = useState(false)
   const selected = useMemo(() => splitCategories(searchParams.get("category")), [searchParams])
   const selectedLocations = useMemo(() => splitLocations(searchParams.get("location")), [searchParams])
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "")
@@ -197,7 +198,17 @@ export default function CategoryNavigator() {
         </div>
       )}
 
-      <div className="mb-2 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 grid-cols-2 lg:grid-cols-4 mx-auto max-w-sm">
+      <button
+        type="button"
+        onClick={() => setFilterOpen((open) => !open)}
+        aria-expanded={filterOpen}
+        className="mb-2 flex w-full items-center justify-between rounded-xl border border-border/70 bg-background/70 p-3 text-left font-semibold"
+      >
+        <span>Filter{selected.length || selectedLocations.length || minPrice || maxPrice ? " (active)" : ""}</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${filterOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      {filterOpen && <div className="mb-2 grid gap-3 rounded-xl border border-border/70 bg-background/70 p-3 grid-cols-2 lg:grid-cols-4 mx-auto max-w-sm">
         <div className="relative w-full">
           <Button type="button" className="w-full" variant="outline" size="sm" onClick={() => setCategoryMenuOpen((open) => !open)}>
             Categories {selected.length ? `(${selected.length})` : ""}
@@ -254,7 +265,7 @@ export default function CategoryNavigator() {
           <Button className="flex-1" type="button" size="sm" onClick={applyFilters}>Apply filters</Button>
           {(minPrice || maxPrice || selectedLocations.length) && <Button type="button" size="sm" variant="ghost" onClick={clearFilters}>Clear</Button>}
         </div>
-      </div>
+      </div>}
 
       {locationDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="location-dialog-title">
