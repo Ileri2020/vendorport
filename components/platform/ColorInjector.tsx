@@ -21,6 +21,7 @@ const ColorInjector: React.FC<ColorInjectorProps> = ({ business }) => {
   useEffect(() => {
     const root = document.documentElement;
     const platformColors = {
+      primary: "45 93% 62%",
       accent: "8365 100% 37%",
       accentSecondary: "43 96% 56%",
       accentForeground: "222 47% 12%",
@@ -32,18 +33,21 @@ const ColorInjector: React.FC<ColorInjectorProps> = ({ business }) => {
       const settings = activeBusiness?.siteSettings;
       const localColors = businessKey ? getBusinessColorOverrides(String(businessKey)) : null;
       const colors = {
-        accent: isDark ? settings?.accentDark : settings?.accentLight,
+        accent: isDark ? settings?.accentSecondaryDark : settings?.accentSecondaryLight,
         accentSecondary: isDark ? settings?.accentSecondaryDark : settings?.accentSecondaryLight,
         accentForeground: isDark ? settings?.accentForegroundDark : settings?.accentForegroundLight,
       };
-      root.style.setProperty("--accent", localColors?.[isDark ? "accentDark" : "accentLight"] || colors.accent || platformColors.accent);
-      root.style.setProperty("--accent-secondary", localColors?.[isDark ? "accentSecondaryDark" : "accentSecondaryLight"] || colors.accentSecondary || platformColors.accentSecondary);
+      const businessAccent = localColors?.[isDark ? "accentSecondaryDark" : "accentSecondaryLight"] || colors.accent;
+      root.style.setProperty("--primary", businessAccent || platformColors.primary);
+      root.style.setProperty("--accent", businessAccent || platformColors.accent);
+      root.style.setProperty("--accent-secondary", businessAccent || platformColors.accentSecondary);
       root.style.setProperty("--accent-foreground", localColors?.[isDark ? "accentForegroundDark" : "accentForegroundLight"] || colors.accentForeground || platformColors.accentForeground);
     };
 
     if (!activeBusiness?.siteSettings && !businessKey) {
       root.style.setProperty("--accent", platformColors.accent);
       root.style.setProperty("--accent-secondary", platformColors.accentSecondary);
+      root.style.setProperty("--primary", platformColors.primary);
       root.style.setProperty("--accent-foreground", platformColors.accentForeground);
       return;
     }

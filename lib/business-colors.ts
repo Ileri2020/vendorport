@@ -22,6 +22,11 @@ export function getBusinessColorOverrides(businessKey: string): BusinessColorOve
 }
 
 export function saveBusinessColorOverrides(businessKey: string, colors: BusinessColorOverrides) {
-  localStorage.setItem(storageKey(businessKey), JSON.stringify(colors));
+  const normalizedColors = {
+    ...colors,
+    accentLight: colors.accentSecondaryLight ?? colors.accentLight,
+    accentDark: colors.accentSecondaryDark ?? colors.accentDark,
+  };
+  localStorage.setItem(storageKey(businessKey), JSON.stringify(normalizedColors));
   window.dispatchEvent(new Event(COLOR_OVERRIDES_CHANGED_EVENT));
 }

@@ -65,6 +65,8 @@ const SiteSettingsForm: React.FC = () => {
         ...form,
         accentLight: hsl,
         accentDark: hsl,
+        accentSecondaryLight: hsl,
+        accentSecondaryDark: hsl,
       });
     }
   };
@@ -775,7 +777,10 @@ const SiteSettingsForm: React.FC = () => {
                       <Label>Accent Color (HSL)</Label>
                       <Input 
                         value={valOf("accentLight", "8365 100% 37%")} 
-                        onChange={(e: any) => handleChange("accentLight", e.target.value)}
+                        onChange={(e: any) => {
+                          handleChange("accentLight", e.target.value);
+                          handleChange("accentSecondaryLight", e.target.value);
+                        }}
                         placeholder="e.g., 8365 100% 37%"
                         className="bg-white text-black border-gray-300"
                       />
@@ -784,8 +789,11 @@ const SiteSettingsForm: React.FC = () => {
                     <div>
                       <Label>Secondary Accent (HSL)</Label>
                       <Input 
-                        value={valOf("accentSecondaryLight", "43 96% 56%")}
-                        onChange={(e: any) => handleChange("accentSecondaryLight", e.target.value)}
+                        value={valOf("accentSecondaryLight", "45 93% 62%")}
+                        onChange={(e: any) => {
+                          handleChange("accentSecondaryLight", e.target.value);
+                          handleChange("accentLight", e.target.value);
+                        }}
                         placeholder="e.g., 43 96% 56%"
                         className="bg-white text-black border-gray-300"
                       />
@@ -810,7 +818,10 @@ const SiteSettingsForm: React.FC = () => {
                       <Label className="text-white">Accent Color (HSL)</Label>
                       <Input 
                         value={valOf("accentDark", "8365 100% 59%")} 
-                        onChange={(e: any) => handleChange("accentDark", e.target.value)}
+                        onChange={(e: any) => {
+                          handleChange("accentDark", e.target.value);
+                          handleChange("accentSecondaryDark", e.target.value);
+                        }}
                         placeholder="e.g., 8365 100% 59%"
                         className="bg-gray-700 text-white border-gray-600"
                       />
@@ -820,7 +831,10 @@ const SiteSettingsForm: React.FC = () => {
                       <Label className="text-white">Secondary Accent (HSL)</Label>
                       <Input 
                         value={valOf("accentSecondaryDark", "45 93% 62%")}
-                        onChange={(e: any) => handleChange("accentSecondaryDark", e.target.value)}
+                        onChange={(e: any) => {
+                          handleChange("accentSecondaryDark", e.target.value);
+                          handleChange("accentDark", e.target.value);
+                        }}
                         placeholder="e.g., 45 93% 62%"
                         className="bg-gray-700 text-white border-gray-600"
                       />

@@ -40,6 +40,17 @@ export async function PUT(req: NextRequest) {
       Object.entries(updatedData).filter(([, value]) => value !== undefined)
     );
 
+    const lightAccent = sanitizedData.accentSecondaryLight ?? sanitizedData.accentLight;
+    const darkAccent = sanitizedData.accentSecondaryDark ?? sanitizedData.accentDark;
+    if (lightAccent !== undefined) {
+      sanitizedData.accentLight = lightAccent;
+      sanitizedData.accentSecondaryLight = lightAccent;
+    }
+    if (darkAccent !== undefined) {
+      sanitizedData.accentDark = darkAccent;
+      sanitizedData.accentSecondaryDark = darkAccent;
+    }
+
     if (Object.keys(sanitizedData).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
