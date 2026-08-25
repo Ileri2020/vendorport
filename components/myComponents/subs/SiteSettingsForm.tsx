@@ -116,7 +116,7 @@ const SiteSettingsForm: React.FC = () => {
     } catch (error) {
       event.target.value = "";
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Logo upload failed");
+      toast.error("Logo upload failed. Please try again.");
     }
   };
 
@@ -143,7 +143,8 @@ const SiteSettingsForm: React.FC = () => {
       toast.success("Storefront image uploaded. Save settings to apply it.");
     } catch (error) {
       event.target.value = "";
-      toast.error(error instanceof Error ? error.message : "Storefront image upload failed");
+      console.error(error);
+      toast.error("Storefront image upload failed. Please try again.");
     }
   };
 
@@ -151,7 +152,10 @@ const SiteSettingsForm: React.FC = () => {
     payload: Record<string, any>,
     options?: { isSection?: boolean; sectionKey?: string; sectionLabel?: string }
   ) => {
-    if (!currentBusiness?.id) return toast.error("No business selected");
+    if (!currentBusiness?.id) {
+      toast.error("Settings could not be saved. Please try again.");
+      return null;
+    }
 
     const { isSection = false, sectionKey = "settings", sectionLabel = "Settings" } = options || {};
     if (isSection) setSavingSection(sectionKey);
@@ -172,7 +176,7 @@ const SiteSettingsForm: React.FC = () => {
       return result;
     } catch (err) {
       console.error(err);
-      toast.error(`Failed to save ${sectionLabel.toLowerCase()}`);
+      toast.error(`${sectionLabel} could not be saved. Please try again.`);
       return null;
     } finally {
       if (isSection) setSavingSection(null);
