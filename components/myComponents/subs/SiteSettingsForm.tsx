@@ -28,6 +28,7 @@ const SiteSettingsForm: React.FC = () => {
   const { currentBusiness } = useAppContext();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [savingSection, setSavingSection] = useState<string | null>(null);
   const [form, setForm] = useState<any>({});
   const [openSection, setOpenSection] = useState<string | null>("hero");
   const [newOperatingState, setNewOperatingState] = useState("");
@@ -142,28 +143,62 @@ const SiteSettingsForm: React.FC = () => {
     }
   };
 
-  const handleSave = async () => {
+  const saveSettings = async (
+    payload: Record<string, any>,
+    options?: { isSection?: boolean; sectionKey?: string; sectionLabel?: string }
+  ) => {
     if (!currentBusiness?.id) return toast.error("No business selected");
-    setSaving(true);
+
+    const { isSection = false, sectionKey = "settings", sectionLabel = "Settings" } = options || {};
+    if (isSection) setSavingSection(sectionKey);
+    else setSaving(true);
+
     try {
-      const payload = { ...form, businessId: currentBusiness.id };
       const res = await fetch(`/api/site-settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Save failed");
-      const updated = await res.json();
-      setForm(updated);
-      saveBusinessColorOverrides(String(currentBusiness.id), updated);
-      toast.success("Site settings saved");
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(result?.error || "Save failed");
+
+      setForm((prev: any) => ({ ...prev, ...result }));
+      saveBusinessColorOverrides(String(currentBusiness.id), result);
+      toast.success(`${sectionLabel} saved`);
+      return result;
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save site settings");
+      toast.error(`Failed to save ${sectionLabel.toLowerCase()}`);
+      return null;
     } finally {
-      setSaving(false);
+      if (isSection) setSavingSection(null);
+      else setSaving(false);
     }
   };
+
+  const handleSave = async () => {
+    const payload = { ...form, businessId: currentBusiness?.id };
+    await saveSettings(payload, { sectionLabel: "Site settings" });
+  };
+
+  const handleSaveSection = async (sectionKey: string, sectionLabel: string, keys: string[]) => {
+    const payload: Record<string, any> = { businessId: currentBusiness?.id };
+    for (const key of keys) {
+      if (Object.prototype.hasOwnProperty.call(form, key)) {
+        payload[key] = form[key];
+      }
+    }
+
+    await saveSettings(payload, { isSection: true, sectionKey, sectionLabel });
+  };
+
+  const renderSectionSaveButton = (sectionKey: string, sectionLabel: string, keys: string[]) => (
+    <div className="flex justify-end pt-3">
+      <Button type="button" onClick={() => handleSaveSection(sectionKey, sectionLabel, keys)} disabled={savingSection === sectionKey}>
+        {savingSection === sectionKey ? `Saving ${sectionLabel}...` : `Save ${sectionLabel}`}
+      </Button>
+    </div>
+  );
 
   if (!currentBusiness?.id) return null;
 
@@ -201,6 +236,7 @@ const SiteSettingsForm: React.FC = () => {
                 <p className="mt-1 text-xs text-muted-foreground">Optional image shown on the platform home page and website carousel. Must be smaller than 50 KB.</p>
                 {valOf("storefrontImageUrl", "") ? <div className="mt-3 h-32 overflow-hidden rounded-md border bg-white/70"><img src={valOf("storefrontImageUrl", "")} alt="Storefront preview" className="h-full w-full object-cover" /></div> : null}
               </div>
+              {renderSectionSaveButton("branding", "Branding", ["logoImageUrl", "storefrontImageUrl"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -273,6 +309,7 @@ const SiteSettingsForm: React.FC = () => {
                   </ul>
                 </div>
               </div>
+              {renderSectionSaveButton("home", "Home Page", ["badgeText", "preHeroText", "heroHighlight", "promoTitle", "promoBannerText", "animatedTexts"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -309,6 +346,7 @@ const SiteSettingsForm: React.FC = () => {
                   <Input value={valOf("heroImage", "")} onChange={(e: any) => handleChange("heroImage", e.target.value)} />
                 </div>
               </div>
+              {renderSectionSaveButton("hero", "Hero", ["heroTitle", "heroSubtitle", "heroCTA", "heroCTALink", "heroImage"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -348,6 +386,7 @@ const SiteSettingsForm: React.FC = () => {
                 />
                 <p className="mt-1 text-xs text-muted-foreground">When enabled, new product prices use cost price plus this percentage.</p>
               </div>
+              {renderSectionSaveButton("pricing", "Product Pricing", ["markupEnabled", "markupPercentage"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -380,6 +419,7 @@ const SiteSettingsForm: React.FC = () => {
                   </button>
                 ))}
               </div>
+              {renderSectionSaveButton("locations", "Operating Locations", ["operatingStates"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -416,6 +456,7 @@ const SiteSettingsForm: React.FC = () => {
                   <Input value={valOf("iconImageUrl", "")} onChange={(e: any) => handleChange("iconImageUrl", e.target.value)} />
                 </div>
               </div>
+              {renderSectionSaveButton("icon", "Icon", ["iconMode", "iconText", "iconFontSize", "iconFontColor", "iconImageUrl"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -452,6 +493,7 @@ const SiteSettingsForm: React.FC = () => {
                   <Input value={valOf("physicalLocation", "")} onChange={(e: any) => handleChange("physicalLocation", e.target.value)} placeholder="e.g. 12 Allen Avenue, Ikeja, Lagos, Nigeria" />
                 </div>
               </div>
+              {renderSectionSaveButton("contact", "Contact", ["contactDesc", "contactEmail", "contactPhone", "address", "physicalLocation"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -484,6 +526,7 @@ const SiteSettingsForm: React.FC = () => {
                   <Input value={valOf("newsletterText", "Be the first to know about new arrivals and exclusive offers.")} onChange={(e: any) => handleChange("newsletterText", e.target.value)} />
                 </div>
               </div>
+              {renderSectionSaveButton("footer", "Footer", ["headerCTA", "footerText", "newsletterTitle", "newsletterText"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -516,6 +559,7 @@ const SiteSettingsForm: React.FC = () => {
                   <Input value={valOf("linkedin", "")} onChange={(e: any) => handleChange("linkedin", e.target.value)} />
                 </div>
               </div>
+              {renderSectionSaveButton("social", "Social", ["facebook", "instagram", "twitter", "linkedin"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -544,6 +588,7 @@ const SiteSettingsForm: React.FC = () => {
                   <Input value={valOf("accountName", "")} placeholder="e.g. HealthClique Limited" onChange={(e: any) => handleChange("accountName", e.target.value)} />
                 </div>
               </div>
+              {renderSectionSaveButton("bank", "Bank Transfer Details", ["bankName", "accountNumber", "accountName"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -625,6 +670,7 @@ const SiteSettingsForm: React.FC = () => {
                   rows={3}
                 />
               </div>
+              {renderSectionSaveButton("about", "About Page Content", ["aboutText", "aboutSub", "whoWeAreText", "visionText", "promiseText", "whatWeDoText", "aiSystemText", "integrityText"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
@@ -755,6 +801,7 @@ const SiteSettingsForm: React.FC = () => {
                   </div>
                 </div>
               </div>
+              {renderSectionSaveButton("colors", "Colors", ["accentLight", "accentDark", "accentSecondaryLight", "accentSecondaryDark", "accentForegroundLight", "accentForegroundDark"])}
             </CollapsibleContent>
           </div>
         </Collapsible>

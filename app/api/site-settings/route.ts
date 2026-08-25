@@ -35,13 +35,53 @@ export async function PUT(req: NextRequest) {
 
     const { id, businessId: _b, updatedAt, ...updatedData } = body;
 
-    const updated = await prisma.siteSettings.upsert({
-      where: { businessId },
-      update: updatedData,
-      create: { businessId, ...updatedData },
-    });
+    const sanitizedData = Object.fromEntries(
+      Object.entries(updatedData).filter(([, value]) => value !== undefined)
+    );
 
-    return NextResponse.json(updated);
+    if (Object.keys(sanitizedData).length === 0) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    }
+
+    const chunkSize = 20;
+    const entries = Object.entries(sanitizedData);
+    const chunks = [] as Array<Record<string, any>>;
+
+    for (let i = 0; i < entries.length; i += chunkSize) {
+      chunks.push(Object.fromEntries(entries.slice(i, i + chunkSize)));
+    }
+
+    const existing = await prisma.siteSettings.findUnique({ where: { businessId } });
+
+    if (!existing) {
+      const [firstChunk, ...restChunks] = chunks;
+      const created = await prisma.siteSettings.create({
+        data: {
+          businessId,
+          ...(firstChunk ?? {}),
+        },
+      });
+
+      for (const chunk of restChunks) {
+        await prisma.siteSettings.update({
+          where: { businessId },
+          data: chunk,
+        });
+      }
+
+      const updated = await prisma.siteSettings.findUnique({ where: { businessId } });
+      return NextResponse.json(updated ?? created);
+    }
+
+    for (const chunk of chunks) {
+      await prisma.siteSettings.update({
+        where: { businessId },
+        data: chunk,
+      });
+    }
+
+    const updated = await prisma.siteSettings.findUnique({ where: { businessId } });
+    return NextResponse.json(updated ?? existing);
   } catch (err) {
     console.error("site-settings PUT error", err);
     return NextResponse.json({ error: "Failed to update site settings" }, { status: 500 });
