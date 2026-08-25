@@ -31,6 +31,7 @@ const SiteSettingsForm: React.FC = () => {
   const [savingSection, setSavingSection] = useState<string | null>(null);
   const [form, setForm] = useState<any>({});
   const [openSection, setOpenSection] = useState<string | null>("hero");
+  const [focusedColorKey, setFocusedColorKey] = useState("accentDark");
   const [newOperatingState, setNewOperatingState] = useState("");
   const [newOperatingCountry, setNewOperatingCountry] = useState("Nigeria");
 
@@ -58,16 +59,67 @@ const SiteSettingsForm: React.FC = () => {
   const getAccentCss = (value: string) => `hsl(${value})`;
 
   const handleAccentSelect = (hsl: string) => {
-    handleChange("accentLight", hsl);
-    handleChange("accentDark", hsl);
+    handleChange(focusedColorKey, hsl);
     if (currentBusiness?.id) {
       saveBusinessColorOverrides(String(currentBusiness.id), {
         ...form,
-        accentLight: hsl,
-        accentDark: hsl,
+        [focusedColorKey]: hsl,
       });
     }
   };
+
+  const focusedColor = valOf(focusedColorKey, focusedColorKey.includes("Foreground") ? "222 47% 12%" : "45 93% 62%");
+  const focusedHue = Number.parseFloat(focusedColor.split(/\s+/)[0]) || 45;
+  const updateFocusedColorFromPoint = (event: React.PointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+    const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
+    const saturation = Math.round(x * 100);
+    const lightness = Math.round((1 - y) * 100);
+    handleAccentSelect(`${Math.round(focusedHue)} ${saturation}% ${lightness}%`);
+  };
+
+  const renderColorPicker = () => (
+    <div className="mb-4 rounded-lg border border-border/60 bg-background/70 p-3">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div>
+          <Label>Color selector</Label>
+          <p className="text-xs text-muted-foreground">Choose a pure hue, then pick its shade.</p>
+        </div>
+        <div className="h-10 w-10 rounded-full border-2 border-white shadow" style={{ background: getAccentCss(focusedColor) }} />
+      </div>
+      <div className="relative mx-auto h-56 w-56">
+        <div className="absolute inset-0 rounded-full" style={{ background: "conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)" }} />
+        <div className="absolute inset-[18px] rounded-full bg-background" />
+        {accentColorOptions.map((option, index) => {
+          const angle = (index / accentColorOptions.length) * Math.PI * 2 - Math.PI / 2;
+          const x = 50 + Math.cos(angle) * 42;
+          const y = 50 + Math.sin(angle) * 42;
+          return (
+            <button
+              key={option.name}
+              type="button"
+              aria-label={`Select ${option.name} hue for ${focusedColorKey}`}
+              onClick={() => handleAccentSelect(option.hsl)}
+              className="absolute h-8 w-8 rounded-full border-2 border-white/80 shadow transition-transform hover:scale-125"
+              style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)", background: getAccentCss(option.hsl) }}
+            />
+          );
+        })}
+        <div
+          role="slider"
+          aria-label={`Choose shade for ${focusedColorKey}`}
+          tabIndex={0}
+          onPointerDown={updateFocusedColorFromPoint}
+          className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 cursor-crosshair border border-white/80 shadow-lg"
+          style={{
+            clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
+            background: `linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0) 52%, rgba(0,0,0,1)), linear-gradient(to right, #000 0%, hsl(${focusedHue} 100% 50%) 100%)`,
+          }}
+        />
+      </div>
+    </div>
+  );
 
   const addOperatingState = () => {
     const state = newOperatingState.trim();
@@ -721,51 +773,7 @@ const SiteSettingsForm: React.FC = () => {
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="p-3">
-              <div className="space-y-6">
-                <div className="rounded-lg border border-border/60 bg-background/70 p-3">
-                  <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                      <Label>Accent Preview</Label>
-                      <p className="text-xs text-muted-foreground">Tap a triangle to change the store accent.</p>
-                    </div>
-                    <div
-                      className="h-12 w-12 rounded-full border-4 border-white shadow-lg"
-                      style={{ background: getAccentCss(valOf("accentLight", "8365 100% 37%")) }}
-                    />
-                  </div>
-
-                  <div className="mx-auto flex items-center justify-center">
-                    <div className="relative h-48 w-48 rounded-full border border-border/60 bg-gradient-to-br from-background to-muted/60 p-4 shadow-inner">
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div
-                          className="h-20 w-20 rounded-full border-2 border-white/80 shadow-lg"
-                          style={{ background: getAccentCss(valOf("accentLight", "8365 100% 37%")) }}
-                        />
-                      </div>
-                      {accentColorOptions.map((option, index) => {
-                        const angle = (index / accentColorOptions.length) * Math.PI * 2 - Math.PI / 2;
-                        const x = 50 + Math.cos(angle) * 60;
-                        const y = 50 + Math.sin(angle) * 60;
-                        return (
-                          <button
-                            key={option.name}
-                            type="button"
-                            aria-label={`Select ${option.name} accent`}
-                            onClick={() => handleAccentSelect(option.hsl)}
-                            className="absolute h-16 w-16 rounded-none border border-white/40 shadow-md transition-transform hover:scale-105"
-                            style={{
-                              left: `${x}%`,
-                              top: `${y}%`,
-                              transform: "translate(-50%, -50%)",
-                              background: getAccentCss(option.hsl),
-                              clipPath: "polygon(50% 0%, 100% 100%, 0% 100%)",
-                            }}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
+              <div className="flex flex-col space-y-6">
 
                 {/* Light Mode */}
                 <div>
@@ -773,8 +781,10 @@ const SiteSettingsForm: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-white/80 text-black/70 p-3 rounded border">
                     <div>
                       <Label>Accent Color (HSL)</Label>
+                      {focusedColorKey === "accentLight" && renderColorPicker()}
                       <Input 
                         value={valOf("accentLight", "8365 100% 37%")} 
+                        onFocus={() => setFocusedColorKey("accentLight")}
                         onChange={(e: any) => {
                           handleChange("accentLight", e.target.value);
                         }}
@@ -785,8 +795,10 @@ const SiteSettingsForm: React.FC = () => {
                     </div>
                     <div>
                       <Label>Secondary Accent (HSL)</Label>
+                      {focusedColorKey === "accentSecondaryLight" && renderColorPicker()}
                       <Input 
                         value={valOf("accentSecondaryLight", "45 93% 62%")}
+                        onFocus={() => setFocusedColorKey("accentSecondaryLight")}
                         onChange={(e: any) => {
                           handleChange("accentSecondaryLight", e.target.value);
                         }}
@@ -796,8 +808,10 @@ const SiteSettingsForm: React.FC = () => {
                     </div>
                     <div className="md:col-span-2">
                       <Label>Foreground (HSL)</Label>
+                      {focusedColorKey === "accentForegroundLight" && renderColorPicker()}
                       <Input 
                         value={valOf("accentForegroundLight", "222 47% 12%")} 
+                        onFocus={() => setFocusedColorKey("accentForegroundLight")}
                         onChange={(e: any) => handleChange("accentForegroundLight", e.target.value)}
                         placeholder="e.g., 222 47% 12%"
                         className="bg-white text-black border-gray-300"
@@ -807,13 +821,15 @@ const SiteSettingsForm: React.FC = () => {
                 </div>
 
                 {/* Dark Mode */}
-                <div>
+                <div className="order-first">
                   <h5 className="font-semibold text-sm mb-3">Dark Mode</h5>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-gray-800 text-white p-3 rounded border border-gray-700">
                     <div>
                       <Label className="text-white">Accent Color (HSL)</Label>
+                      {focusedColorKey === "accentDark" && renderColorPicker()}
                       <Input 
                         value={valOf("accentDark", "8365 100% 59%")} 
+                        onFocus={() => setFocusedColorKey("accentDark")}
                         onChange={(e: any) => {
                           handleChange("accentDark", e.target.value);
                         }}
@@ -824,8 +840,10 @@ const SiteSettingsForm: React.FC = () => {
                     </div>
                     <div>
                       <Label className="text-white">Secondary Accent (HSL)</Label>
+                      {focusedColorKey === "accentSecondaryDark" && renderColorPicker()}
                       <Input 
                         value={valOf("accentSecondaryDark", "45 93% 62%")}
+                        onFocus={() => setFocusedColorKey("accentSecondaryDark")}
                         onChange={(e: any) => {
                           handleChange("accentSecondaryDark", e.target.value);
                         }}
@@ -835,8 +853,10 @@ const SiteSettingsForm: React.FC = () => {
                     </div>
                     <div className="md:col-span-2">
                       <Label className="text-white">Foreground (HSL)</Label>
+                      {focusedColorKey === "accentForegroundDark" && renderColorPicker()}
                       <Input 
                         value={valOf("accentForegroundDark", "222 47% 10%")} 
+                        onFocus={() => setFocusedColorKey("accentForegroundDark")}
                         onChange={(e: any) => handleChange("accentForegroundDark", e.target.value)}
                         placeholder="e.g., 222 47% 10%"
                         className="bg-gray-700 text-white border-gray-600"
