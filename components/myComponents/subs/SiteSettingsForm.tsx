@@ -13,17 +13,6 @@ import { PlusCircle, Trash2, ChevronDown } from "lucide-react";
 import { prepareImageForUpload } from "@/lib/compress-image";
 import { saveBusinessColorOverrides } from "@/lib/business-colors";
 
-const accentColorOptions = [
-  { name: "Emerald", hsl: "152 68% 38%" },
-  { name: "Gold", hsl: "43 96% 56%" },
-  { name: "Violet", hsl: "258 70% 55%" },
-  { name: "Rose", hsl: "336 78% 52%" },
-  { name: "Amber", hsl: "36 95% 53%" },
-  { name: "Cyan", hsl: "188 90% 40%" },
-  { name: "Coral", hsl: "6 84% 58%" },
-  { name: "Mint", hsl: "164 64% 42%" },
-];
-
 const SiteSettingsForm: React.FC = () => {
   const { currentBusiness, setCurrentBusiness } = useAppContext();
   const [loading, setLoading] = useState(false);
@@ -79,6 +68,16 @@ const SiteSettingsForm: React.FC = () => {
     handleAccentSelect(`${Math.round(focusedHue)} ${saturation}% ${lightness}%`);
   };
 
+  const updateFocusedHueFromRing = (event: React.PointerEvent<HTMLDivElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const centerX = bounds.left + bounds.width / 2;
+    const centerY = bounds.top + bounds.height / 2;
+    const angle = Math.atan2(event.clientY - centerY, event.clientX - centerX);
+    const hue = Math.round((angle * 180) / Math.PI + 90 + 360) % 360;
+    const colorParts = focusedColor.split(/\s+/);
+    handleAccentSelect(`${hue} ${colorParts[1] || "100%"} ${colorParts[2] || "50%"}`);
+  };
+
   const renderColorPicker = () => (
     <div className="mb-4 rounded-lg border border-border/60 bg-background/70 p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -89,32 +88,27 @@ const SiteSettingsForm: React.FC = () => {
         <div className="h-10 w-10 rounded-full border-2 border-white shadow" style={{ background: getAccentCss(focusedColor) }} />
       </div>
       <div className="relative mx-auto h-56 w-56">
-        <div className="absolute inset-0 rounded-full" style={{ background: "conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)" }} />
+        <div
+          role="slider"
+          aria-label={`Choose pure hue for ${focusedColorKey}`}
+          tabIndex={0}
+          onPointerDown={updateFocusedHueFromRing}
+          className="absolute inset-0 cursor-crosshair rounded-full"
+          style={{ background: "conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)", mask: "radial-gradient(circle, transparent 0 72%, #000 73% 100%)", WebkitMask: "radial-gradient(circle, transparent 0 72%, #000 73% 100%)" }}
+        />
         <div className="absolute inset-[18px] rounded-full bg-background" />
-        {accentColorOptions.map((option, index) => {
-          const angle = (index / accentColorOptions.length) * Math.PI * 2 - Math.PI / 2;
-          const x = 50 + Math.cos(angle) * 42;
-          const y = 50 + Math.sin(angle) * 42;
-          return (
-            <button
-              key={option.name}
-              type="button"
-              aria-label={`Select ${option.name} hue for ${focusedColorKey}`}
-              onClick={() => handleAccentSelect(option.hsl)}
-              className="absolute h-8 w-8 rounded-full border-2 border-white/80 shadow transition-transform hover:scale-125"
-              style={{ left: `${x}%`, top: `${y}%`, transform: "translate(-50%, -50%)", background: getAccentCss(option.hsl) }}
-            />
-          );
-        })}
         <div
           role="slider"
           aria-label={`Choose shade for ${focusedColorKey}`}
           tabIndex={0}
-          onPointerDown={updateFocusedColorFromPoint}
+          onPointerDown={(event) => {
+            event.stopPropagation();
+            updateFocusedColorFromPoint(event);
+          }}
           className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 cursor-crosshair border border-white/80 shadow-lg"
           style={{
             clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
-            background: `linear-gradient(to bottom, rgba(255,255,255,1), rgba(255,255,255,0) 52%, rgba(0,0,0,1)), linear-gradient(to right, #000 0%, hsl(${focusedHue} 100% 50%) 100%)`,
+            background: `linear-gradient(to bottom, #000 0%, rgba(0,0,0,0) 100%), linear-gradient(to right, #fff 0%, hsl(${focusedHue} 100% 50%) 100%)`,
           }}
         />
       </div>
