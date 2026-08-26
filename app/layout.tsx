@@ -32,6 +32,11 @@ import { LoginPopup } from "@/components/myComponents/subs/LoginPopup";
 const metadata: Metadata = {
   title: "Vendors Hub",
   description: "Modern professional smart web solution built to grow your business.",
+  icons: {
+    icon: "/greenlogo.png",
+    shortcut: "/greenlogo.png",
+    apple: "/greenlogo.png",
+  },
 };
 
 export const SEO_CONFIG = {
