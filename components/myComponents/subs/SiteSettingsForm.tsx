@@ -93,10 +93,10 @@ const SiteSettingsForm: React.FC = () => {
           aria-label={`Choose pure hue for ${focusedColorKey}`}
           tabIndex={0}
           onPointerDown={updateFocusedHueFromRing}
-          className="absolute inset-0 cursor-crosshair rounded-full"
-          style={{ background: "conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)", mask: "radial-gradient(circle, transparent 0 72%, #000 73% 100%)", WebkitMask: "radial-gradient(circle, transparent 0 72%, #000 73% 100%)" }}
+          className="absolute inset-0 cursor-crosshair rounded-full p-5 shadow-inner"
+          style={{ background: "conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)" }}
         />
-        <div className="absolute inset-[18px] rounded-full bg-background" />
+        <div className="pointer-events-none absolute inset-5 rounded-full border border-border/60 bg-background" />
         <div
           role="slider"
           aria-label={`Choose shade for ${focusedColorKey}`}
