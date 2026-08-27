@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Search, PackagePlus, Link2, Check, Plus, X, ChevronLeft, ChevronRight, FolderPlus } from "lucide-react";
+import { Search, PackagePlus, Link2, Check, Plus, X, ChevronLeft, ChevronRight, FolderPlus, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [selected, setSelected] = useState<string[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [query, setQuery] = useState("");
+  const [minPrice, setMinPrice] = useState("");
+  const [maxPrice, setMaxPrice] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", price: "", costPrice: "", categoryId: "", variants: [] as Array<{ title: string; weight: string; volume: string; price: string }> });
@@ -70,6 +72,10 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   useEffect(() => {
     setCategoryPage(1);
   }, [categoryQuery]);
+
+  useEffect(() => {
+    setProductPage(1);
+  }, [minPrice, maxPrice]);
 
   useEffect(() => {
     if (!categoryDialog) return;
@@ -191,10 +197,67 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     }
   };
 
+  const saveSelectedCatalog = async () => {
+    if (!business || (!selected.length && !selectedCategories.length)) {
+      toast.error("Select at least one product or category");
+      return;
+    }
+    if (!categoryId) {
+      toast.error("Select a store category first");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      let addedProducts = 0;
+      if (selectedCategories.length) {
+        const categoryResults = await Promise.all(selectedCategories.map(async (sourceCategoryId) => {
+          const response = await fetch("/api/platform-products", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId, sourceCategoryId }),
+          });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || "Could not add categories");
+          return Number(result.attached) || 0;
+        }));
+        addedProducts += categoryResults.reduce((total, count) => total + count, 0);
+      }
+
+      if (selected.length) {
+        const response = await fetch("/api/platform-products", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "attach", businessId: business.id, categoryId, productIds: selected }),
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not add products");
+        addedProducts += Number(result.attached) || 0;
+      }
+
+      toast.success(`${addedProducts} item${addedProducts === 1 ? "" : "s"} saved to ${business.name}`);
+      setSelected([]);
+      setSelectedCategories([]);
+      setCategoryId("");
+      await loadProducts();
+    } catch (error) {
+      console.error(error);
+      toast.error("Could not save selected items. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredCategories = categories.filter((category) => !category.businessId && category.name.toLowerCase().includes(categoryQuery.toLowerCase()));
-  const visibleProducts = products.slice((productPage - 1) * ITEMS_PER_PAGE, productPage * ITEMS_PER_PAGE);
+  const filteredProducts = products.filter((product) => {
+    const price = Number(product.price) || 0;
+    const minimum = minPrice === "" ? 0 : Number(minPrice);
+    const maximum = maxPrice === "" ? Number.POSITIVE_INFINITY : Number(maxPrice);
+    return price >= minimum && price <= maximum;
+  });
+  const visibleProducts = filteredProducts.slice((productPage - 1) * ITEMS_PER_PAGE, productPage * ITEMS_PER_PAGE);
   const visibleCategories = filteredCategories.slice((categoryPage - 1) * ITEMS_PER_PAGE, categoryPage * ITEMS_PER_PAGE);
-  const productPages = Math.max(1, Math.ceil(products.length / ITEMS_PER_PAGE));
+  const productPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
   const categoryPages = Math.max(1, Math.ceil(filteredCategories.length / ITEMS_PER_PAGE));
 
   if (!session?.user?.id) {
@@ -224,9 +287,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <Button type="button" size="lg" variant={createOpen ? "default" : "outline"} className="h-auto justify-start gap-3 p-5 text-left" onClick={() => setCreateOpen((open) => !open)}><PackagePlus className="h-5 w-5" /><span><span className="block font-bold">Create product for the platform</span><span className="mt-1 block text-xs font-normal opacity-75">Open the product card form</span></span></Button>
-        {isOwner && <Button type="button" size="lg" variant={catalogMode === "products" ? "default" : "outline"} className="h-auto justify-start gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "products" ? null : "products")}><Link2 className="h-5 w-5" /><span><span className="block font-bold">Add platform products</span><span className="mt-1 block text-xs font-normal opacity-75">Search and choose product cards</span></span></Button>}
-        {isOwner && <Button type="button" size="lg" variant={catalogMode === "categories" ? "default" : "outline"} className="h-auto justify-start gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "categories" ? null : "categories")}><FolderPlus className="h-5 w-5" /><span><span className="block font-bold">Add platform categories</span><span className="mt-1 block text-xs font-normal opacity-75">Browse category cards and products</span></span></Button>}
+        <Button type="button" size="lg" variant={createOpen ? "default" : "outline"} aria-expanded={createOpen} className="h-auto justify-between gap-3 p-5 text-left" onClick={() => setCreateOpen((open) => !open)}><span className="flex items-center gap-3"><PackagePlus className="h-5 w-5" /><span><span className="block font-bold">Create product for the platform</span><span className="mt-1 block text-xs font-normal opacity-75">Open the product card form</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${createOpen ? "rotate-180" : ""}`} /></Button>
+        {isOwner && <Button type="button" size="lg" variant={catalogMode === "products" ? "default" : "outline"} aria-expanded={catalogMode === "products"} className="h-auto justify-between gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "products" ? null : "products")}><span className="flex items-center gap-3"><Link2 className="h-5 w-5" /><span><span className="block font-bold">Add platform products</span><span className="mt-1 block text-xs font-normal opacity-75">Search and choose product cards</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${catalogMode === "products" ? "rotate-180" : ""}`} /></Button>}
+        {isOwner && <Button type="button" size="lg" variant={catalogMode === "categories" ? "default" : "outline"} aria-expanded={catalogMode === "categories"} className="h-auto justify-between gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "categories" ? null : "categories")}><span className="flex items-center gap-3"><FolderPlus className="h-5 w-5" /><span><span className="block font-bold">Add platform categories</span><span className="mt-1 block text-xs font-normal opacity-75">Browse category cards and products</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${catalogMode === "categories" ? "rotate-180" : ""}`} /></Button>}
       </section>
 
       {createOpen && <section className="rounded-2xl border bg-card p-5 shadow-sm">
@@ -275,13 +338,17 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
             <div><h2 className="font-bold">Platform products</h2><p className="text-xs text-muted-foreground">Search products created by the community.</p></div>
             <div className="relative w-full sm:max-w-xs"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search products" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
           </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-md">
+            <Input type="number" min="0" placeholder="Minimum price" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
+            <Input type="number" min="0" placeholder="Maximum price" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
+          </div>
           <div className="mt-5 space-y-2">
             {visibleProducts.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">No unassigned platform products found.</p> : visibleProducts.map((product) => {
               const checked = selected.includes(product.id);
               return <button type="button" key={product.id} onClick={() => setSelected((items) => checked ? items.filter((id) => id !== product.id) : [...items, product.id])} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${checked ? "border-primary bg-primary/5" : "hover:bg-muted/50"}`}>
                 <span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span>
                 <span className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border bg-muted">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-4 h-5 w-5 text-muted-foreground" />}</span>
-                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()} · {product.variants?.length || 0} variant{product.variants?.length === 1 ? "" : "s"} · by {product.creator?.name || "Vport user"}</span></span>
+                <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()} · {product.variants?.length || 0} variant{product.variants?.length === 1 ? "" : "s"} · by {product.creator?.name || "Vport user"}</span></span><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-primary text-primary"}`} aria-hidden="true"><Plus className="h-4 w-4" /></span>
               </button>;
             })}
           </div>
@@ -291,7 +358,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       {catalogMode === "categories" && isOwner && <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-bold">Platform categories</h2><p className="text-xs text-muted-foreground">Each card shows products available in that category.</p></div><div className="relative w-full sm:max-w-xs"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search categories" value={categoryQuery} onChange={(e) => setCategoryQuery(e.target.value)} /></div></div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleCategories.map((category) => <button type="button" key={category.id} onClick={() => { setCategoryDialog(category); setCategoryProductSelection([]); }} className="overflow-hidden rounded-xl border bg-background text-left transition hover:border-primary hover:shadow-md"><div className="grid h-28 grid-cols-3 gap-1 bg-muted p-1">{(category.products || []).slice(0, 3).map((product: any, index: number) => <div key={index} className="overflow-hidden rounded-md bg-background">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-auto mt-9 h-5 w-5 text-muted-foreground" />}</div>)}</div><div className="p-3"><h3 className="font-bold">{category.name}</h3><p className="mt-1 text-xs text-muted-foreground">{category._count?.products || 0} products</p><span className="mt-3 inline-block text-xs font-bold text-primary">Choose products</span></div></button>)}
+          {visibleCategories.map((category) => <div key={category.id} className="overflow-hidden rounded-xl border bg-background text-left transition hover:border-primary hover:shadow-md"><div className="grid h-28 grid-cols-3 gap-1 bg-muted p-1">{(category.products || []).slice(0, 3).map((product: any, index: number) => <div key={index} className="overflow-hidden rounded-md bg-background">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-auto mt-9 h-5 w-5 text-muted-foreground" />}</div>)}</div><div className="p-3"><h3 className="font-bold">{category.name}</h3><p className="mt-1 text-xs text-muted-foreground">{category._count?.products || 0} products</p><div className="mt-3 flex gap-2"><Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => { setCategoryDialog(category); setCategoryProductSelection([]); }}><Check className="mr-1 h-3 w-3" />Choose products</Button><Button type="button" size="sm" className="flex-1" onClick={() => setSelectedCategories((items) => items.includes(category.id) ? items.filter((id) => id !== category.id) : [...items, category.id])}><Plus className="mr-1 h-3 w-3" />Add category</Button></div></div></div>)}
         </div>
         {categoryPages > 1 && <div className="flex items-center justify-center gap-3"><Button type="button" size="icon" variant="outline" disabled={categoryPage === 1} onClick={() => setCategoryPage((page) => page - 1)}><ChevronLeft className="h-4 w-4" /></Button><span className="text-xs text-muted-foreground">Page {categoryPage} of {categoryPages}</span><Button type="button" size="icon" variant="outline" disabled={categoryPage === categoryPages} onClick={() => setCategoryPage((page) => page + 1)}><ChevronRight className="h-4 w-4" /></Button></div>}
       </section>}
@@ -306,17 +373,20 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
               return <button type="button" key={category.id} onClick={() => setSelectedCategories((items) => checked ? items.filter((id) => id !== category.id) : [...items, category.id])} className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span><span className="truncate">{category.name}</span></button>;
             })}
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row"><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm sm:max-w-xs"><option value="">Store category for selected items</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><Button onClick={attachCategories} disabled={loading || selectedCategories.length === 0 || !categoryId}>Add selected categories</Button></div>
+          <div className="flex flex-col gap-3 sm:flex-row"><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm sm:max-w-xs"><option value="">Store category for selected items</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>
         </div>
         <div className="border-t pt-5">
         <h3 className="font-bold">Add selected product cards</h3>
         <p className="mt-1 text-sm text-muted-foreground">Choose one of your categories. Selected platform products will become part of this website.</p>
         <div className="mt-4 flex flex-col gap-3 sm:flex-row">
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm sm:max-w-xs"><option value="">Select category</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
-          <Button onClick={attachProducts} disabled={loading || selected.length === 0 || !categoryId}>Add {selected.length || "selected"} product{selected.length === 1 ? "" : "s"} to website</Button>
         </div>
         </div>
       </section>}
+
+      {isOwner && catalogMode === "categories" && <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center"><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Store category for selected items</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><span className="text-sm text-muted-foreground">{selectedCategories.length} category{selectedCategories.length === 1 ? "" : "ies"} selected</span></div></section>}
+
+      {isOwner && (selected.length > 0 || selectedCategories.length > 0) && <Button type="button" size="lg" onClick={saveSelectedCatalog} disabled={loading} className="fixed bottom-6 right-6 z-50 gap-2 rounded-full px-6 py-4 shadow-2xl"><Check className="h-5 w-5" />{loading ? "Saving..." : `Save selected (${selected.length + selectedCategories.length})`}</Button>}
 
       <Dialog open={Boolean(categoryDialog)} onOpenChange={(open) => { if (!open) { setCategoryDialog(null); setCategoryProducts([]); setCategoryProductSelection([]); } }}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
@@ -324,7 +394,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           <p className="text-sm text-muted-foreground">Add every product in this category or choose only the products you want for your store.</p>
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Select your store category</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
           {categoryProductsLoading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading products...</p> : <div className="grid gap-2 sm:grid-cols-2">{categoryProducts.map((product) => { const checked = categoryProductSelection.includes(product.id); return <button type="button" key={product.id} onClick={() => setCategoryProductSelection((items) => checked ? items.filter((id) => id !== product.id) : [...items, product.id])} className={`flex items-center gap-2 rounded-lg border p-2 text-left ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-3 h-5 w-5 text-muted-foreground" />}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()}</span></span>{checked && <Check className="h-4 w-4 text-primary" />}</button>; })}</div>}
-          <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row"><Button type="button" className="flex-1" disabled={loading || !categoryId || categoryProducts.length === 0} onClick={() => attachCategoryProducts(true)}>Add all products</Button><Button type="button" variant="outline" className="flex-1" disabled={loading || !categoryId || categoryProductSelection.length === 0} onClick={() => attachCategoryProducts(false)}>Add selected ({categoryProductSelection.length})</Button></div>
+          <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row"><Button type="button" className="flex-1" disabled={categoryProducts.length === 0} onClick={() => { setSelected((items) => [...new Set([...items, ...categoryProducts.map((product) => product.id)])]); setCategoryDialog(null); setCategoryProducts([]); setCategoryProductSelection([]); }}>Add all to save</Button><Button type="button" variant="outline" className="flex-1" disabled={categoryProductSelection.length === 0} onClick={() => { setSelected((items) => [...new Set([...items, ...categoryProductSelection])]); setCategoryDialog(null); setCategoryProducts([]); setCategoryProductSelection([]); }}>Add selected to save ({categoryProductSelection.length})</Button></div>
         </DialogContent>
       </Dialog>
     </main>
