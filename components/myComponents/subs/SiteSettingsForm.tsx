@@ -93,10 +93,11 @@ const SiteSettingsForm: React.FC = () => {
           aria-label={`Choose pure hue for ${focusedColorKey}`}
           tabIndex={0}
           onPointerDown={updateFocusedHueFromRing}
-          className="absolute inset-0 cursor-crosshair rounded-full p-5 shadow-inner"
-          style={{ background: "conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)" }}
+          className="absolute inset-0 z-10 cursor-crosshair rounded-full border-[22px] border-transparent shadow-inner"
+          style={{
+            background: "linear-gradient(hsl(var(--background)), hsl(var(--background))) padding-box, conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000) border-box",
+          }}
         />
-        <div className="pointer-events-none absolute inset-5 rounded-full border border-border/60 bg-background" />
         <div
           role="slider"
           aria-label={`Choose shade for ${focusedColorKey}`}
@@ -105,7 +106,7 @@ const SiteSettingsForm: React.FC = () => {
             event.stopPropagation();
             updateFocusedColorFromPoint(event);
           }}
-          className="absolute left-1/2 top-1/2 h-32 w-32 -translate-x-1/2 -translate-y-1/2 cursor-crosshair border border-white/80 shadow-lg"
+          className="absolute left-1/2 top-1/2 z-20 h-32 w-32 -translate-x-1/2 -translate-y-1/2 cursor-crosshair border border-white/80 shadow-lg"
           style={{
             clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
             background: `linear-gradient(to bottom, #000 0%, rgba(0,0,0,0) 100%), linear-gradient(to right, #fff 0%, hsl(${focusedHue} 100% 50%) 100%)`,
