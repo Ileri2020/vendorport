@@ -2,7 +2,7 @@
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
-import bcrypt, { compare } from "bcryptjs";
+import { compare } from "bcryptjs";
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -153,10 +153,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     signIn: async ({ user, account }) => {
       if (account?.provider === "google") {
         try {
-          const { email, name, image, id } = user;
+          const { email, name, image } = user;
 
-          if (!email || !id) {
-            throw new Error("Email and ID are required for Google sign in");
+          if (!email) {
+            console.error("Google sign-in returned no email");
+            return false;
           }
 
           // Create high-quality Google avatar URL
@@ -166,42 +167,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const defaultAvatar =
             "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png";
 
-          const hashedId = await bcrypt.hash(
-            id,
-            parseInt(process.env.SALT_ROUNDS || "10")
-          );
-
-          const existingUser = await prisma.user.findUnique({
+          await prisma.user.upsert({
             where: { email },
+            create: {
+              email,
+              name,
+              image: googleAvatar ?? defaultAvatar,
+            },
+            update: googleAvatar
+              ? { name, image: googleAvatar }
+              : { name },
           });
-
-          // 1️⃣ USER DOES NOT EXIST → CREATE (no password required for OAuth)
-          if (!existingUser) {
-            await prisma.user.create({
-              data: {
-                email,
-                name,
-                image: googleAvatar ?? defaultAvatar,
-                providerid: hashedId,
-                // password is intentionally omitted — it's optional for OAuth users
-              },
-            });
-
-            return true;
-          }
-
-          // 2️⃣ USER EXISTS → UPDATE image if needed
-          const shouldUpdateAvatar =
-            !existingUser.image ||
-            existingUser.image.trim() === "" ||
-            existingUser.image === defaultAvatar;
-
-          if (shouldUpdateAvatar && googleAvatar) {
-            await prisma.user.update({
-              where: { email },
-              data: { image: googleAvatar },
-            });
-          }
 
           return true;
         } catch (error) {
