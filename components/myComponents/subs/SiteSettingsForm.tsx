@@ -151,9 +151,12 @@ const SiteSettingsForm: React.FC = () => {
           style={{
             background: "linear-gradient(hsl(var(--background)), hsl(var(--background))) padding-box, conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000) border-box",
           }}
-        >
-          <span className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-black shadow-[0_0_0_1px_rgba(255,255,255,0.8)]" style={{ ...hueHandlePosition, transform: `translate(-50%, -50%) rotate(${focusedHue}deg)` }} />
-        </div>
+        />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute z-30 left-1/2 top-1/2 h-8 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-black shadow-[0_0_0_1px_rgba(255,255,255,0.8)]"
+          style={{ ...hueHandlePosition, transform: `translate(-50%, -50%) rotate(${focusedHue}deg)` }}
+        />
         <div
           role="slider"
           aria-label={`Choose shade for ${focusedColorKey}`}
@@ -171,15 +174,15 @@ const SiteSettingsForm: React.FC = () => {
             clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
             background: `linear-gradient(to bottom, #000 0%, rgba(0,0,0,0) 100%), linear-gradient(to right, #fff 0%, hsl(${focusedHue} 100% 50%) 100%)`,
           }}
+        />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute z-30 h-3 w-3 -translate-x-1/2 -translate-y-1/2"
+          style={triangleMarkerPosition}
         >
-          <span
-            className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2"
-            style={triangleMarkerPosition}
-          >
-            <span className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.65)]" />
-            <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.65)]" />
-          </span>
-        </div>
+          <span className="absolute left-1/2 top-0 h-full w-px bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.65)]" />
+          <span className="absolute left-0 top-1/2 h-px w-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.65)]" />
+        </span>
       </div>
     </div>
   );
