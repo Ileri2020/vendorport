@@ -78,6 +78,19 @@ const SiteSettingsForm: React.FC = () => {
     handleAccentSelect(`${hue} ${colorParts[1] || "100%"} ${colorParts[2] || "50%"}`);
   };
 
+  const hueHandleAngle = ((focusedHue - 90) * Math.PI) / 180;
+  const hueHandlePosition = {
+    left: `${50 + Math.cos(hueHandleAngle) * 39}%`,
+    top: `${50 + Math.sin(hueHandleAngle) * 39}%`,
+  };
+  const focusedColorParts = focusedColor.split(/\s+/);
+  const focusedSaturation = Math.max(0, Math.min(100, Number.parseFloat(focusedColorParts[1]) || 0));
+  const focusedLightness = Math.max(0, Math.min(100, Number.parseFloat(focusedColorParts[2]) || 50));
+  const triangleMarkerPosition = {
+    left: `${50 + (focusedSaturation - 50) * 0.72}%`,
+    top: `${Math.max(8, Math.min(88, 88 - focusedLightness * 0.72))}%`,
+  };
+
   const renderColorPicker = () => (
     <div className="mb-4 rounded-lg border border-border/60 bg-background/70 p-3">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -93,11 +106,16 @@ const SiteSettingsForm: React.FC = () => {
           aria-label={`Choose pure hue for ${focusedColorKey}`}
           tabIndex={0}
           onPointerDown={updateFocusedHueFromRing}
+          onPointerMove={(event) => {
+            if (event.buttons > 0) updateFocusedHueFromRing(event);
+          }}
           className="absolute inset-0 z-10 cursor-crosshair rounded-full border-[22px] border-transparent shadow-inner"
           style={{
             background: "linear-gradient(hsl(var(--background)), hsl(var(--background))) padding-box, conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000) border-box",
           }}
-        />
+        >
+          <span className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.8)]" style={hueHandlePosition} />
+        </div>
         <div
           role="slider"
           aria-label={`Choose shade for ${focusedColorKey}`}
@@ -106,12 +124,24 @@ const SiteSettingsForm: React.FC = () => {
             event.stopPropagation();
             updateFocusedColorFromPoint(event);
           }}
+          onPointerMove={(event) => {
+            event.stopPropagation();
+            if (event.buttons > 0) updateFocusedColorFromPoint(event);
+          }}
           className="absolute left-1/2 top-1/2 z-20 h-32 w-32 -translate-x-1/2 -translate-y-1/2 cursor-crosshair border border-white/80 shadow-lg"
           style={{
             clipPath: "polygon(50% 0%, 0% 100%, 100% 100%)",
             background: `linear-gradient(to bottom, #000 0%, rgba(0,0,0,0) 100%), linear-gradient(to right, #fff 0%, hsl(${focusedHue} 100% 50%) 100%)`,
           }}
-        />
+        >
+          <span
+            className="pointer-events-none absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2"
+            style={triangleMarkerPosition}
+          >
+            <span className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.65)]" />
+            <span className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.65)]" />
+          </span>
+        </div>
       </div>
     </div>
   );
