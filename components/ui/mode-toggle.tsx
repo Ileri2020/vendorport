@@ -14,6 +14,10 @@ import {
 
 export function ModeToggle() {
   const { setTheme } = useTheme()
+  const chooseTheme = (theme: "light" | "dark") => {
+    localStorage.setItem("vport-user-theme-preference", theme)
+    setTheme(theme)
+  }
 
   return (
     <DropdownMenu>
@@ -25,10 +29,10 @@ export function ModeToggle() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme("light")}>
+        <DropdownMenuItem onClick={() => chooseTheme("light")}>
           Light
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
+        <DropdownMenuItem onClick={() => chooseTheme("dark")}>
           Dark
         </DropdownMenuItem>
       </DropdownMenuContent>

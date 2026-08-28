@@ -22,6 +22,7 @@ const SiteSettingsForm: React.FC = () => {
   const [openSection, setOpenSection] = useState<string | null>("hero");
   const [focusedColorKey, setFocusedColorKey] = useState("accentDark");
   const [triangleSelections, setTriangleSelections] = useState<Record<string, { x: number; y: number }>>({});
+  const [colorDragging, setColorDragging] = useState(false);
   const [newOperatingState, setNewOperatingState] = useState("");
   const [newOperatingCountry, setNewOperatingCountry] = useState("Nigeria");
 
@@ -47,6 +48,20 @@ const SiteSettingsForm: React.FC = () => {
   const handleChange = (key: string, value: any) => setForm((s: any) => ({ ...s, [key]: value }));
   const valOf = (key: string, defaultValue: any = "") => form[key] !== undefined ? form[key] : defaultValue;
   const getAccentCss = (value: string) => `hsl(${value})`;
+
+  useEffect(() => {
+    if (!colorDragging) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const stopDragging = () => setColorDragging(false);
+    window.addEventListener("pointerup", stopDragging);
+    window.addEventListener("pointercancel", stopDragging);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("pointerup", stopDragging);
+      window.removeEventListener("pointercancel", stopDragging);
+    };
+  }, [colorDragging]);
 
   const handleAccentSelect = (hsl: string) => {
     handleChange(focusedColorKey, hsl);
@@ -131,9 +146,10 @@ const SiteSettingsForm: React.FC = () => {
   const triangleLeftEdge = triangleMarkerInset + (boundedTriangleY / 2) * edgeScale;
   const triangleRightEdge = 1 - triangleMarkerInset - (boundedTriangleY / 2) * edgeScale;
   const boundedTriangleX = Math.max(triangleLeftEdge, Math.min(triangleRightEdge, triangleSelection.x));
+  const trianglePickerScale = 128 / 224;
   const triangleMarkerPosition = {
-    left: `${boundedTriangleX * 100}%`,
-    top: `${boundedTriangleY * 100}%`,
+    left: `${50 + (boundedTriangleX - 0.5) * trianglePickerScale * 100}%`,
+    top: `${50 + (boundedTriangleY - 0.5) * trianglePickerScale * 100}%`,
   };
 
   const renderColorPicker = () => (
@@ -150,7 +166,7 @@ const SiteSettingsForm: React.FC = () => {
           role="slider"
           aria-label={`Choose pure hue for ${focusedColorKey}`}
           tabIndex={0}
-          onPointerDown={updateFocusedHueFromRing}
+          onPointerDown={(event) => { setColorDragging(true); updateFocusedHueFromRing(event); }}
           onPointerMove={(event) => {
             if (event.buttons > 0) updateFocusedHueFromRing(event);
           }}
@@ -168,10 +184,7 @@ const SiteSettingsForm: React.FC = () => {
           role="slider"
           aria-label={`Choose shade for ${focusedColorKey}`}
           tabIndex={0}
-          onPointerDown={(event) => {
-            event.stopPropagation();
-            updateFocusedColorFromPoint(event);
-          }}
+          onPointerDown={(event) => { setColorDragging(true); event.stopPropagation(); updateFocusedColorFromPoint(event); }}
           onPointerMove={(event) => {
             event.stopPropagation();
             if (event.buttons > 0) updateFocusedColorFromPoint(event);

@@ -58,6 +58,7 @@ const Stocks = () => {
   const [cardOrientation, setCardOrientation] = useState<"horizontal" | "vertical">("horizontal");
   const [showOrientationPopup, setShowOrientationPopup] = useState(false);
   const [locationRevision, setLocationRevision] = useState(0);
+  const orientationStorageKey = businessId ? `store-card-orientation:${businessId}` : 'store-card-orientation';
 
   useEffect(() => {
     const refreshLocation = () => setLocationRevision((revision) => revision + 1);
@@ -143,11 +144,19 @@ const Stocks = () => {
 
   // Load card orientation from localStorage
   useEffect(() => {
-    const saved = localStorage.getItem('store-card-orientation');
+    const saved = localStorage.getItem(orientationStorageKey);
     if (saved === 'vertical' || saved === 'horizontal') {
       setCardOrientation(saved);
     }
-  }, []);
+  }, [orientationStorageKey]);
+
+  useEffect(() => {
+    if (businessId && localStorage.getItem(orientationStorageKey)) return;
+    const businessOrientation = currentBusiness?.siteSettings?.productCardOrientation;
+    if (businessOrientation === 'vertical' || businessOrientation === 'horizontal') {
+      setCardOrientation(businessOrientation);
+    }
+  }, [businessId, currentBusiness?.siteSettings?.productCardOrientation, orientationStorageKey]);
 
   // Show orientation popup for first-time mobile visitors
   useEffect(() => {
@@ -166,7 +175,7 @@ const Stocks = () => {
   const toggleOrientation = () => {
     const newOrientation = cardOrientation === 'horizontal' ? 'vertical' : 'horizontal';
     setCardOrientation(newOrientation);
-    localStorage.setItem('store-card-orientation', newOrientation);
+    localStorage.setItem(orientationStorageKey, newOrientation);
   };
 
   const handleAddToWishlist = (productId: string) => {

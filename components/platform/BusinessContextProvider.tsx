@@ -12,6 +12,7 @@
  */
 
 import { useEffect } from "react";
+import { useTheme } from "next-themes";
 import { useAppContext } from "@/hooks/useAppContext";
 
 interface Props {
@@ -21,6 +22,7 @@ interface Props {
 
 function BusinessInjector({ business }: { business: any }) {
   const { setCurrentBusiness, currentBusiness } = useAppContext();
+  const { setTheme } = useTheme();
   const cacheKey = business?.slug ? `storefront.business.${business.slug}` : null;
 
   useEffect(() => {
@@ -54,6 +56,15 @@ function BusinessInjector({ business }: { business: any }) {
       console.warn("Failed to cache current business", error);
     }
   }, [business, cacheKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const userThemePreference = window.localStorage.getItem("vport-user-theme-preference");
+    const businessTheme = business?.siteSettings?.defaultTheme;
+    if (!userThemePreference && (businessTheme === "light" || businessTheme === "dark")) {
+      setTheme(businessTheme);
+    }
+  }, [business?.siteSettings?.defaultTheme, setTheme]);
 
   return null;
 }

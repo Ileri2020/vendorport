@@ -68,6 +68,8 @@ export interface StorefrontBusiness {
     accentSecondaryDark: string;
     accentForegroundLight: string;
     accentForegroundDark: string;
+    defaultTheme: string | null;
+    productCardOrientation: string | null;
   } | null;
   staff: { id: string; name: string; role: string; bio: string | null; image: string | null }[];
   stats: { id: string; label: string; value: string; icon: string | null }[];
@@ -147,6 +149,8 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
           accentSecondaryDark: true,
           accentForegroundLight: true,
           accentForegroundDark: true,
+          defaultTheme: true,
+          productCardOrientation: true,
         },
       },
       staff: {
