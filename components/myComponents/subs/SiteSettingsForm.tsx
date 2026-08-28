@@ -60,6 +60,7 @@ const SiteSettingsForm: React.FC = () => {
 
   const focusedColor = valOf(focusedColorKey, focusedColorKey.includes("Foreground") ? "222 47% 12%" : "45 93% 62%");
   const focusedHue = Number.parseFloat(focusedColor.split(/\s+/)[0]) || 45;
+  const triangleMarkerInset = 0.05;
   const hslToRgb = (hsl: string) => {
     const [hue, saturation, lightness] = hsl.split(/\s+/).map((value) => Number.parseFloat(value) || 0);
     const s = Math.max(0, Math.min(100, saturation)) / 100;
@@ -89,9 +90,10 @@ const SiteSettingsForm: React.FC = () => {
 
   const updateFocusedColorFromPoint = (event: React.PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
-    const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
-    const leftEdge = y / 2;
-    const rightEdge = 1 - y / 2;
+    const y = Math.max(triangleMarkerInset, Math.min(1 - triangleMarkerInset, (event.clientY - bounds.top) / bounds.height));
+    const edgeScale = 1 - triangleMarkerInset * 2;
+    const leftEdge = triangleMarkerInset + (y / 2) * edgeScale;
+    const rightEdge = 1 - triangleMarkerInset - (y / 2) * edgeScale;
     const rectangleX = Math.max(leftEdge, Math.min(rightEdge, (event.clientX - bounds.left) / bounds.width));
     const triangleX = rightEdge === leftEdge ? 0.5 : (rectangleX - leftEdge) / (rightEdge - leftEdge);
     const whiteWeight = y * (1 - triangleX);
@@ -124,9 +126,14 @@ const SiteSettingsForm: React.FC = () => {
     x: Math.max(0, Math.min(1, focusedSaturation / 100)),
     y: Math.max(0, Math.min(1, 1 - focusedLightness / 100)),
   };
+  const boundedTriangleY = Math.max(triangleMarkerInset, Math.min(1 - triangleMarkerInset, triangleSelection.y));
+  const edgeScale = 1 - triangleMarkerInset * 2;
+  const triangleLeftEdge = triangleMarkerInset + (boundedTriangleY / 2) * edgeScale;
+  const triangleRightEdge = 1 - triangleMarkerInset - (boundedTriangleY / 2) * edgeScale;
+  const boundedTriangleX = Math.max(triangleLeftEdge, Math.min(triangleRightEdge, triangleSelection.x));
   const triangleMarkerPosition = {
-    left: `${triangleSelection.x * 100}%`,
-    top: `${triangleSelection.y * 100}%`,
+    left: `${boundedTriangleX * 100}%`,
+    top: `${boundedTriangleY * 100}%`,
   };
 
   const renderColorPicker = () => (
@@ -840,6 +847,34 @@ const SiteSettingsForm: React.FC = () => {
             </CollapsibleTrigger>
             <CollapsibleContent className="p-3">
               <div className="flex flex-col space-y-6">
+                <div className="grid gap-3 rounded-lg border border-border/60 bg-background/70 p-3 md:grid-cols-2">
+                  <div>
+                    <Label htmlFor="business-default-theme">Website default mode</Label>
+                    <select
+                      id="business-default-theme"
+                      value={valOf("defaultTheme", "")}
+                      onChange={(event) => handleChange("defaultTheme", event.target.value)}
+                      className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    >
+                      <option value="">Use platform default (dark)</option>
+                      <option value="light">Light mode</option>
+                      <option value="dark">Dark mode</option>
+                    </select>
+                  </div>
+                  <div>
+                    <Label htmlFor="business-card-orientation">Default product card orientation</Label>
+                    <select
+                      id="business-card-orientation"
+                      value={valOf("productCardOrientation", "")}
+                      onChange={(event) => handleChange("productCardOrientation", event.target.value)}
+                      className="mt-2 h-10 w-full rounded-md border bg-background px-3 text-sm"
+                    >
+                      <option value="">Use platform default (landscape)</option>
+                      <option value="horizontal">Landscape</option>
+                      <option value="vertical">Portrait</option>
+                    </select>
+                  </div>
+                </div>
 
                 {/* Light Mode */}
                 <div>
@@ -931,7 +966,7 @@ const SiteSettingsForm: React.FC = () => {
                   </div>
                 </div>
               </div>
-              {renderSectionSaveButton("colors", "Colors", ["accentLight", "accentDark", "accentSecondaryLight", "accentSecondaryDark", "accentForegroundLight", "accentForegroundDark"])}
+              {renderSectionSaveButton("colors", "Colors", ["defaultTheme", "productCardOrientation", "accentLight", "accentDark", "accentSecondaryLight", "accentSecondaryDark", "accentForegroundLight", "accentForegroundDark"])}
             </CollapsibleContent>
           </div>
         </Collapsible>
