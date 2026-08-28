@@ -21,6 +21,7 @@ const SiteSettingsForm: React.FC = () => {
   const [form, setForm] = useState<any>({});
   const [openSection, setOpenSection] = useState<string | null>("hero");
   const [focusedColorKey, setFocusedColorKey] = useState("accentDark");
+  const [triangleSelections, setTriangleSelections] = useState<Record<string, { x: number; y: number }>>({});
   const [newOperatingState, setNewOperatingState] = useState("");
   const [newOperatingCountry, setNewOperatingCountry] = useState("Nigeria");
 
@@ -59,13 +60,46 @@ const SiteSettingsForm: React.FC = () => {
 
   const focusedColor = valOf(focusedColorKey, focusedColorKey.includes("Foreground") ? "222 47% 12%" : "45 93% 62%");
   const focusedHue = Number.parseFloat(focusedColor.split(/\s+/)[0]) || 45;
+  const hslToRgb = (hsl: string) => {
+    const [hue, saturation, lightness] = hsl.split(/\s+/).map((value) => Number.parseFloat(value) || 0);
+    const s = Math.max(0, Math.min(100, saturation)) / 100;
+    const l = Math.max(0, Math.min(100, lightness)) / 100;
+    const chroma = (1 - Math.abs(2 * l - 1)) * s;
+    const x = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const match = l - chroma / 2;
+    const [red, green, blue] = hue < 60 ? [chroma, x, 0] : hue < 120 ? [x, chroma, 0] : hue < 180 ? [0, chroma, x] : hue < 240 ? [0, x, chroma] : hue < 300 ? [x, 0, chroma] : [chroma, 0, x];
+    return [red + match, green + match, blue + match];
+  };
+
+  const rgbToHsl = ([red, green, blue]: number[]) => {
+    const max = Math.max(red, green, blue);
+    const min = Math.min(red, green, blue);
+    const delta = max - min;
+    let hue = 0;
+    if (delta) {
+      if (max === red) hue = 60 * (((green - blue) / delta) % 6);
+      else if (max === green) hue = 60 * ((blue - red) / delta + 2);
+      else hue = 60 * ((red - green) / delta + 4);
+    }
+    if (hue < 0) hue += 360;
+    const lightness = (max + min) / 2;
+    const saturation = delta ? delta / (1 - Math.abs(2 * lightness - 1)) : 0;
+    return `${Math.round(hue)} ${Math.round(saturation * 100)}% ${Math.round(lightness * 100)}%`;
+  };
+
   const updateFocusedColorFromPoint = (event: React.PointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
-    const x = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
     const y = Math.max(0, Math.min(1, (event.clientY - bounds.top) / bounds.height));
-    const saturation = Math.round(x * 100);
-    const lightness = Math.round((1 - y) * 100);
-    handleAccentSelect(`${Math.round(focusedHue)} ${saturation}% ${lightness}%`);
+    const leftEdge = y / 2;
+    const rightEdge = 1 - y / 2;
+    const rectangleX = Math.max(leftEdge, Math.min(rightEdge, (event.clientX - bounds.left) / bounds.width));
+    const triangleX = rightEdge === leftEdge ? 0.5 : (rectangleX - leftEdge) / (rightEdge - leftEdge);
+    const whiteWeight = y * (1 - triangleX);
+    const hueWeight = y * triangleX;
+    const hueRgb = hslToRgb(`${focusedHue} 100% 50%`);
+    const rgb = hueRgb.map((channel) => whiteWeight + hueWeight * channel);
+    setTriangleSelections((selections) => ({ ...selections, [focusedColorKey]: { x: rectangleX, y } }));
+    handleAccentSelect(rgbToHsl(rgb));
   };
 
   const updateFocusedHueFromRing = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -86,9 +120,13 @@ const SiteSettingsForm: React.FC = () => {
   const focusedColorParts = focusedColor.split(/\s+/);
   const focusedSaturation = Math.max(0, Math.min(100, Number.parseFloat(focusedColorParts[1]) || 0));
   const focusedLightness = Math.max(0, Math.min(100, Number.parseFloat(focusedColorParts[2]) || 50));
+  const triangleSelection = triangleSelections[focusedColorKey] || {
+    x: Math.max(0, Math.min(1, focusedSaturation / 100)),
+    y: Math.max(0, Math.min(1, 1 - focusedLightness / 100)),
+  };
   const triangleMarkerPosition = {
-    left: `${50 + (focusedSaturation - 50) * 0.72}%`,
-    top: `${Math.max(8, Math.min(88, 88 - focusedLightness * 0.72))}%`,
+    left: `${triangleSelection.x * 100}%`,
+    top: `${triangleSelection.y * 100}%`,
   };
 
   const renderColorPicker = () => (
@@ -114,7 +152,7 @@ const SiteSettingsForm: React.FC = () => {
             background: "linear-gradient(hsl(var(--background)), hsl(var(--background))) padding-box, conic-gradient(#ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000) border-box",
           }}
         >
-          <span className="pointer-events-none absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-[0_0_0_1px_rgba(0,0,0,0.8)]" style={hueHandlePosition} />
+          <span className="pointer-events-none absolute left-1/2 top-1/2 h-8 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white bg-black shadow-[0_0_0_1px_rgba(255,255,255,0.8)]" style={{ ...hueHandlePosition, transform: `translate(-50%, -50%) rotate(${focusedHue}deg)` }} />
         </div>
         <div
           role="slider"
