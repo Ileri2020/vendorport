@@ -9,46 +9,117 @@ import { useAppContext } from "@/hooks/useAppContext";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+const MESSAGE_CACHE_TTL = 3000;
+const messageCache = new Map<string, { timestamp: number; data: any[] }>();
+const messageRequests = new Map<string, Promise<any[]>>();
+type NotificationState = {
+  unreadCount: number;
+  showToast: boolean;
+  subscribers: Set<() => void>;
+  interval: ReturnType<typeof setInterval> | null;
+};
+
+const notificationStates = new Map<string, NotificationState>();
+
+export function getMessages(userId: string) {
+  const cached = messageCache.get(userId);
+  if (cached && Date.now() - cached.timestamp < MESSAGE_CACHE_TTL) {
+    return Promise.resolve(cached.data);
+  }
+
+  if (cached) messageCache.delete(userId);
+
+  const pending = messageRequests.get(userId);
+  if (pending) return pending;
+
+  const request = axios
+    .get("/api/dbhandler?model=message")
+    .then((response) => {
+      const data = Array.isArray(response.data) ? response.data : [];
+      messageCache.set(userId, { timestamp: Date.now(), data });
+      return data;
+    })
+    .finally(() => {
+      messageRequests.delete(userId);
+    });
+
+  messageRequests.set(userId, request);
+  return request;
+}
+
+export function invalidateMessages(userId: string) {
+  messageCache.delete(userId);
+}
+
+function getNotificationState(userId: string) {
+  let state = notificationStates.get(userId);
+  if (!state) {
+    state = { unreadCount: 0, showToast: false, subscribers: new Set(), interval: null };
+    notificationStates.set(userId, state);
+  }
+  return state;
+}
+
+async function refreshNotifications(userId: string, state: NotificationState) {
+  try {
+    const messages = await getMessages(userId);
+    const unreadCount = messages.filter((msg: any) => msg.receiverId === userId && !msg.isRead).length;
+    const lastShownCount = parseInt(sessionStorage.getItem("lastToastCount") || "0");
+
+    if (unreadCount > lastShownCount) {
+      state.showToast = true;
+      sessionStorage.setItem("lastToastCount", unreadCount.toString());
+    }
+
+    state.unreadCount = unreadCount;
+    state.subscribers.forEach((notify) => notify());
+  } catch (err) {
+    console.error("Error fetching messages:", err);
+  }
+}
+
+function subscribeToNotifications(userId: string, notify: () => void) {
+  const state = getNotificationState(userId);
+  state.subscribers.add(notify);
+
+  if (state.subscribers.size === 1) {
+    void refreshNotifications(userId, state);
+    state.interval = setInterval(() => void refreshNotifications(userId, state), 30000);
+  }
+
+  return () => {
+    state.subscribers.delete(notify);
+    if (state.subscribers.size === 0 && state.interval) {
+      clearInterval(state.interval);
+      state.interval = null;
+    }
+  };
+}
+
 function useUnreadCount() {
   const { user } = useAppContext();
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showToast, setShowToast] = useState(false);
-  const isFetching = React.useRef(false);
+  const [, setVersion] = useState(0);
 
   const isAdmin = user.role === "admin" || user.role === "staff" || user.role === "professional";
+  const userId = user?.id && user.id !== "nil" ? user.id : null;
+  const state = userId ? getNotificationState(userId) : null;
 
   useEffect(() => {
-    if (!user?.id || user.id === "nil") return;
+    if (!userId) return;
+    return subscribeToNotifications(userId, () => setVersion((version) => version + 1));
+  }, [userId]);
 
-    const checkMessages = async () => {
-      if (isFetching.current) return;
-      isFetching.current = true;
-      try {
-        const res = await axios.get("/api/dbhandler?model=message");
-        const unread = res.data.filter((msg: any) => msg.receiverId === user.id && !msg.isRead);
-        
-        // Session storage to track toast display
-        const lastShownCount = parseInt(sessionStorage.getItem("lastToastCount") || "0");
-        
-        if (unread.length > lastShownCount) {
-          setShowToast(true);
-          sessionStorage.setItem("lastToastCount", unread.length.toString());
-        }
-        
-        setUnreadCount(unread.length);
-      } catch (err) {
-        console.error("Error fetching messages:", err);
-      } finally {
-        isFetching.current = false;
+  return {
+    unreadCount: state?.unreadCount ?? 0,
+    showToast: state?.showToast ?? false,
+    setShowToast: (showToast: boolean) => {
+      if (state) {
+        state.showToast = showToast;
+        state.subscribers.forEach((notify) => notify());
       }
-    };
-
-    checkMessages();
-    const interval = setInterval(checkMessages, 30000);
-    return () => clearInterval(interval);
-  }, [user?.id]);
-
-  return { unreadCount, showToast, setShowToast, isAdmin };
+    },
+    isAdmin,
+  };
 }
 
 /** Bell icon intended to sit inside the navbar */

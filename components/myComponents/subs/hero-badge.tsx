@@ -1,4 +1,4 @@
-import { SEO_CONFIG, SYSTEM_CONFIG } from "@/app/layout";
+import { SEO_CONFIG, SYSTEM_CONFIG } from "@/lib/site-config";
 import { GithubIcon } from "lucide-react";
 import Link from "next/link";
 

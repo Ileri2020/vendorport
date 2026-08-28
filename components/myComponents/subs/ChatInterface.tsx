@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useAppContext } from "@/hooks/useAppContext";
 import { Badge } from "@/components/ui/badge";
+import { getMessages, invalidateMessages } from "@/components/myComponents/subs/NotificationUI";
 
 interface Message {
   id: string;
@@ -69,14 +70,14 @@ export const ChatInterface = () => {
     try {
       const [usersRes, msgsRes] = await Promise.all([
         axios.get("/api/dbhandler?model=user"),
-        axios.get("/api/dbhandler?model=message"),
+        getMessages(user.id),
       ]);
 
       const nonAdminUsers: UserListItem[] = usersRes.data
         .filter((u: any) => u.role !== "admin" && u.role !== "staff" && u.role !== "professional")
         .map((u: any) => ({ ...u, lastMessage: undefined, lastMessageTime: undefined, unreadCount: 0 }));
 
-      const allMessages = msgsRes.data as Message[];
+      const allMessages = msgsRes as Message[];
 
       // Attach last-message info to each user
       const enriched = nonAdminUsers.map((u) => {
@@ -117,9 +118,9 @@ export const ChatInterface = () => {
   const fetchMessages = async () => {
     if (!selectedUserId || !user.id) return;
     try {
-      const res = await axios.get(`/api/dbhandler?model=message`);
+      const allMessages = await getMessages(user.id);
       const targetId = isAdmin ? selectedUserId : user.id;
-      const filtered = res.data
+      const filtered = allMessages
         .filter((msg: any) => {
           if (isAdmin) {
             return msg.senderId === selectedUserId || msg.receiverId === selectedUserId;
@@ -139,6 +140,7 @@ export const ChatInterface = () => {
             axios.put(`/api/dbhandler?model=message&id=${msg.id}`, { isRead: true })
           )
         );
+        invalidateMessages(user.id);
         fetchUsersWithMessages(); // refresh unread counts
       }
     } catch (e) {
@@ -174,6 +176,7 @@ export const ChatInterface = () => {
         senderId: user.id,
         receiverId: selectedUserId,
       });
+      invalidateMessages(user.id);
       setNewMessage("");
       fetchMessages();
       fetchUsersWithMessages();

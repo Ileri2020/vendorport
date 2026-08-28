@@ -127,14 +127,16 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
   const heroRockets = useMemo(() => createHeroRockets(3), []);
 
   useEffect(() => {
-    const loadFeaturedBusinesses = async () => {
-      if (businessList.length > 0 || businesses?.length) {
-        if (businesses?.length) {
-          setBusinessList(businesses);
-        }
-        return;
-      }
+    if (businesses?.length) {
+      setBusinessList(businesses);
+      return;
+    }
 
+    if (businessList.length > 0) {
+      return;
+    }
+
+    const loadFeaturedBusinesses = async () => {
       try {
         const response = await axios.get('/api/dbhandler?model=business&limit=6&includeArchived=false');
         const data = Array.isArray(response.data) ? response.data : [];
@@ -155,7 +157,7 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
     };
 
     loadFeaturedBusinesses();
-  }, [businessList.length, businesses]);
+  }, [businesses]);
 
   useEffect(() => {
     const location = getSavedUserLocation();

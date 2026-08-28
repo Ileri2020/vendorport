@@ -1,4 +1,3 @@
-"use client"
 import  { lazy } from "react"
 import dynamic from "next/dynamic"
 

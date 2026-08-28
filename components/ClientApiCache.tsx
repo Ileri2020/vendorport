@@ -2,7 +2,7 @@
 
 import axios, { AxiosResponse } from "axios";
 
-const CACHE_TTL = 5000;
+const CACHE_TTL = 3000;
 const publicModels = new Set([
   "activeIngredient",
   "brand",
@@ -12,6 +12,9 @@ const publicModels = new Set([
   "healthConcern",
   "product",
 ]);
+
+const requestCache = new Map<string, { timestamp: number; response: Response | AxiosResponse }>();
+const inFlight = new Map<string, Promise<Response | AxiosResponse>>();
 
 type CachedFetch = {
   timestamp: number;
@@ -39,10 +42,15 @@ function isCacheable(urlValue: string) {
   return true;
 }
 
-function getCacheKey(method: string, urlValue: string) {
+function normalizeUrl(urlValue: string) {
   const url = new URL(urlValue, window.location.origin);
   url.searchParams.sort();
-  return `${method.toUpperCase()}:${url.toString()}`;
+  url.hash = "";
+  return url.toString();
+}
+
+function getCacheKey(method: string, urlValue: string) {
+  return `${method.toUpperCase()}:${normalizeUrl(urlValue)}`;
 }
 
 function isFresh(timestamp: number) {
@@ -61,72 +69,74 @@ export default function ClientApiCache() {
   return null;
 }
 
-if (typeof window !== "undefined") {
+if (typeof window !== "undefined" && !(window as any).__clientApiCachePatched) {
+  (window as any).__clientApiCachePatched = true;
+
   const originalFetch = window.fetch.bind(window);
   const originalAxiosGet = axios.get.bind(axios);
 
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
-    const method = init?.method || (input instanceof Request ? input.method : "GET");
+    const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
     const url = input instanceof Request ? input.url : input.toString();
 
-    if (method.toUpperCase() !== "GET" || !isCacheable(url)) {
+    if (method !== "GET" || !isCacheable(url)) {
       return originalFetch(input, init);
     }
 
     const key = getCacheKey(method, url);
+    const cached = requestCache.get(key) as { timestamp: number; response: Response } | undefined;
+    if (cached && isFresh(cached.timestamp)) return cached.response.clone();
+    if (cached) requestCache.delete(key);
 
-    const cached = fetchCache.get(key);
-    if (cached && isFresh(cached.timestamp)) return createFetchResponse(cached);
-    if (cached) fetchCache.delete(key);
-
-    const pending = fetchPending.get(key);
-    if (pending) return createFetchResponse(await pending);
+    const pending = inFlight.get(key);
+    if (pending) return pending.then((value) => value instanceof Response ? value.clone() : new Response(JSON.stringify((value as AxiosResponse).data), { status: (value as AxiosResponse).status, headers: { "content-type": "application/json" } }));
 
     const request = originalFetch(input, init).then(async (response) => {
-      const body = await response.text();
-      const entry: CachedFetch = {
-        timestamp: Date.now(),
+      const body = await response.clone().text();
+      const cachedResponse = new Response(body, {
         status: response.status,
         statusText: response.statusText,
-        headers: Array.from(response.headers.entries()),
-        body,
-      };
-      if (response.ok) fetchCache.set(key, entry);
-      return entry;
+        headers: response.headers,
+      });
+
+      if (response.ok) {
+        requestCache.set(key, { timestamp: Date.now(), response: cachedResponse });
+      }
+
+      return cachedResponse;
     });
 
-    fetchPending.set(key, request);
+    inFlight.set(key, request);
     try {
-      return createFetchResponse(await request);
+      return await request;
     } finally {
-      fetchPending.delete(key);
+      inFlight.delete(key);
     }
   };
 
   axios.get = (async (url: string, config?: any) => {
     if (!isCacheable(url)) return originalAxiosGet(url, config);
+
     const key = getCacheKey("GET", url);
-
-    const cached = axiosCache.get(key);
+    const cached = requestCache.get(key) as { timestamp: number; response: AxiosResponse } | undefined;
     if (cached && isFresh(cached.timestamp)) return cached.response;
-    if (cached) axiosCache.delete(key);
+    if (cached) requestCache.delete(key);
 
-    const pending = axiosPending.get(key);
+    const pending = inFlight.get(key);
     if (pending) return pending;
 
     const request = originalAxiosGet(url, config).then((response) => {
       if (response.status >= 200 && response.status < 300) {
-        axiosCache.set(key, { timestamp: Date.now(), response });
+        requestCache.set(key, { timestamp: Date.now(), response });
       }
       return response;
     });
 
-    axiosPending.set(key, request);
+    inFlight.set(key, request);
     try {
       return await request;
     } finally {
-      axiosPending.delete(key);
+      inFlight.delete(key);
     }
   }) as typeof axios.get;
-
 }

@@ -2,7 +2,7 @@
 import React from "react";
 import { Facebook, Instagram, Linkedin, Mail, Twitter, Users, ChevronRight } from "lucide-react";
 import Link from "next/link";
-import { SEO_CONFIG } from "../../../app/layout";
+import { SEO_CONFIG } from "@/lib/site-config";
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button";
 import { AffiliateDialog } from "./AffiliateDialog";

@@ -32,9 +32,9 @@ const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
   const settings = currentBusiness?.siteSettings || {};
   const businessName = currentBusiness?.name || "Business";
   const storeRoute = currentBusiness?.slug || currentBusiness?.name?.toLowerCase().replace(/\s+/g, "-") || "store";
-  const heroHeadingPrefix = typeof settings.heroTitle === "string" && settings.heroTitle.trim()
-    ? settings.heroTitle.trim()
-    : (isPharmacy ? "Welcome to our Pharmacy" : `Welcome to ${businessName}`);
+  // const heroHeadingPrefix = typeof settings.heroTitle === "string" && settings.heroTitle.trim()
+  //   ? settings.heroTitle.trim()
+  //   : (isPharmacy ? "Welcome to our Pharmacy" : `Welcome to ${businessName}`);
   const heroHeadingHighlight = typeof settings.heroHighlight === "string" && settings.heroHighlight.trim()
     ? settings.heroHighlight.trim()
     : (isPharmacy ? "Premium Medical Supplies" : "Premium Products");
@@ -93,8 +93,8 @@ const Hero = ({ storeTemplate = "estore" }: { storeTemplate?: string }) => {
                 className="text-xl md:text-2xl font-bold text-accent italic h-8 overflow-hidden" 
               />
 
-              <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-foreground leading-[1.1]">
-                {heroHeadingPrefix} <br />
+              <h1 className="text-2xl md:text-4xl font-bold tracking-tight text-accent leading-[1.1]">
+                {/* {heroHeadingPrefix} <br /> */}
                 <p className="text-3xl md:text-5xl font-bold italic text-accent">
                   <span>{businessName}</span> 
                   {/* / <span className="font-extrabold">{storeRoute}</span> */}
