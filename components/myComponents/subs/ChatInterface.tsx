@@ -13,6 +13,8 @@ import { useAppContext } from "@/hooks/useAppContext";
 import { Badge } from "@/components/ui/badge";
 import { getMessages, invalidateMessages } from "@/components/myComponents/subs/NotificationUI";
 
+const MESSAGE_REFRESH_INTERVAL = 120000;
+
 interface Message {
   id: string;
   content: string;
@@ -155,7 +157,7 @@ export const ChatInterface = () => {
     const interval = setInterval(() => {
       fetchUsersWithMessages();
       fetchMessages();
-    }, 30000);
+    }, MESSAGE_REFRESH_INTERVAL);
     return () => clearInterval(interval);
   }, [selectedUserId, user.id]);
 

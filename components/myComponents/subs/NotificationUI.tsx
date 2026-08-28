@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 const MESSAGE_CACHE_TTL = 3000;
+const MESSAGE_REFRESH_INTERVAL = 120000;
 const messageCache = new Map<string, { timestamp: number; data: any[] }>();
 const messageRequests = new Map<string, Promise<any[]>>();
 type NotificationState = {
@@ -84,7 +85,7 @@ function subscribeToNotifications(userId: string, notify: () => void) {
 
   if (state.subscribers.size === 1) {
     void refreshNotifications(userId, state);
-    state.interval = setInterval(() => void refreshNotifications(userId, state), 30000);
+    state.interval = setInterval(() => void refreshNotifications(userId, state), MESSAGE_REFRESH_INTERVAL);
   }
 
   return () => {
