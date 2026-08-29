@@ -69,7 +69,26 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   useEffect(() => {
     fetch("/api/dbhandler?model=category")
       .then((response) => response.json())
-      .then(setCategories)
+      .then((items) => {
+        const seen = new Map<string, any>();
+        for (const category of items || []) {
+          const key = String(category?.name || "").trim().toLowerCase();
+          const existing = seen.get(key);
+          if (!existing) {
+            seen.set(key, category);
+            continue;
+          }
+          const currentIsPlatform = !existing.businessId;
+          const incomingIsPlatform = !category.businessId;
+          if (incomingIsPlatform && !currentIsPlatform) seen.set(key, category);
+          else if (currentIsPlatform === incomingIsPlatform) {
+            const incomingImageCount = Array.isArray(category.products) ? category.products.filter((product: any) => product?.images?.length).length : 0;
+            const currentImageCount = Array.isArray(existing.products) ? existing.products.filter((product: any) => product?.images?.length).length : 0;
+            if (incomingImageCount > currentImageCount) seen.set(key, category);
+          }
+        }
+        setCategories([...seen.values()]);
+      })
       .catch(() => toast.error("Could not load categories"));
   }, []);
 

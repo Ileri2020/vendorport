@@ -8,6 +8,74 @@ async function getSessionUser() {
   return { session, userId };
 }
 
+function normalizeCatalogValue(value: unknown) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function dedupeCatalogProducts(products: any[]) {
+  const seen = new Map<string, any>();
+
+  for (const product of products) {
+    const name = normalizeCatalogValue(product.name);
+    const brand = normalizeCatalogValue(product.brand || product.brandData?.name || "");
+    const categoryName = normalizeCatalogValue(product.category?.name || "");
+    const price = Number(product.price ?? 0).toFixed(2);
+    const key = `${name}|${brand}|${categoryName}|${price}`;
+    const existing = seen.get(key);
+
+    if (!existing) {
+      seen.set(key, product);
+      continue;
+    }
+
+    const currentIsPlatform = !existing.businessId;
+    const incomingIsPlatform = !product.businessId;
+
+    if (currentIsPlatform === incomingIsPlatform) {
+      const existingImageCount = Array.isArray(existing.images) ? existing.images.filter(Boolean).length : 0;
+      const incomingImageCount = Array.isArray(product.images) ? product.images.filter(Boolean).length : 0;
+      if (incomingImageCount > existingImageCount) seen.set(key, product);
+      continue;
+    }
+
+    if (incomingIsPlatform) {
+      seen.set(key, product);
+    }
+  }
+
+  return [...seen.values()];
+}
+
+function dedupeCatalogCategories(categories: any[]) {
+  const seen = new Map<string, any>();
+
+  for (const category of categories) {
+    const key = normalizeCatalogValue(category.name);
+    const existing = seen.get(key);
+
+    if (!existing) {
+      seen.set(key, category);
+      continue;
+    }
+
+    const currentIsPlatform = !existing.businessId;
+    const incomingIsPlatform = !category.businessId;
+
+    if (currentIsPlatform === incomingIsPlatform) {
+      const currentImageCount = Array.isArray(existing.products) ? existing.products.filter((product: any) => product?.images?.length).length : 0;
+      const incomingImageCount = Array.isArray(category.products) ? category.products.filter((product: any) => product?.images?.length).length : 0;
+      if (incomingImageCount > currentImageCount) seen.set(key, category);
+      continue;
+    }
+
+    if (incomingIsPlatform) {
+      seen.set(key, category);
+    }
+  }
+
+  return [...seen.values()];
+}
+
 async function cloneProductsToBusiness({
   businessId,
   categoryId,
@@ -117,12 +185,15 @@ export async function GET(request: NextRequest) {
   const categoryId = new URL(request.url).searchParams.get("categoryId")?.trim() || "";
   const products = await prisma.product.findMany({
     where: {
-      businessId: null,
       ...(categoryId ? { categoryId } : {}),
       ...(query ? { OR: [
         { name: { contains: query, mode: "insensitive" } },
         { description: { contains: query, mode: "insensitive" } },
       ] } : {}),
+      OR: [
+        { businessId: null },
+        { businessId: { not: null } },
+      ],
     },
     include: {
       category: true,
@@ -130,10 +201,11 @@ export async function GET(request: NextRequest) {
       creator: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 50,
+    take: 200,
   });
 
-  return NextResponse.json(products);
+  const dedupedProducts = dedupeCatalogProducts(products);
+  return NextResponse.json(dedupedProducts.slice(0, 50));
 }
 
 export async function POST(request: NextRequest) {

@@ -196,6 +196,66 @@ function buildVariantCreates(variants: any[]) {
   }));
 }
 
+function normalizeCatalogValue(value: unknown) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function dedupeCatalogProducts(products: any[]) {
+  const seen = new Map<string, any>();
+
+  for (const product of products) {
+    const key = `${normalizeCatalogValue(product?.name)}|${normalizeCatalogValue(product?.brand || product?.brandData?.name || "")}|${normalizeCatalogValue(product?.category?.name || "")}|${Number(product?.price ?? 0).toFixed(2)}`;
+    const existing = seen.get(key);
+
+    if (!existing) {
+      seen.set(key, product);
+      continue;
+    }
+
+    const currentIsPlatform = !existing.businessId;
+    const incomingIsPlatform = !product.businessId;
+
+    if (currentIsPlatform === incomingIsPlatform) {
+      const currentImageCount = Array.isArray(existing.images) ? existing.images.filter(Boolean).length : 0;
+      const incomingImageCount = Array.isArray(product.images) ? product.images.filter(Boolean).length : 0;
+      if (incomingImageCount > currentImageCount) seen.set(key, product);
+      continue;
+    }
+
+    if (incomingIsPlatform) seen.set(key, product);
+  }
+
+  return [...seen.values()];
+}
+
+function dedupeCatalogCategories(categories: any[]) {
+  const seen = new Map<string, any>();
+
+  for (const category of categories) {
+    const key = normalizeCatalogValue(category?.name);
+    const existing = seen.get(key);
+
+    if (!existing) {
+      seen.set(key, category);
+      continue;
+    }
+
+    const currentIsPlatform = !existing.businessId;
+    const incomingIsPlatform = !category.businessId;
+
+    if (currentIsPlatform === incomingIsPlatform) {
+      const currentImageCount = Array.isArray(existing.products) ? existing.products.filter((product: any) => product?.images?.length).length : 0;
+      const incomingImageCount = Array.isArray(category.products) ? category.products.filter((product: any) => product?.images?.length).length : 0;
+      if (incomingImageCount > currentImageCount) seen.set(key, category);
+      continue;
+    }
+
+    if (incomingIsPlatform) seen.set(key, category);
+  }
+
+  return [...seen.values()];
+}
+
 // =====================
 // Utilities
 // =====================
@@ -348,7 +408,7 @@ export async function GET(req: NextRequest) {
         const where: any = {};
         if (businessId) where.businessId = businessId;
         if (searchParams.get("platform") === "true") where.businessId = null;
-        return NextResponse.json(await prisma.category.findMany({
+        const categories = await prisma.category.findMany({
           take: limit,
           skip: offset,
           where,
@@ -358,7 +418,8 @@ export async function GET(req: NextRequest) {
             _count: { select: { products: true } },
             business: { include: { siteSettings: { select: { address: true, physicalLocation: true, operatingStates: true } } } },
           }
-        }));
+        });
+        return NextResponse.json(dedupeCatalogCategories(categories));
       }
 
       if (model === "product") {
@@ -468,10 +529,10 @@ export async function GET(req: NextRequest) {
             prisma.product.findMany(query),
             prisma.product.count({ where })
           ]);
-          return NextResponse.json({ data, total });
+          return NextResponse.json({ data: dedupeCatalogProducts(data), total });
         }
 
-        return NextResponse.json(await prisma.product.findMany(query));
+        return NextResponse.json(dedupeCatalogProducts(await prisma.product.findMany(query)));
       }
 
       if (model === "portfolio") {
