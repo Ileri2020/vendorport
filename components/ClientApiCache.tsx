@@ -16,6 +16,16 @@ const publicModels = new Set([
 const requestCache = new Map<string, { timestamp: number; response: Response | AxiosResponse }>();
 const inFlight = new Map<string, Promise<Response | AxiosResponse>>();
 
+function clearClientApiCache() {
+  requestCache.clear();
+  inFlight.clear();
+}
+
+if (typeof window !== "undefined") {
+  (window as any).__clearClientApiCache = clearClientApiCache;
+  window.addEventListener("vport:clear-api-cache", clearClientApiCache);
+}
+
 type CachedFetch = {
   timestamp: number;
   status: number;

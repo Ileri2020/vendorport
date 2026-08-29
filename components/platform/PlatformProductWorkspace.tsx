@@ -252,6 +252,10 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
               ? `Saved ${savedCategories} ${categoryText} to ${business.name}.`
               : `Saved ${addedProducts} ${itemText} to ${business.name}.`;
 
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("vport:clear-api-cache"));
+      }
+
       toast.success(message);
       setSaveSuccessDialog({ title, message });
       setSelected([]);
