@@ -9,9 +9,6 @@ const prisma = new PrismaClient();
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
-  redirectProxyUrl: process.env.NODE_ENV === "production"
-    ? "https://vport.store/api/auth"
-    : undefined,
   providers: [
     Google({
       clientId: process.env.GOOGLE_ID,
