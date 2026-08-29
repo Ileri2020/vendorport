@@ -46,20 +46,23 @@ export async function POST(request: NextRequest) {
     const businessId = String(body.businessId || "");
     const categoryId = String(body.categoryId || "");
     const productIds = Array.isArray(body.productIds) ? body.productIds.map(String) : [];
-    if (!businessId || !categoryId || productIds.length === 0) {
-      return NextResponse.json({ error: "Business, category, and products are required" }, { status: 400 });
+    if (!businessId || productIds.length === 0) {
+      return NextResponse.json({ error: "Business and products are required" }, { status: 400 });
     }
 
     const business = await prisma.business.findUnique({ where: { id: businessId } });
     if (!business || (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const category = await prisma.category.findFirst({ where: { id: categoryId, businessId } });
+    const category = categoryId
+      ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })
+      : await prisma.category.findFirst({ where: { businessId, name: { equals: "General", mode: "insensitive" } } })
+        || await prisma.category.create({ data: { businessId, name: "General" } });
     if (!category) return NextResponse.json({ error: "Category does not belong to this business" }, { status: 400 });
 
     const result = await prisma.product.updateMany({
       where: { id: { in: productIds }, businessId: null },
-      data: { businessId, categoryId },
+      data: { businessId, categoryId: category.id },
     });
     return NextResponse.json({ attached: result.count });
   }
@@ -68,20 +71,23 @@ export async function POST(request: NextRequest) {
     const businessId = String(body.businessId || "");
     const categoryId = String(body.categoryId || "");
     const sourceCategoryId = String(body.sourceCategoryId || "");
-    if (!businessId || !categoryId || !sourceCategoryId) {
-      return NextResponse.json({ error: "Business and both categories are required" }, { status: 400 });
+    if (!businessId || !sourceCategoryId) {
+      return NextResponse.json({ error: "Business and source category are required" }, { status: 400 });
     }
     const business = await prisma.business.findUnique({ where: { id: businessId } });
     if (!business || (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const targetCategory = await prisma.category.findFirst({ where: { id: categoryId, businessId } });
-    if (!targetCategory) return NextResponse.json({ error: "Store category was not found" }, { status: 400 });
     const sourceCategory = await prisma.category.findFirst({ where: { id: sourceCategoryId, businessId: null } });
     if (!sourceCategory) return NextResponse.json({ error: "Platform category was not found" }, { status: 400 });
+    const targetCategory = categoryId
+      ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })
+      : await prisma.category.findFirst({ where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } } })
+        || await prisma.category.create({ data: { businessId, name: sourceCategory.name, description: sourceCategory.description } });
+    if (!targetCategory) return NextResponse.json({ error: "Store category was not found" }, { status: 400 });
     const result = await prisma.product.updateMany({
       where: { businessId: null, categoryId: sourceCategoryId },
-      data: { businessId, categoryId },
+      data: { businessId, categoryId: targetCategory.id },
     });
     return NextResponse.json({ attached: result.count });
   }

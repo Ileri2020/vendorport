@@ -210,10 +210,6 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       return;
     }
     const targetCategoryId = categoryId || (businessCategories.length === 1 ? String(businessCategories[0].id) : "");
-    if (!targetCategoryId) {
-      toast.error("Select a store category first");
-      return;
-    }
 
     setLoading(true);
     try {
@@ -223,7 +219,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           const response = await fetch("/api/platform-products", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId: targetCategoryId, sourceCategoryId }),
+            body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId: targetCategoryId || undefined, sourceCategoryId }),
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "Could not add categories");
@@ -236,7 +232,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         const response = await fetch("/api/platform-products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "attach", businessId: business.id, categoryId: targetCategoryId, productIds: selected }),
+          body: JSON.stringify({ action: "attach", businessId: business.id, categoryId: targetCategoryId || undefined, productIds: selected }),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Could not add products");
