@@ -13,12 +13,16 @@ const publicModels = new Set([
   "product",
 ]);
 
-const requestCache = new Map<string, { timestamp: number; response: Response | AxiosResponse }>();
-const inFlight = new Map<string, Promise<Response | AxiosResponse>>();
+const requestCache = new Map<string, { timestamp: number; response: Response }>();
+const inFlight = new Map<string, Promise<Response>>();
 
 function clearClientApiCache() {
   requestCache.clear();
   inFlight.clear();
+  fetchCache.clear();
+  fetchPending.clear();
+  axiosCache.clear();
+  axiosPending.clear();
 }
 
 if (typeof window !== "undefined") {
@@ -94,12 +98,12 @@ if (typeof window !== "undefined" && !(window as any).__clientApiCachePatched) {
     }
 
     const key = getCacheKey(method, url);
-    const cached = requestCache.get(key) as { timestamp: number; response: Response } | undefined;
+    const cached = requestCache.get(key);
     if (cached && isFresh(cached.timestamp)) return cached.response.clone();
     if (cached) requestCache.delete(key);
 
     const pending = inFlight.get(key);
-    if (pending) return pending.then((value) => value instanceof Response ? value.clone() : new Response(JSON.stringify((value as AxiosResponse).data), { status: (value as AxiosResponse).status, headers: { "content-type": "application/json" } }));
+    if (pending) return pending.then((value) => value.clone());
 
     const request = originalFetch(input, init).then(async (response) => {
       const body = await response.clone().text();
@@ -128,25 +132,25 @@ if (typeof window !== "undefined" && !(window as any).__clientApiCachePatched) {
     if (!isCacheable(url)) return originalAxiosGet(url, config);
 
     const key = getCacheKey("GET", url);
-    const cached = requestCache.get(key) as { timestamp: number; response: AxiosResponse } | undefined;
+    const cached = axiosCache.get(key);
     if (cached && isFresh(cached.timestamp)) return cached.response;
-    if (cached) requestCache.delete(key);
+    if (cached) axiosCache.delete(key);
 
-    const pending = inFlight.get(key);
+    const pending = axiosPending.get(key);
     if (pending) return pending;
 
     const request = originalAxiosGet(url, config).then((response) => {
       if (response.status >= 200 && response.status < 300) {
-        requestCache.set(key, { timestamp: Date.now(), response });
+        axiosCache.set(key, { timestamp: Date.now(), response });
       }
       return response;
     });
 
-    inFlight.set(key, request);
+    axiosPending.set(key, request);
     try {
       return await request;
     } finally {
-      inFlight.delete(key);
+      axiosPending.delete(key);
     }
   }) as typeof axios.get;
 }
