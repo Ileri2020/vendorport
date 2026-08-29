@@ -8,47 +8,105 @@ async function getSessionUser() {
   return { session, userId };
 }
 
-async function syncBusinessCategoryLinks({
+async function cloneProductsToBusiness({
   businessId,
   categoryId,
   productIds,
+  userId,
 }: {
   businessId: string;
   categoryId: string;
   productIds: string[];
+  userId?: string | null;
 }) {
   const uniqueProductIds = [...new Set(productIds.filter(Boolean).map(String))];
   if (uniqueProductIds.length === 0) {
     return { attached: 0 };
   }
 
-  const productUpdate = await prisma.product.updateMany({
-    where: {
-      id: { in: uniqueProductIds },
-      businessId: null,
-    },
-    data: {
-      businessId,
-      categoryId,
+  const sourceProducts = await prisma.product.findMany({
+    where: { id: { in: uniqueProductIds }, businessId: null },
+    include: {
+      variants: { include: { prices: true, inventoryItems: true } },
     },
   });
 
-  await Promise.all(uniqueProductIds.map((productId) => prisma.productCategory.upsert({
-    where: {
-      productId_categoryId: {
-        productId,
+  let attached = 0;
+  for (const product of sourceProducts) {
+    const created = await prisma.product.create({
+      data: {
+        name: product.name,
+        description: product.description,
+        shortDescription: product.shortDescription,
+        barcode: product.barcode,
+        tags: product.tags,
+        activeIngredients: product.activeIngredients,
+        scarce: product.scarce,
+        for: product.for,
+        brand: product.brand,
+        price: product.price,
+        stock: product.stock?.length ? { create: product.stock.map((stock) => ({
+          addedQuantity: stock.addedQuantity,
+          costPerProduct: stock.costPerProduct,
+        })) } : undefined,
+        images: product.images,
+        costPrice: product.costPrice,
+        businessId,
         categoryId,
+        creatorId: userId || product.creatorId || null,
+        brandId: product.brandId || null,
+        activeIngredientIds: product.activeIngredientIds,
+        healthConcernIds: product.healthConcernIds,
+        regulatoryClassification: product.regulatoryClassification,
+        requiresPrescription: product.requiresPrescription,
+        weight: product.weight,
+        variants: {
+          create: product.variants.map((variant) => ({
+            title: variant.title,
+            weight: variant.weight,
+            volume: variant.volume,
+            metadata: variant.metadata,
+            allowBackorder: variant.allowBackorder,
+            manageInventory: variant.manageInventory,
+            stockStatusByRegion: variant.stockStatusByRegion,
+            prices: {
+              create: variant.prices.map((price) => ({
+                amount: price.amount,
+                originalAmount: price.originalAmount,
+                calculatedAmount: price.calculatedAmount,
+                currencyCode: price.currencyCode,
+                isDiscounted: price.isDiscounted,
+                minQuantity: price.minQuantity,
+                maxQuantity: price.maxQuantity,
+                metadata: price.metadata,
+              })),
+            },
+            inventoryItems: {
+              create: variant.inventoryItems.map((item) => ({
+                sku: item.sku,
+                requiredQuantity: item.requiredQuantity,
+                availableQuantity: item.availableQuantity,
+                deliverableQuantity: item.deliverableQuantity,
+                reservedQuantity: item.reservedQuantity,
+                stockedQuantity: item.stockedQuantity,
+                minStockLevel: item.minStockLevel,
+                metadata: item.metadata,
+              })),
+            },
+          })),
+        },
+        productCategories: {
+          create: [{ categoryId, position: 0 }],
+        },
       },
-    },
-    create: {
-      productId,
-      categoryId,
-      position: 0,
-    },
-    update: {},
-  })));
+    });
 
-  return { attached: productUpdate.count };
+    if (created?.id) {
+      attached += 1;
+    }
+  }
+
+  return { attached };
 }
 
 export async function GET(request: NextRequest) {
@@ -100,7 +158,7 @@ export async function POST(request: NextRequest) {
     if (categoryId) {
       const category = await prisma.category.findFirst({ where: { id: categoryId, businessId } });
       if (!category) return NextResponse.json({ error: "Category does not belong to this business" }, { status: 400 });
-      const result = await syncBusinessCategoryLinks({ businessId, categoryId: category.id, productIds });
+      const result = await cloneProductsToBusiness({ businessId, categoryId: category.id, productIds, userId });
       return NextResponse.json({ attached: result.attached });
     }
 
@@ -182,7 +240,7 @@ export async function POST(request: NextRequest) {
     const targetCategory = categoryId
       ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })
       : await prisma.category.findFirst({ where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } } })
-        || await prisma.category.create({ data: { businessId, name: sourceCategory.name, description: sourceCategory.description } });
+        || await prisma.category.create({ data: { businessId, name: sourceCategory.name, description: sourceCategory.description, image: sourceCategory.image || null } });
     if (!targetCategory) return NextResponse.json({ error: "Store category was not found" }, { status: 400 });
 
     console.log("[platform-products][attach-category] target category", {
@@ -191,13 +249,14 @@ export async function POST(request: NextRequest) {
       businessId,
     });
 
-    const result = await syncBusinessCategoryLinks({
+    const result = await cloneProductsToBusiness({
       businessId,
       categoryId: targetCategory.id,
       productIds: sourceProductIds,
+      userId,
     });
 
-    console.log("[platform-products][attach-category] sync result", {
+    console.log("[platform-products][attach-category] clone result", {
       count: result.attached,
       businessId,
       sourceCategoryId,
@@ -209,14 +268,14 @@ export async function POST(request: NextRequest) {
         where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } },
       });
 
-      console.log("[platform-products][attach-category] no products moved; verifying business category", {
+      console.log("[platform-products][attach-category] no products cloned; verifying business category", {
         sourceCategoryName: sourceCategory.name,
         existingBusinessCategoryId: existingBusinessCategory?.id ?? null,
       });
 
       if (!existingBusinessCategory) {
         const createdCategory = await prisma.category.create({
-          data: { businessId, name: sourceCategory.name, description: sourceCategory.description },
+          data: { businessId, name: sourceCategory.name, description: sourceCategory.description, image: sourceCategory.image || null },
         });
         console.log("[platform-products][attach-category] created fallback business category", {
           createdCategoryId: createdCategory.id,
