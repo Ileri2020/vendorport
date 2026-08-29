@@ -109,8 +109,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const sourceCategory = await prisma.category.findUnique({ where: { id: sourceCategoryId } });
-    if (!sourceCategory || sourceCategory.businessId) {
-      return NextResponse.json({ error: "Platform category was not found" }, { status: 400 });
+    if (!sourceCategory || sourceCategory.businessId === businessId) {
+      return NextResponse.json({ error: "Source category was not found or already belongs to this business" }, { status: 400 });
     }
     const targetCategory = categoryId
       ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })

@@ -276,7 +276,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     }
   };
 
-  const filteredCategories = categories.filter((category) => !category.businessId && category.name.toLowerCase().includes(categoryQuery.toLowerCase()));
+  const filteredCategories = categories.filter((category) => category.businessId !== business?.id && category.name.toLowerCase().includes(categoryQuery.toLowerCase()));
   const filteredProducts = products.filter((product) => {
     const price = Number(product.price) || 0;
     const minimum = minPrice === "" ? 0 : Number(minPrice);
@@ -396,7 +396,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         <div className="space-y-3 rounded-xl border bg-background/70 p-4">
           <div className="flex items-center justify-between gap-2"><div><h3 className="font-bold">Select categories</h3><p className="text-xs text-muted-foreground">Choose source categories from the shared catalog.</p></div><span className="text-xs font-bold text-primary">{selectedCategories.length} selected</span></div>
           <div className="grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-            {categories.filter((category) => !category.businessId).map((category) => {
+            {categories.filter((category) => category.businessId !== business?.id).map((category) => {
               const checked = selectedCategories.includes(category.id);
               return <button type="button" key={category.id} onClick={() => setSelectedCategories((items) => checked ? items.filter((id) => id !== category.id) : [...items, category.id])} className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span><span className="truncate">{category.name}</span></button>;
             })}
