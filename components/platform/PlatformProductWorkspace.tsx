@@ -38,7 +38,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [categoryProducts, setCategoryProducts] = useState<any[]>([]);
   const [categoryProductsLoading, setCategoryProductsLoading] = useState(false);
   const [categoryProductSelection, setCategoryProductSelection] = useState<string[]>([]);
-  const [saveSuccessDialog, setSaveSuccessDialog] = useState<{ title: string; message: string } | null>(null);
+  const [saveDialog, setSaveDialog] = useState<{ title: string; message: string; success: boolean } | null>(null);
   const ITEMS_PER_PAGE = 20;
 
   const loadProducts = async () => {
@@ -215,7 +215,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     try {
       let addedProducts = 0;
       if (selectedCategories.length) {
-        const categoryResults = await Promise.all(selectedCategories.map(async (sourceCategoryId) => {
+        const categoryResults: number[] = [];
+        for (const sourceCategoryId of selectedCategories) {
           const response = await fetch("/api/platform-products", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -223,8 +224,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "Could not add categories");
-          return Number(result.attached) || 0;
-        }));
+          categoryResults.push(Number(result.attached) || 0);
+        }
         addedProducts += categoryResults.reduce((total, count) => total + count, 0);
       }
 
@@ -260,14 +261,16 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       }
 
       toast.success(message);
-      setSaveSuccessDialog({ title, message });
+      setSaveDialog({ title, message, success: true });
       setSelected([]);
       setSelectedCategories([]);
       setCategoryId("");
       await loadProducts();
     } catch (error) {
       console.error(error);
-      toast.error("Could not save selected items. Please try again.");
+      const message = error instanceof Error ? error.message : "The selected items could not be saved.";
+      setSaveDialog({ title: "Unable to save", message, success: false });
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -424,19 +427,19 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         </Button>
       )}
 
-      <Dialog open={Boolean(saveSuccessDialog)} onOpenChange={(open) => { if (!open) setSaveSuccessDialog(null); }}>
+      <Dialog open={Boolean(saveDialog)} onOpenChange={(open) => { if (!open) setSaveDialog(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl font-black">{saveSuccessDialog?.title || "Saved successfully"}</DialogTitle>
+            <DialogTitle className="text-xl font-black">{saveDialog?.title || "Saved successfully"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-700">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white">
+            <div className={`flex items-center gap-3 rounded-2xl border p-3 ${saveDialog?.success ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+              <div className={`flex h-10 w-10 items-center justify-center rounded-full text-white ${saveDialog?.success ? "bg-emerald-600" : "bg-red-600"}`}>
                 <Check className="h-5 w-5" />
               </div>
-              <p className="text-sm font-medium">{saveSuccessDialog?.message || "Your selected items were saved successfully."}</p>
+              <p className="text-sm font-medium">{saveDialog?.message || "Your selected items were saved successfully."}</p>
             </div>
-            <Button type="button" onClick={() => setSaveSuccessDialog(null)} className="w-full font-semibold">Done</Button>
+            <Button type="button" onClick={() => setSaveDialog(null)} className="w-full font-semibold">Done</Button>
           </div>
         </DialogContent>
       </Dialog>

@@ -108,8 +108,10 @@ export async function POST(request: NextRequest) {
     if (!business || (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const sourceCategory = await prisma.category.findFirst({ where: { id: sourceCategoryId, businessId: null } });
-    if (!sourceCategory) return NextResponse.json({ error: "Platform category was not found" }, { status: 400 });
+    const sourceCategory = await prisma.category.findUnique({ where: { id: sourceCategoryId } });
+    if (!sourceCategory || sourceCategory.businessId) {
+      return NextResponse.json({ error: "Platform category was not found" }, { status: 400 });
+    }
     const targetCategory = categoryId
       ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })
       : await prisma.category.findFirst({ where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } } })
