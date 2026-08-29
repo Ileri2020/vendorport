@@ -7,8 +7,14 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const canonicalAuthProxyUrl = (() => {
+  const configured = process.env.AUTH_URL || process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://vport.store";
+  return `${configured.replace(/\/$/, "")}/api/auth`;
+})();
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
+  redirectProxyUrl: process.env.NODE_ENV === "production" ? canonicalAuthProxyUrl : undefined,
   providers: [
     Google({
       clientId: process.env.GOOGLE_ID,
