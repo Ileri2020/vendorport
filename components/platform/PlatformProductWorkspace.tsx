@@ -230,6 +230,12 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
             body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId: targetCategoryId || undefined, sourceCategoryId }),
           });
           const result = await response.json();
+          console.log("[saveSelectedCatalog][attach-category] response", {
+            sourceCategoryId,
+            status: response.status,
+            ok: response.ok,
+            result,
+          });
           if (!response.ok) throw new Error(result.error || "Could not add categories");
           categoryResults.push(Number(result.attached) || 0);
         }
@@ -243,6 +249,11 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           body: JSON.stringify({ action: "attach", businessId: business.id, categoryId: targetCategoryId || undefined, productIds: selected }),
         });
         const result = await response.json();
+        console.log("[saveSelectedCatalog][attach] response", {
+          status: response.status,
+          ok: response.ok,
+          result,
+        });
         if (!response.ok) throw new Error(result.error || "Could not add products");
         addedProducts += Number(result.attached) || 0;
       }

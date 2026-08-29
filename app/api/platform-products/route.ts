@@ -101,6 +101,13 @@ export async function POST(request: NextRequest) {
     const businessId = String(body.businessId || "");
     const categoryId = String(body.categoryId || "");
     const sourceCategoryId = String(body.sourceCategoryId || "");
+    console.log("[platform-products][attach-category] start", {
+      businessId,
+      categoryId,
+      sourceCategoryId,
+      userId,
+    });
+
     if (!businessId || !sourceCategoryId) {
       return NextResponse.json({ error: "Business and source category are required" }, { status: 400 });
     }
@@ -108,30 +115,68 @@ export async function POST(request: NextRequest) {
     if (!business || (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const sourceCategory = await prisma.category.findUnique({ where: { id: sourceCategoryId } });
+    const sourceCategory = await prisma.category.findUnique({
+      where: { id: sourceCategoryId },
+      include: { products: { where: { businessId: null }, select: { id: true } } },
+    });
     if (!sourceCategory || sourceCategory.businessId === businessId) {
       return NextResponse.json({ error: "Source category was not found or already belongs to this business" }, { status: 400 });
     }
+
+    console.log("[platform-products][attach-category] source category", {
+      sourceCategoryId,
+      sourceCategoryName: sourceCategory.name,
+      platformProductCount: sourceCategory.products?.length ?? 0,
+    });
+
     const targetCategory = categoryId
       ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })
       : await prisma.category.findFirst({ where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } } })
         || await prisma.category.create({ data: { businessId, name: sourceCategory.name, description: sourceCategory.description } });
     if (!targetCategory) return NextResponse.json({ error: "Store category was not found" }, { status: 400 });
 
+    console.log("[platform-products][attach-category] target category", {
+      targetCategoryId: targetCategory.id,
+      targetCategoryName: targetCategory.name,
+      businessId,
+    });
+
     const result = await prisma.product.updateMany({
       where: { businessId: null, categoryId: sourceCategoryId },
       data: { businessId, categoryId: targetCategory.id },
     });
 
+    console.log("[platform-products][attach-category] updateMany result", {
+      count: result.count,
+      businessId,
+      sourceCategoryId,
+      targetCategoryId: targetCategory.id,
+    });
+
     if (result.count === 0) {
-      await prisma.category.upsert({
-        where: { id: targetCategory.id },
-        update: { name: targetCategory.name, businessId },
-        create: { id: targetCategory.id, businessId, name: targetCategory.name, description: targetCategory.description },
+      const existingBusinessCategory = await prisma.category.findFirst({
+        where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } },
       });
+
+      console.log("[platform-products][attach-category] no products moved; verifying business category", {
+        sourceCategoryName: sourceCategory.name,
+        existingBusinessCategoryId: existingBusinessCategory?.id ?? null,
+      });
+
+      if (!existingBusinessCategory) {
+        const createdCategory = await prisma.category.create({
+          data: { businessId, name: sourceCategory.name, description: sourceCategory.description },
+        });
+        console.log("[platform-products][attach-category] created fallback business category", {
+          createdCategoryId: createdCategory.id,
+        });
+        return NextResponse.json({ attached: 0, categoryId: createdCategory.id, categoryCreated: true });
+      }
+
+      return NextResponse.json({ attached: 0, categoryId: existingBusinessCategory.id, categoryCreated: false });
     }
 
-    return NextResponse.json({ attached: result.count, categoryId: targetCategory.id });
+    return NextResponse.json({ attached: result.count, categoryId: targetCategory.id, categoryCreated: false });
   }
 
   const name = String(body.name || "").trim();
