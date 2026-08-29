@@ -123,7 +123,7 @@ export function ProductCard({
 
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAppContext();
+  const { user, currentBusiness } = useAppContext();
   const isAffiliate = user?.isAffiliate || false;
 
   const handleCopyAffiliateLink = async (e: React.MouseEvent) => {
@@ -226,6 +226,13 @@ export function ProductCard({
   };
 
   const isAdmin = useIsAdmin();
+  const isBusinessOwner = Boolean(
+    product?.businessId &&
+    currentBusiness?.id === product.businessId &&
+    user?.id &&
+    String(currentBusiness.ownerId) === String(user.id),
+  );
+  const canDeleteProduct = isAdmin || isBusinessOwner;
   const [isEditDialogOpen, setIsEditDialogOpen] = React.useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = React.useState(false); // ✅ ADDED
 
@@ -307,7 +314,7 @@ export function ProductCard({
       </div>
 
       {/* Admin Actions (Floating Left) */}
-      {isAdmin && (
+      {canDeleteProduct && (
         <div className="absolute top-2 left-2 flex gap-2 z-30">
           <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
             <DialogTrigger asChild>

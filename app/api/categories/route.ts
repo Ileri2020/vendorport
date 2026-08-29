@@ -47,3 +47,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create category" }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const session = await auth();
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+  const categoryId = new URL(request.url).searchParams.get("id");
+  if (!userId || !categoryId) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+
+  const category = await prisma.category.findUnique({ where: { id: categoryId } });
+  const isAdmin = (session as any)?.user?.role === "admin";
+  if (!category || !category.businessId) return NextResponse.json({ error: "Only business categories can be deleted" }, { status: 400 });
+
+  const business = await prisma.business.findUnique({ where: { id: category.businessId }, select: { ownerId: true } });
+  if (!isAdmin && (!business || String(business.ownerId) !== String(userId))) {
+    return NextResponse.json({ error: "Only the business owner can delete this category" }, { status: 403 });
+  }
+
+  await prisma.$transaction([
+    prisma.product.updateMany({ where: { categoryId, businessId: category.businessId }, data: { categoryId: null } }),
+    prisma.category.delete({ where: { id: categoryId } }),
+  ]);
+  return NextResponse.json({ success: true });
+}

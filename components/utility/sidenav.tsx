@@ -110,8 +110,8 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                 <SheetHeader className="p-3 border-b bg-background">
                     <SheetTitle asChild>
                         <Link href={homeHref} onClick={closeSheet} className="flex items-center gap-3 text-left text-2xl font-black text-primary tracking-tighter italic">
-                            <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-xl border border-accent/60 bg-accent/10 shadow-md shadow-accent/20">
-                                <Image src={customLogo} alt={`${brandName} logo`} width={48} height={48} className="h-10 w-10 object-contain" />
+                            <div className="flex h-[65px] w-[65px] items-center justify-center overflow-clip rounded-md border border-accent bg-accent/10 shadow-md shadow-accent">
+                                <Image src={customLogo} alt={`${brandName} logo`} width={80} height={80} className="m-1 h-[63px] w-auto" />
                             </div>
                             <span>{brandName}</span>
                         </Link>

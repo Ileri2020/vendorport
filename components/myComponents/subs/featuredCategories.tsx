@@ -54,6 +54,7 @@ async function getCategories(businessId?: string) {
 
     return {
       id: cat.id,
+      businessId: cat.businessId || null,
       images: images,
       name: cat.name,
       description: cat.description || "",
@@ -73,7 +74,7 @@ async function getCategories(businessId?: string) {
 
 
 
-const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin: boolean, onRefresh: () => void }) => {
+const CategoryCard = ({ category, isAdmin, canDelete, onRefresh }: { category: any, isAdmin: boolean, canDelete: boolean, onRefresh: () => void }) => {
   const router = useRouter();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const businessName = category.businessName || category.business?.name || "HCVP";
@@ -92,8 +93,9 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
     e.preventDefault();
     if (confirm(`Are you sure you want to delete category "${name}"?`)) {
       try {
-        await axios.delete(`/api/dbhandler?model=category&id=${id}`);
+        await axios.delete(`/api/categories?id=${id}`);
         toast.success("Category deleted");
+        window.dispatchEvent(new CustomEvent("vport:clear-api-cache"));
         onRefresh();
       } catch (err) {
         toast.error("Failed to delete category");
@@ -116,9 +118,9 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
           </Badge>
         )}
       </div>
-      {isAdmin && (
+      {(isAdmin || canDelete) && (
         <div className="absolute top-2 right-2 flex gap-2 z-30">
-          <Dialog onOpenChange={(open) => !open && onRefresh()}>
+          {isAdmin && <Dialog onOpenChange={(open) => !open && onRefresh()}>
             <DialogTrigger asChild>
               <Button size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-background/80 backdrop-blur-sm shadow-sm" onClick={(e) => e.stopPropagation()}>
                 <Edit3 className="h-3 w-3" />
@@ -130,15 +132,17 @@ const CategoryCard = ({ category, isAdmin, onRefresh }: { category: any, isAdmin
               </DialogHeader>
               <CategoryForm initialCategory={category} hideList={true} />
             </DialogContent>
-          </Dialog>
-          <Button
+          </Dialog>}
+          {canDelete && <Button
             size="icon"
             variant="destructive"
-            className="h-7 w-7 rounded-full bg-destructive/80 backdrop-blur-sm shadow-sm"
+            aria-label={`Delete ${category.name}`}
+            title="Delete category"
+            className="h-8 w-8 rounded-full bg-destructive/80 p-0 backdrop-blur-sm shadow-sm"
             onClick={(e) => handleDelete(e, category.id, category.name)}
           >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+            <Trash2 className="h-4 w-4" />
+          </Button>}
         </div>
       )}
       {badgeSlug ? (
@@ -201,6 +205,7 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
   const [loading, setLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const isAdmin = user?.role === "admin" || user?.role === "staff";
+  const isBusinessOwner = Boolean(currentBusiness?.ownerId && user?.id && String(currentBusiness.ownerId) === String(user.id));
   const autoplay1 = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
   const autoplay2 = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
 
@@ -209,7 +214,7 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
     const categoryBusinessId = fetchAll ? undefined : explicitBusinessId ?? businessId;
     const cats = await getCategories(categoryBusinessId);
 
-    const visibleCats = isAdmin
+    const visibleCats = isAdmin || isBusinessOwner
       ? cats
       : cats.filter((c: any) => {
           const images = Array.isArray(c.images) ? c.images.filter(Boolean) : [];
@@ -222,6 +227,8 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
 
   useEffect(() => {
     fetchCategories();
+    window.addEventListener("vport:clear-api-cache", fetchCategories);
+    return () => window.removeEventListener("vport:clear-api-cache", fetchCategories);
   }, [businessId, explicitBusinessId, fetchAll, isAdmin]);
 
   // Limit to 20 for carousel
@@ -271,7 +278,7 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
         ) : showAll ? (
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mt-8">
                {categories.map((category) => (
-                  <CategoryCard key={category.id} category={category} isAdmin={isAdmin} onRefresh={fetchCategories} />
+                  <CategoryCard key={category.id} category={category} isAdmin={isAdmin} canDelete={isBusinessOwner && category.businessId === (explicitBusinessId ?? businessId)} onRefresh={fetchCategories} />
                ))}
             </div>
         ) : (
@@ -286,7 +293,7 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
                 <CarouselContent className="-ml-4">
                 {topRow.map((category) => (
                     <CarouselItem key={category.id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/4">
-                    <CategoryCard category={category} isAdmin={isAdmin} onRefresh={fetchCategories} />
+                    <CategoryCard category={category} isAdmin={isAdmin} canDelete={isBusinessOwner && category.businessId === (explicitBusinessId ?? businessId)} onRefresh={fetchCategories} />
                     </CarouselItem>
                 ))}
                 </CarouselContent>
@@ -301,7 +308,7 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
                 <CarouselContent className="-ml-4">
                 {bottomRow.map((category) => (
                     <CarouselItem key={category.id} className="pl-4 basis-1/2 sm:basis-1/3 md:basis-1/4 lg:basis-1/4">
-                    <CategoryCard category={category} isAdmin={isAdmin} onRefresh={fetchCategories} />
+                    <CategoryCard category={category} isAdmin={isAdmin} canDelete={isBusinessOwner && category.businessId === (explicitBusinessId ?? businessId)} onRefresh={fetchCategories} />
                     </CarouselItem>
                 ))}
                 </CarouselContent>
