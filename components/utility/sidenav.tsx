@@ -110,8 +110,8 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                 <SheetHeader className="p-3 border-b bg-background">
                     <SheetTitle asChild>
                         <Link href={homeHref} onClick={closeSheet} className="flex items-center gap-3 text-left text-2xl font-black text-primary tracking-tighter italic">
-                            <div className="flex h-[65px] w-[65px] items-center justify-center overflow-clip rounded-md border border-accent bg-accent/10 shadow-md shadow-accent">
-                                <Image src={customLogo} alt={`${brandName} logo`} width={80} height={80} className="m-1 h-[63px] w-auto" />
+                            <div className="flex h-[32px] w-[32px] items-center justify-center overflow-clip rounded-md border border-accent bg-accent/10 shadow-md shadow-accent">
+                                <Image src={customLogo} alt={`${brandName} logo`} width={50} height={50} className="m-1 h-[41px] w-auto" />
                             </div>
                             <span>{brandName}</span>
                         </Link>
@@ -145,7 +145,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                         <h3 className="text-xs font-black uppercase tracking-widest text-muted-foreground/60 px-2">Main Menu</h3>
                         <nav className="flex flex-col gap-1">
                             {(() => {
-                                const navLinks = Links.Links.filter((link) => !(basePath && link.path === "/jobs"));
+                                const navLinks = [...Links.Links];
                                 const isStoreOwner =
                                     basePath &&
                                     currentBusiness?.ownerId &&

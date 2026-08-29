@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/auth";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const fromStr = searchParams.get("from");
   const toStr = searchParams.get("to");
   const businessId = searchParams.get("businessId");
+  const session = await auth();
 
   if (!fromStr || !toStr) {
     return NextResponse.json({ error: "Missing from or to date" }, { status: 400 });
@@ -13,6 +15,21 @@ export async function GET(req: Request) {
 
   const from = new Date(fromStr);
   const to = new Date(toStr);
+
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  if (businessId) {
+    const business = await prisma.business.findUnique({ where: { id: businessId }, select: { ownerId: true } });
+    const isOwner = business && String(business.ownerId) === String(session.user.id);
+    const isAdmin = (session.user as any).role === "admin";
+    if (!business || (!isOwner && !isAdmin)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  } else if ((session.user as any).role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     /* ================= PAID CARTS FOR REVENUE & PROFIT ================= */

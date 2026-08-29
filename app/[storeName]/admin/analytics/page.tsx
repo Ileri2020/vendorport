@@ -156,24 +156,33 @@ export default function AnalyticsDashboard() {
           <KpiSection data={data?.kpis} isLoading={isLoading} />
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-            <ChartCard title="Revenue Over Time" className="col-span-4">
-              <RevenueChart
-                data={data?.revenueOverTime}
+            <ChartCard title="Daily Site Visits" className="col-span-4">
+              <VisitAnalysisChart
+                data={data?.dailyVisits}
                 isLoading={isLoading}
               />
             </ChartCard>
-            <ChartCard title="Cart Status Distribution" className="col-span-3">
-              <CartStatusChart
-                data={data?.cartStatusCounts}
+            <ChartCard title="Revenue Over Time" className="col-span-3">
+              <RevenueChart
+                data={data?.revenueOverTime}
                 isLoading={isLoading}
               />
             </ChartCard>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+            <ChartCard title="Cart Status Distribution" className="col-span-3">
+              <CartStatusChart
+                data={data?.cartStatusCounts}
+                isLoading={isLoading}
+              />
+            </ChartCard>
             <ChartCard title="Profit & Revenue Analysis" className="col-span-4">
               <ProfitChart data={data?.profitOverTime} isLoading={isLoading} />
             </ChartCard>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
             <ChartCard title="Top Selling Products" className="col-span-3">
               <TopProductsChart
                 data={data?.topProducts}
@@ -183,13 +192,7 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-            <ChartCard title="Daily Site Visits" className="col-span-4">
-              <VisitAnalysisChart
-                data={data?.dailyVisits}
-                isLoading={isLoading}
-              />
-            </ChartCard>
-            <ChartCard title="Refund Reasons" className="col-span-3">
+            <ChartCard title="Refund Reasons" className="col-span-4">
               <RefundReasonChart data={data?.refunds} isLoading={isLoading} />
             </ChartCard>
           </div>

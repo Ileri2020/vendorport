@@ -60,7 +60,7 @@ const Nav = ({ basePath }: NavProps) => {
     ((user?.id && user.id !== "nil" && String(currentBusiness.ownerId) === String(user.id)) ||
      (session?.user?.id && String(currentBusiness.ownerId) === String(session.user.id)));
 
-  const navLinks = Links.Links.filter((link) => !(basePath && link.path === "/jobs"));
+  const navLinks = [...Links.Links];
 
   if (isStoreOwner) {
     navLinks.push({

@@ -24,6 +24,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [query, setQuery] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
+  const [selectedCatalogCategories, setSelectedCatalogCategories] = useState<string[]>([]);
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", price: "", costPrice: "", categoryId: "", variants: [] as Array<{ title: string; weight: string; volume: string; price: string }> });
@@ -32,6 +34,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [createOpen, setCreateOpen] = useState(false);
   const [catalogMode, setCatalogMode] = useState<"products" | "categories" | null>(null);
   const [productPage, setProductPage] = useState(1);
+  const [catalogProductPage, setCatalogProductPage] = useState(1);
+  const [catalogProductHasMore, setCatalogProductHasMore] = useState(false);
   const [categoryPage, setCategoryPage] = useState(1);
   const [categoryQuery, setCategoryQuery] = useState("");
   const [categoryDialog, setCategoryDialog] = useState<any | null>(null);
@@ -41,10 +45,18 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [saveDialog, setSaveDialog] = useState<{ title: string; message: string; success: boolean } | null>(null);
   const ITEMS_PER_PAGE = 20;
 
-  const loadProducts = async () => {
-    const response = await fetch(`/api/platform-products?query=${encodeURIComponent(query)}`);
+  const loadProducts = async (page = catalogProductPage) => {
+    const params = new URLSearchParams({ query });
+    params.set("page", String(page));
+    params.set("pageSize", "100");
+    selectedCatalogCategories.forEach((id) => params.append("categoryId", id));
+    const response = await fetch(`/api/platform-products?${params.toString()}`);
     if (!response.ok) return;
-    setProducts(await response.json());
+    const result = await response.json();
+    const shuffledProducts = [...(result.products || [])].sort(() => Math.random() - 0.5);
+    setProducts(shuffledProducts);
+    setCatalogProductPage(result.page || page);
+    setCatalogProductHasMore(Boolean(result.hasMore));
   };
 
   const loadBusinessCategories = async () => {
@@ -60,18 +72,33 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
 
   useEffect(() => {
     if (session?.user?.id) loadProducts();
-  }, [session?.user?.id, query]);
+  }, [session?.user?.id, query, selectedCatalogCategories]);
+
+  useEffect(() => {
+    if (session?.user?.id) loadProducts(catalogProductPage);
+  }, [catalogProductPage]);
 
   useEffect(() => {
     loadBusinessCategories();
   }, [business?.id, isOwner]);
 
   useEffect(() => {
-    fetch("/api/dbhandler?model=category")
-      .then((response) => response.json())
-      .then((items) => {
+    const loadCategories = async () => {
+      const items: any[] = [];
+      let offset = 0;
+      while (true) {
+        const response = await fetch(`/api/dbhandler?model=category&limit=100&offset=${offset}`);
+        if (!response.ok) throw new Error("Could not load categories");
+        const pageItems = await response.json();
+        items.push(...pageItems);
+        if (!Array.isArray(pageItems) || pageItems.length < 100) break;
+        offset += 100;
+      }
+
+      const shuffledItems = items.sort(() => Math.random() - 0.5);
+      {
         const seen = new Map<string, any>();
-        for (const category of items || []) {
+        for (const category of shuffledItems) {
           const key = String(category?.name || "").trim().toLowerCase();
           const existing = seen.get(key);
           if (!existing) {
@@ -88,13 +115,19 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           }
         }
         setCategories([...seen.values()]);
-      })
-      .catch(() => toast.error("Could not load categories"));
+      }
+    };
+
+    loadCategories().catch(() => toast.error("Could not load categories"));
   }, []);
 
   useEffect(() => {
     setProductPage(1);
-  }, [query]);
+  }, [query, selectedCatalogCategories]);
+
+  useEffect(() => {
+    setCatalogProductPage(1);
+  }, [query, selectedCatalogCategories]);
 
   useEffect(() => {
     setCategoryPage(1);
@@ -108,8 +141,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     if (!categoryDialog) return;
     setCategoryProductsLoading(true);
     fetch(`/api/platform-products?categoryId=${encodeURIComponent(categoryDialog.id)}`)
-      .then((response) => response.ok ? response.json() : [])
-      .then(setCategoryProducts)
+      .then((response) => response.ok ? response.json() : { products: [] })
+      .then((result) => setCategoryProducts(result.products || []))
       .catch(() => toast.error("Could not load category products"))
       .finally(() => setCategoryProductsLoading(false));
   }, [categoryDialog]);
@@ -402,8 +435,15 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       {catalogMode === "products" && <section className="rounded-2xl border bg-card p-5 shadow-sm">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div><h2 className="font-bold">Platform products</h2><p className="text-xs text-muted-foreground">Search products created by the community.</p></div>
-            <div className="relative w-full sm:max-w-xs"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search products" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search products" value={query} onChange={(e) => setQuery(e.target.value)} /></div>
+              <Button type="button" variant={selectedCatalogCategories.length ? "default" : "outline"} className="justify-between gap-2" onClick={() => setCategoryFilterOpen(true)}>
+                <span>Categories{selectedCatalogCategories.length ? ` (${selectedCatalogCategories.length})` : ""}</span>
+                <ChevronDown className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+          {selectedCatalogCategories.length > 0 && <div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-xs font-semibold text-muted-foreground">Showing:</span>{selectedCatalogCategories.map((id) => <span key={id} className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">{categories.find((category) => category.id === id)?.name || "Category"}</span>)}<Button type="button" variant="ghost" size="sm" onClick={() => setSelectedCatalogCategories([])}>Clear</Button></div>}
           <div className="mt-3 grid grid-cols-2 gap-3 sm:max-w-md">
             <Input type="number" min="0" placeholder="Minimum price" value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
             <Input type="number" min="0" placeholder="Maximum price" value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
@@ -418,7 +458,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
               </button>;
             })}
           </div>
-          {productPages > 1 && <div className="mt-4 flex items-center justify-center gap-3"><Button type="button" size="icon" variant="outline" disabled={productPage === 1} onClick={() => setProductPage((page) => page - 1)}><ChevronLeft className="h-4 w-4" /></Button><span className="text-xs text-muted-foreground">Page {productPage} of {productPages}</span><Button type="button" size="icon" variant="outline" disabled={productPage === productPages} onClick={() => setProductPage((page) => page + 1)}><ChevronRight className="h-4 w-4" /></Button></div>}
+          {(productPages > 1 || catalogProductPage > 1 || catalogProductHasMore) && <div className="mt-4 flex flex-wrap items-center justify-center gap-3"><Button type="button" size="icon" variant="outline" disabled={productPage === 1 && catalogProductPage === 1} onClick={() => { if (productPage > 1) setProductPage((page) => page - 1); else setCatalogProductPage((page) => Math.max(1, page - 1)); }}><ChevronLeft className="h-4 w-4" /></Button><span className="text-xs text-muted-foreground">Page {productPage} of {productPages} · Batch {catalogProductPage}</span><Button type="button" size="icon" variant="outline" disabled={productPage < productPages && !catalogProductHasMore} onClick={() => { if (productPage < productPages) setProductPage((page) => page + 1); else { setProductPage(1); setCatalogProductPage((page) => page + 1); } }}><ChevronRight className="h-4 w-4" /></Button></div>}
         </section>}
 
       {catalogMode === "categories" && isOwner && <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-sm">
@@ -464,6 +504,20 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           {loading ? "Saving..." : `Save selected (${selected.length + selectedCategories.length})`}
         </Button>
       )}
+
+      <Dialog open={categoryFilterOpen} onOpenChange={setCategoryFilterOpen}>
+        <DialogContent className="max-h-[80vh] max-w-lg overflow-y-auto">
+          <DialogHeader><DialogTitle>Filter products by category</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Select one or more categories to show only matching product cards.</p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {categories.filter((category) => category.businessId !== business?.id).map((category) => {
+              const checked = selectedCatalogCategories.includes(category.id);
+              return <button type="button" key={category.id} onClick={() => setSelectedCatalogCategories((items) => checked ? items.filter((id) => id !== category.id) : [...items, category.id])} className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span><span className="min-w-0 flex-1 truncate">{category.name}</span><span className="text-xs text-muted-foreground">{category._count?.products || 0}</span></button>;
+            })}
+          </div>
+          <div className="flex gap-2 border-t pt-4"><Button type="button" variant="outline" onClick={() => setSelectedCatalogCategories([])}>Clear</Button><Button type="button" className="flex-1" onClick={() => setCategoryFilterOpen(false)}>Show products</Button></div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(saveDialog)} onOpenChange={(open) => { if (!open) setSaveDialog(null); }}>
         <DialogContent className="max-w-md">

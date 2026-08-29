@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+function businessSlug(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+}
+
 /** Rejects after `ms` milliseconds — used to fail-fast when DB is unreachable */
 const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> =>
   Promise.race([
@@ -22,19 +26,26 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-real-ip") ||
       "unknown";
 
-    // Resolve businessId if visiting a storefront
+    // Resolve storefront visits from the rewritten path or the original host.
+    // API requests bypass the subdomain rewrite, so pathname is often just "/".
     let businessId: string | null = null;
     const pathParts = path.split("/").filter(Boolean);
-    if (pathParts.length > 0) {
-      const possibleStore = pathParts[0];
-      const platformRoutes = ["home", "about", "store", "account", "contact", "create-store", "admin", "api"];
-      if (!platformRoutes.includes(possibleStore)) {
-        const businesses = await prisma.business.findMany({ select: { id: true, name: true } });
-        const match = businesses.find(
-          (b) => b.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") === possibleStore
-        );
-        if (match) businessId = match.id;
+    const hostname = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").split(",")[0].split(":")[0].toLowerCase();
+    const baseDomains = ["vport.store", "vport.vercel.app"];
+    let possibleStore = pathParts[0] || "";
+    const platformRoutes = ["home", "store", "jobs", "new-product", "blog", "about", "help", "account", "contact", "create-store", "admin", "analytics", "api"];
+
+    for (const baseDomain of baseDomains) {
+      if (hostname.endsWith(`.${baseDomain}`)) {
+        possibleStore = hostname.slice(0, -(baseDomain.length + 1)).split(".")[0];
+        break;
       }
+    }
+
+    if (possibleStore && !platformRoutes.includes(possibleStore)) {
+      const businesses = await prisma.business.findMany({ select: { id: true, name: true } });
+      const match = businesses.find((b) => businessSlug(b.name) === possibleStore);
+      if (match) businessId = match.id;
     }
 
     // Only record once per browserId per business per day

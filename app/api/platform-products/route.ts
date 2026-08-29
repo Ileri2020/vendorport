@@ -187,31 +187,42 @@ export async function GET(request: NextRequest) {
   const { userId } = await getSessionUser();
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const query = new URL(request.url).searchParams.get("query")?.trim() || "";
-  const categoryId = new URL(request.url).searchParams.get("categoryId")?.trim() || "";
-  const products = await prisma.product.findMany({
-    where: {
-      ...(categoryId ? { categoryId } : {}),
-      ...(query ? { OR: [
-        { name: { contains: query, mode: "insensitive" } },
-        { description: { contains: query, mode: "insensitive" } },
-      ] } : {}),
-      OR: [
-        { businessId: null },
-        { businessId: { not: null } },
-      ],
-    },
+  const searchParams = new URL(request.url).searchParams;
+  const query = searchParams.get("query")?.trim() || "";
+  const categoryIds = searchParams.getAll("categoryId").map((value) => value.trim()).filter(Boolean);
+  const page = Math.max(1, Number(searchParams.get("page") || 1));
+  const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") || 100)));
+  const searchFilters = query ? [
+    { name: { contains: query, mode: "insensitive" as const } },
+    { description: { contains: query, mode: "insensitive" as const } },
+  ] : [];
+  const where = {
+      ...(categoryIds.length ? { categoryId: { in: categoryIds } } : {}),
+      ...(searchFilters.length ? { OR: searchFilters } : {}),
+  };
+  const [products, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
     include: {
       category: true,
       variants: { include: { prices: true, inventoryItems: true } },
       creator: { select: { id: true, name: true } },
     },
     orderBy: { createdAt: "desc" },
-    take: 200,
-  });
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.product.count({ where }),
+  ]);
 
   const dedupedProducts = dedupeCatalogProducts(products);
-  return NextResponse.json(dedupedProducts.slice(0, 50));
+  return NextResponse.json({
+    products: dedupedProducts,
+    page,
+    pageSize,
+    total,
+    hasMore: page * pageSize < total,
+  });
 }
 
 export async function POST(request: NextRequest) {

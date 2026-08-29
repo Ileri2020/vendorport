@@ -26,9 +26,19 @@ export default {Links : [
       path: "/store",
     },
     {
+      name: <HiBriefcase />,
+      title: "Jobs",
+      path: "/jobs",
+    },
+    {
       name: <AiOutlineProfile />,
       title: "New Product",
       path: "/new-product",
+    },
+    {
+      name: <AiOutlineProfile />,
+      title: "Blog",
+      path: "/blog",
     },
     {
       name: <AiOutlineRead />,
@@ -41,19 +51,9 @@ export default {Links : [
       path: "/help",
     },
     {
-      name: <HiBriefcase />,
-      title: "Jobs",
-      path: "/jobs",
-    },
-    {
       name: <BiPhone />,
       title: "Contact",
       path: "/contact",
-    },
-    {
-      name: <AiOutlineProfile />,
-      title: "Blog",
-      path: "/blog",
     },
     {
       name: <VscAccount />,

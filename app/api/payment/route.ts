@@ -297,6 +297,13 @@ export async function POST(req: NextRequest) {
     }
 
     let cart;
+    const purchasedProducts = await prisma.product.findMany({
+      where: { id: { in: items.map((item: any) => String(item.productId)).filter(Boolean) } },
+      select: { id: true, businessId: true },
+    });
+    const purchasedBusinessIds = [...new Set(purchasedProducts.map((product) => product.businessId).filter(Boolean))];
+    const cartBusinessId = purchasedBusinessIds.length === 1 ? purchasedBusinessIds[0] : null;
+
     if (cartId) {
       // Re-initiate existing cart
       await prisma.cartItem.deleteMany({ where: { cartId } });
@@ -310,6 +317,7 @@ export async function POST(req: NextRequest) {
           couponCode: couponCode || null,
           discountAmount: discAmountRounded,
           affiliateId: affiliateId || null,
+          businessId: cartBusinessId,
           products: {
             create: items.map((i: any) => ({
               productId: i.productId,
@@ -334,6 +342,7 @@ export async function POST(req: NextRequest) {
           couponCode: couponCode || null,
           discountAmount: discAmountRounded,
           affiliateId: affiliateId || null,
+          businessId: cartBusinessId,
           products: {
             create: items.map((i: any) => ({
               productId: i.productId,
