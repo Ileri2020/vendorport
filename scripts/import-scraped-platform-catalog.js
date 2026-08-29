@@ -4,15 +4,26 @@ require('dotenv/config');
 
 const fs = require('fs');
 const path = require('path');
-const cheerio = require('cheerio');
 const { v2: cloudinary } = require('cloudinary');
 const { PrismaClient } = require('@prisma/client');
 const { PrismaClient: PricepallyClient } = require('../generated/pricepally');
 const { PrismaClient: Market2HomeClient } = require('../generated/market2home');
 
-const prisma = new PrismaClient();
-const pricepally = new PricepallyClient();
-const market2home = new Market2HomeClient();
+const prisma = new PrismaClient({
+  datasources: {
+    db: { url: process.env.DATABASE_URL },
+  },
+});
+const pricepally = new PricepallyClient({
+  datasources: {
+    db: { url: process.env.PRICEPALLY_MONGODB_URL },
+  },
+});
+const market2home = new Market2HomeClient({
+  datasources: {
+    db: { url: process.env.MARKET2HOME_MONGODB_URL },
+  },
+});
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -49,15 +60,6 @@ function writeSnapshot(filename, value) {
 
 function asText(value) {
   return value === null || value === undefined ? '' : String(value).trim();
-}
-
-function cleanDescription(value) {
-  const html = asText(value);
-  if (!html || !html.includes('<')) return html;
-
-  const $ = cheerio.load(html, null, false);
-  $('[style]').removeAttr('style');
-  return $.root().html().trim();
 }
 
 function asNumber(value, fallback = 0) {
@@ -203,13 +205,39 @@ async function uploadImages(urls, cache) {
   return unique(uploaded);
 }
 
+async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 2000) {
+  let lastError;
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      if (attempt < maxRetries - 1) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.log(`Attempt ${attempt + 1} failed, retrying in ${delay}ms: ${error.message}`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
 async function loadSourceCatalog() {
-  const [pricepallyProducts, pricepallyCategories, market2homeProducts, market2homeCategories] = await Promise.all([
-    pricepally.pricepallyProduct.findMany(),
-    pricepally.pricepallyCategory.findMany(),
-    market2home.market2homeProduct.findMany(),
-    market2home.market2homeCategory.findMany(),
-  ]);
+  console.log('Loading Pricepally products...');
+  const pricepallyProducts = await retryWithBackoff(() => pricepally.pricepallyProduct.findMany());
+  console.log(`Loaded ${pricepallyProducts.length} Pricepally products`);
+
+  console.log('Loading Pricepally categories...');
+  const pricepallyCategories = await retryWithBackoff(() => pricepally.pricepallyCategory.findMany());
+  console.log(`Loaded ${pricepallyCategories.length} Pricepally categories`);
+
+  console.log('Loading Market2Home products...');
+  const market2homeProducts = await retryWithBackoff(() => market2home.market2homeProduct.findMany());
+  console.log(`Loaded ${market2homeProducts.length} Market2Home products`);
+
+  console.log('Loading Market2Home categories...');
+  const market2homeCategories = await retryWithBackoff(() => market2home.market2homeCategory.findMany());
+  console.log(`Loaded ${market2homeCategories.length} Market2Home categories`);
 
   return [
     { source: 'pricepally', products: pricepallyProducts.map((item) => item.rawProduct), categories: pricepallyCategories },
@@ -218,18 +246,21 @@ async function loadSourceCatalog() {
 }
 
 async function loadAppCatalogSnapshot() {
-  const [categories, products] = await Promise.all([
-    prisma.category.findMany({
-      where: { businessId: null },
-      select: { id: true, name: true, description: true, image: true },
-    }),
-    prisma.product.findMany({
-      where: { businessId: null },
-      select: { id: true, name: true, categoryId: true, images: true },
-    }),
-  ]);
-
-  return { categories, products };
+  console.log('Loading app platform catalog snapshot...');
+  return retryWithBackoff(async () => {
+    const [categories, products] = await Promise.all([
+      prisma.category.findMany({
+        where: { businessId: null },
+        select: { id: true, name: true, description: true, image: true },
+      }),
+      prisma.product.findMany({
+        where: { businessId: null },
+        select: { id: true, name: true, categoryId: true, images: true },
+      }),
+    ]);
+    console.log(`Loaded ${categories.length} app categories and ${products.length} app products`);
+    return { categories, products };
+  });
 }
 
 function buildLocalComparison(sources, appCatalog) {
@@ -326,7 +357,7 @@ async function createPlatformCatalog() {
       const saved = await prisma.category.create({
         data: {
           name: category.name,
-          description: cleanDescription(category.raw.description) || undefined,
+          description: asText(category.raw.description) || undefined,
           image: asText(category.raw.image) || undefined,
           businessId: null,
         },
@@ -340,7 +371,7 @@ async function createPlatformCatalog() {
 
   const existingProducts = await prisma.product.findMany({
     where: { businessId: null },
-    select: { id: true, name: true, categoryId: true, description: true, shortDescription: true },
+    select: { id: true, name: true, categoryId: true },
   });
   const existingProductKeys = new Set(
     existingProducts.map((product) => `${asText(product.name).toLocaleLowerCase()}::${product.categoryId || ''}`)
@@ -364,18 +395,6 @@ async function createPlatformCatalog() {
       const productName = asText(product.title || product.name) || `Imported ${SOURCE_LABELS[sourceData.source]} product`;
       const productKey = `${productName.toLocaleLowerCase()}::${categoryIds[0] || ''}`;
       if (existingProductKeys.has(productKey)) {
-        const existingProduct = existingProducts.find((item) => `${asText(item.name).toLocaleLowerCase()}::${item.categoryId || ''}` === productKey);
-        const description = cleanDescription(product.description);
-        const shortDescription = cleanDescription(product.shortDescription);
-        if (existingProduct && (existingProduct.description !== description || existingProduct.shortDescription !== shortDescription)) {
-          await prisma.product.update({
-            where: { id: existingProduct.id },
-            data: {
-              description: description || null,
-              shortDescription: shortDescription || null,
-            },
-          });
-        }
         continue;
       }
 
@@ -385,8 +404,8 @@ async function createPlatformCatalog() {
 
       const productData = {
         name: productName,
-        description: cleanDescription(product.description) || undefined,
-        shortDescription: cleanDescription(product.shortDescription) || undefined,
+        description: asText(product.description) || undefined,
+        shortDescription: asText(product.shortDescription) || undefined,
         barcode: asText(product.barcode) || undefined,
         tags: Array.isArray(product.tags) ? product.tags.map(asText).filter(Boolean) : [],
         price: firstPrice,

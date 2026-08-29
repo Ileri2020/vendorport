@@ -17,5 +17,16 @@ export function getStoreUrl(name: string, path = "") {
   if (!storeDomain) return `/${slug}${normalizedPath}`;
 
   const protocol = storeDomain.includes("localhost") || storeDomain.startsWith("127.0.0.1") ? "http" : "https";
-  return `${protocol}://${slug}.${storeDomain.replace(/^https?:\/\//, "").replace(/\/$/, "")}${normalizedPath}`;
+  const normalizedDomain = storeDomain
+    .replace(/^https?:\/\//, "")
+    .replace(/^\*\./, "")
+    .replace(/\/$/, "");
+
+  // A deployment may configure the current store host itself, for example
+  // `bokku.vport.store`. Do not prepend the same store slug twice.
+  const qualifiedDomain = normalizedDomain === slug || normalizedDomain.startsWith(`${slug}.`)
+    ? normalizedDomain
+    : `${slug}.${normalizedDomain}`;
+
+  return `${protocol}://${qualifiedDomain}${normalizedPath}`;
 }
