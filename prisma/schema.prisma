@@ -364,7 +364,7 @@ model Product {
   shortDescription          String?
   barcode                   String?
   tags                      String[]                   @default([])
-  category                  Category?                  @relation(fields: [categoryId], references: [id])
+  category                  Category?                  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryId                String?                    @db.ObjectId
   productCategories         ProductCategory[]
   activeIngredients         String[]

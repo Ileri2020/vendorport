@@ -64,7 +64,7 @@ export async function DELETE(request: NextRequest) {
   }
 
   await prisma.$transaction([
-    prisma.product.updateMany({ where: { categoryId, businessId: category.businessId }, data: { categoryId: null } }),
+    prisma.product.deleteMany({ where: { categoryId, businessId: category.businessId } }),
     prisma.category.delete({ where: { id: categoryId } }),
   ]);
   return NextResponse.json({ success: true });

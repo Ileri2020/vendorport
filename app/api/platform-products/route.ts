@@ -8,6 +8,49 @@ async function getSessionUser() {
   return { session, userId };
 }
 
+async function syncBusinessCategoryLinks({
+  businessId,
+  categoryId,
+  productIds,
+}: {
+  businessId: string;
+  categoryId: string;
+  productIds: string[];
+}) {
+  const uniqueProductIds = [...new Set(productIds.filter(Boolean).map(String))];
+  if (uniqueProductIds.length === 0) {
+    return { attached: 0 };
+  }
+
+  const productUpdate = await prisma.product.updateMany({
+    where: {
+      id: { in: uniqueProductIds },
+      businessId: null,
+    },
+    data: {
+      businessId,
+      categoryId,
+    },
+  });
+
+  await Promise.all(uniqueProductIds.map((productId) => prisma.productCategory.upsert({
+    where: {
+      productId_categoryId: {
+        productId,
+        categoryId,
+      },
+    },
+    create: {
+      productId,
+      categoryId,
+      position: 0,
+    },
+    update: {},
+  })));
+
+  return { attached: productUpdate.count };
+}
+
 export async function GET(request: NextRequest) {
   const { userId } = await getSessionUser();
   if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -57,11 +100,8 @@ export async function POST(request: NextRequest) {
     if (categoryId) {
       const category = await prisma.category.findFirst({ where: { id: categoryId, businessId } });
       if (!category) return NextResponse.json({ error: "Category does not belong to this business" }, { status: 400 });
-      const result = await prisma.product.updateMany({
-        where: { id: { in: productIds }, businessId: null },
-        data: { businessId, categoryId: category.id },
-      });
-      return NextResponse.json({ attached: result.count });
+      const result = await syncBusinessCategoryLinks({ businessId, categoryId: category.id, productIds });
+      return NextResponse.json({ attached: result.attached });
     }
 
     const sourceProducts = await prisma.product.findMany({
@@ -117,16 +157,26 @@ export async function POST(request: NextRequest) {
     }
     const sourceCategory = await prisma.category.findUnique({
       where: { id: sourceCategoryId },
-      include: { products: { where: { businessId: null }, select: { id: true } } },
+      include: {
+        products: { where: { businessId: null }, select: { id: true } },
+        productCategories: { where: { categoryId: sourceCategoryId }, select: { productId: true } },
+      },
     });
     if (!sourceCategory || sourceCategory.businessId === businessId) {
       return NextResponse.json({ error: "Source category was not found or already belongs to this business" }, { status: 400 });
     }
 
+    const sourceProductIds = [
+      ...new Set([
+        ...sourceCategory.products.map((product) => product.id),
+        ...sourceCategory.productCategories.map((item) => item.productId),
+      ]),
+    ];
+
     console.log("[platform-products][attach-category] source category", {
       sourceCategoryId,
       sourceCategoryName: sourceCategory.name,
-      platformProductCount: sourceCategory.products?.length ?? 0,
+      platformProductCount: sourceProductIds.length,
     });
 
     const targetCategory = categoryId
@@ -141,19 +191,20 @@ export async function POST(request: NextRequest) {
       businessId,
     });
 
-    const result = await prisma.product.updateMany({
-      where: { businessId: null, categoryId: sourceCategoryId },
-      data: { businessId, categoryId: targetCategory.id },
+    const result = await syncBusinessCategoryLinks({
+      businessId,
+      categoryId: targetCategory.id,
+      productIds: sourceProductIds,
     });
 
-    console.log("[platform-products][attach-category] updateMany result", {
-      count: result.count,
+    console.log("[platform-products][attach-category] sync result", {
+      count: result.attached,
       businessId,
       sourceCategoryId,
       targetCategoryId: targetCategory.id,
     });
 
-    if (result.count === 0) {
+    if (result.attached === 0) {
       const existingBusinessCategory = await prisma.category.findFirst({
         where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } },
       });
@@ -176,7 +227,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ attached: 0, categoryId: existingBusinessCategory.id, categoryCreated: false });
     }
 
-    return NextResponse.json({ attached: result.count, categoryId: targetCategory.id, categoryCreated: false });
+    return NextResponse.json({ attached: result.attached, categoryId: targetCategory.id, categoryCreated: false });
   }
 
   const name = String(body.name || "").trim();
