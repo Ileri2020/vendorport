@@ -97,6 +97,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     });
     const result = await response.json();
     if (!response.ok) return toast.error(result.error || "Could not create category");
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("vport:clear-api-cache"));
+    }
     setCategories((items) => items.some((item) => item.id === result.id) ? items : [result, ...items]);
     setForm((previous) => ({ ...previous, categoryId: result.id }));
     setNewCategory({ name: "", description: "" });
@@ -115,6 +118,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not create product");
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("vport:clear-api-cache"));
+      }
       setForm({ name: "", description: "", price: "", costPrice: "", categoryId: "", variants: [] });
       toast.success("Platform product created");
       await loadProducts();
@@ -203,7 +209,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       toast.error("Select at least one product or category");
       return;
     }
-    if (!categoryId) {
+    const targetCategoryId = categoryId || (businessCategories.length === 1 ? String(businessCategories[0].id) : "");
+    if (!targetCategoryId) {
       toast.error("Select a store category first");
       return;
     }
@@ -216,7 +223,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           const response = await fetch("/api/platform-products", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId, sourceCategoryId }),
+            body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId: targetCategoryId, sourceCategoryId }),
           });
           const result = await response.json();
           if (!response.ok) throw new Error(result.error || "Could not add categories");
@@ -229,7 +236,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         const response = await fetch("/api/platform-products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "attach", businessId: business.id, categoryId, productIds: selected }),
+          body: JSON.stringify({ action: "attach", businessId: business.id, categoryId: targetCategoryId, productIds: selected }),
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Could not add products");
