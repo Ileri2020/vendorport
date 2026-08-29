@@ -38,6 +38,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [categoryProducts, setCategoryProducts] = useState<any[]>([]);
   const [categoryProductsLoading, setCategoryProductsLoading] = useState(false);
   const [categoryProductSelection, setCategoryProductSelection] = useState<string[]>([]);
+  const [saveSuccessDialog, setSaveSuccessDialog] = useState<{ title: string; message: string } | null>(null);
   const ITEMS_PER_PAGE = 20;
 
   const loadProducts = async () => {
@@ -235,7 +236,24 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         addedProducts += Number(result.attached) || 0;
       }
 
-      toast.success(`${addedProducts} item${addedProducts === 1 ? "" : "s"} saved to ${business.name}`);
+      const savedProducts = selected.length;
+      const savedCategories = selectedCategories.length;
+      const itemText = addedProducts === 1 ? "item" : "items";
+      const productText = savedProducts === 1 ? "product" : "products";
+      const categoryText = savedCategories === 1 ? "category" : "categories";
+
+      const title = "Saved successfully";
+      const message =
+        savedProducts > 0 && savedCategories > 0
+          ? `Saved ${savedProducts} ${productText} and ${savedCategories} ${categoryText} to ${business.name}.`
+          : savedProducts > 0
+            ? `Saved ${savedProducts} ${productText} to ${business.name}.`
+            : savedCategories > 0
+              ? `Saved ${savedCategories} ${categoryText} to ${business.name}.`
+              : `Saved ${addedProducts} ${itemText} to ${business.name}.`;
+
+      toast.success(message);
+      setSaveSuccessDialog({ title, message });
       setSelected([]);
       setSelectedCategories([]);
       setCategoryId("");
@@ -287,9 +305,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <Button type="button" size="lg" variant={createOpen ? "default" : "outline"} aria-expanded={createOpen} className="h-auto justify-between gap-3 p-5 text-left" onClick={() => setCreateOpen((open) => !open)}><span className="flex items-center gap-3"><PackagePlus className="h-5 w-5" /><span><span className="block font-bold">Create product for the platform</span><span className="mt-1 block text-xs font-normal opacity-75">Open the product card form</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${createOpen ? "rotate-180" : ""}`} /></Button>
-        {isOwner && <Button type="button" size="lg" variant={catalogMode === "products" ? "default" : "outline"} aria-expanded={catalogMode === "products"} className="h-auto justify-between gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "products" ? null : "products")}><span className="flex items-center gap-3"><Link2 className="h-5 w-5" /><span><span className="block font-bold">Add platform products</span><span className="mt-1 block text-xs font-normal opacity-75">Search and choose product cards</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${catalogMode === "products" ? "rotate-180" : ""}`} /></Button>}
-        {isOwner && <Button type="button" size="lg" variant={catalogMode === "categories" ? "default" : "outline"} aria-expanded={catalogMode === "categories"} className="h-auto justify-between gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "categories" ? null : "categories")}><span className="flex items-center gap-3"><FolderPlus className="h-5 w-5" /><span><span className="block font-bold">Add platform categories</span><span className="mt-1 block text-xs font-normal opacity-75">Browse category cards and products</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${catalogMode === "categories" ? "rotate-180" : ""}`} /></Button>}
+        <Button type="button" size="lg" variant={createOpen ? "default" : "outline"} aria-expanded={createOpen} className="h-auto border-2 border-accent/70  shadow-md shadow-accent/20 justify-between gap-3 p-5 text-left" onClick={() => setCreateOpen((open) => !open)}><span className="flex items-center gap-3"><PackagePlus className="h-5 w-5" /><span><span className="block font-bold">Create product for the platform</span><span className="mt-1 block text-xs font-normal opacity-75">Open the product card form</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${createOpen ? "rotate-180" : ""}`} /></Button>
+        {isOwner && <Button type="button" size="lg" variant={catalogMode === "products" ? "default" : "outline"} aria-expanded={catalogMode === "products"} className="h-auto border-2 border-accent/70  shadow-md shadow-accent/20 justify-between gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "products" ? null : "products")}><span className="flex items-center gap-3"><Link2 className="h-5 w-5" /><span><span className="block font-bold">Add platform products</span><span className="mt-1 block text-xs font-normal opacity-75">Search and choose product cards</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${catalogMode === "products" ? "rotate-180" : ""}`} /></Button>}
+        {isOwner && <Button type="button" size="lg" variant={catalogMode === "categories" ? "default" : "outline"} aria-expanded={catalogMode === "categories"} className="h-auto border-2 border-accent/70  shadow-md shadow-accent/20 justify-between gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "categories" ? null : "categories")}><span className="flex items-center gap-3"><FolderPlus className="h-5 w-5" /><span><span className="block font-bold">Add platform categories</span><span className="mt-1 block text-xs font-normal opacity-75">Browse category cards and products</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${catalogMode === "categories" ? "rotate-180" : ""}`} /></Button>}
       </section>
 
       {createOpen && <section className="rounded-2xl border bg-card p-5 shadow-sm">
@@ -386,7 +404,35 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
 
       {isOwner && catalogMode === "categories" && <section className="rounded-2xl border border-primary/20 bg-primary/5 p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center"><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Store category for selected items</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select><span className="text-sm text-muted-foreground">{selectedCategories.length} category{selectedCategories.length === 1 ? "" : "ies"} selected</span></div></section>}
 
-      {isOwner && (selected.length > 0 || selectedCategories.length > 0) && <Button type="button" size="lg" onClick={saveSelectedCatalog} disabled={loading} className="fixed bottom-6 right-6 z-50 gap-2 rounded-full px-6 py-4 shadow-2xl"><Check className="h-5 w-5" />{loading ? "Saving..." : `Save selected (${selected.length + selectedCategories.length})`}</Button>}
+      {isOwner && (selected.length > 0 || selectedCategories.length > 0) && (
+        <Button
+          type="button"
+          size="lg"
+          onClick={saveSelectedCatalog}
+          disabled={loading}
+          className="fixed bottom-6 right-6 z-50 animate-pulse gap-2 rounded-full px-6 py-4 shadow-2xl shadow-primary/20 font-semibold"
+        >
+          <Check className="h-5 w-5" />
+          {loading ? "Saving..." : `Save selected (${selected.length + selectedCategories.length})`}
+        </Button>
+      )}
+
+      <Dialog open={Boolean(saveSuccessDialog)} onOpenChange={(open) => { if (!open) setSaveSuccessDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black">{saveSuccessDialog?.title || "Saved successfully"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-emerald-700">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-600 text-white">
+                <Check className="h-5 w-5" />
+              </div>
+              <p className="text-sm font-medium">{saveSuccessDialog?.message || "Your selected items were saved successfully."}</p>
+            </div>
+            <Button type="button" onClick={() => setSaveSuccessDialog(null)} className="w-full font-semibold">Done</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(categoryDialog)} onOpenChange={(open) => { if (!open) { setCategoryDialog(null); setCategoryProducts([]); setCategoryProductSelection([]); } }}>
         <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
