@@ -211,25 +211,31 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
 
   const fetchCategories = async () => {
     setLoading(true);
-    const categoryBusinessId = fetchAll ? undefined : explicitBusinessId ?? businessId;
-    const cats = await getCategories(categoryBusinessId);
+    try {
+      const categoryBusinessId = fetchAll ? undefined : explicitBusinessId ?? businessId;
+      const cats = await getCategories(categoryBusinessId);
 
-    const visibleCats = isAdmin || isBusinessOwner
-      ? cats
-      : cats.filter((c: any) => {
-          const images = Array.isArray(c.images) ? c.images.filter(Boolean) : [];
-          return c.productCount > 0 && images.length > 0;
-        });
+      const visibleCats = isAdmin || isBusinessOwner
+        ? cats
+        : cats.filter((c: any) => {
+            const images = Array.isArray(c.images) ? c.images.filter(Boolean) : [];
+            return c.productCount > 0 && images.length > 0;
+          });
 
-    setCategories(visibleCats);
-    setLoading(false);
+      setCategories(visibleCats);
+    } catch (error) {
+      console.error("Failed to fetch categories for carousel:", error);
+      setCategories([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchCategories();
     window.addEventListener("vport:clear-api-cache", fetchCategories);
     return () => window.removeEventListener("vport:clear-api-cache", fetchCategories);
-  }, [businessId, explicitBusinessId, fetchAll, isAdmin]);
+  }, [businessId, explicitBusinessId, fetchAll, isAdmin, isBusinessOwner]);
 
   // Limit to 20 for carousel
   const carouselCategories = categories.slice(0, 20);
