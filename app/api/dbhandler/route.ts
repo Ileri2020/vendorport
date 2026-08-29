@@ -330,12 +330,11 @@ export async function GET(req: NextRequest) {
   const prismaModel = modelMap[model];
   const businessId = searchParams.get("businessId");
 
-  if ((model === "product" || model === "category") && businessId && session?.user?.id) {
-    const role = (session.user as any)?.role || "visitor";
-    if (role !== "admin" && !(await canManageBusinessResource(session, model, businessId, null))) {
-      return NextResponse.json({ error: "Unauthorized access to this business" }, { status: 403 });
-    }
-  }
+  // Storefront reads for a business's catalog are intentionally public.
+  // Ownership/authorization checks remain enforced on mutation endpoints and on
+  // single-item admin access paths; this prevents logged-in shoppers or store
+  // visitors from being blocked when the home/store pages fetch categories and
+  // products for a business.
 
   try {
     if (!id) {
