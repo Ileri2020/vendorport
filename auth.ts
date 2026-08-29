@@ -71,16 +71,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async redirect({ url, baseUrl }) {
       try {
         const target = new URL(url, baseUrl);
-        const allowedHost = target.hostname === "vport.store"
-          || target.hostname.endsWith(".vport.store")
-          || target.hostname === "localhost"
-          || target.hostname === "127.0.0.1";
+        const hostname = target.hostname.replace(/^www\./, "");
+        const allowedHost = hostname === "vport.store"
+          || hostname.endsWith(".vport.store")
+          || hostname === "localhost"
+          || hostname === "127.0.0.1"
+          || hostname.endsWith(".localhost")
+          || hostname.endsWith(".127.0.0.1");
         if (allowedHost && ["http:", "https:"].includes(target.protocol)) {
           return target.toString();
         }
       } catch {
         // Fall through to the platform root for malformed callback URLs.
       }
+
+      if (url.startsWith("/")) {
+        return new URL(url, baseUrl).toString();
+      }
+
       return baseUrl;
     },
     async session({ session, token }) {

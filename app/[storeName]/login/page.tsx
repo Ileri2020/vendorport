@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 // import { IconBrandGithub, IconBrandGoogle } from "@tabler/icons-react";
 import { signIn } from "@/auth";
+import { getSafeAuthReturnUrl } from "@/lib/auth-return-url";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/getSession";
@@ -17,18 +18,13 @@ const Login = async () => {
 
   const googleSignIn = async () => {
     'use server'
-    const referer = (await headers()).get("referer");
-    let returnUrl = "/";
-    if (referer) {
-      try {
-        const url = new URL(referer);
-        if (url.hostname === "vport.store" || url.hostname.endsWith(".vport.store")) {
-          returnUrl = url.toString();
-        }
-      } catch {
-        returnUrl = "/";
-      }
-    }
+    const headerList = await headers();
+    const referer = headerList.get("referer");
+    const forwardedHost = headerList.get("x-forwarded-host") || headerList.get("host");
+    const forwardedProto = headerList.get("x-forwarded-proto") || "https";
+    const currentOrigin = forwardedHost ? `${forwardedProto}://${forwardedHost}` : undefined;
+    const returnUrl = getSafeAuthReturnUrl(referer, currentOrigin || "/");
+
     await signIn("google", { redirectTo: returnUrl });
   }
 
