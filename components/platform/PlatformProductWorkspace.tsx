@@ -47,16 +47,23 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     setProducts(await response.json());
   };
 
+  const loadBusinessCategories = async () => {
+    if (!business?.id || !isOwner) return;
+    try {
+      const response = await fetch(`/api/dbhandler?model=category&businessId=${business.id}`);
+      if (!response.ok) throw new Error("Failed to load categories");
+      setBusinessCategories(await response.json());
+    } catch (error) {
+      toast.error("Could not load business categories");
+    }
+  };
+
   useEffect(() => {
     if (session?.user?.id) loadProducts();
   }, [session?.user?.id, query]);
 
   useEffect(() => {
-    if (!business?.id || !isOwner) return;
-    fetch(`/api/dbhandler?model=category&businessId=${business.id}`)
-      .then((response) => response.json())
-      .then(setBusinessCategories)
-      .catch(() => toast.error("Could not load business categories"));
+    loadBusinessCategories();
   }, [business?.id, isOwner]);
 
   useEffect(() => {
@@ -260,6 +267,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         window.dispatchEvent(new CustomEvent("vport:clear-api-cache"));
       }
 
+      await loadBusinessCategories();
       toast.success(message);
       setSaveDialog({ title, message, success: true });
       setSelected([]);

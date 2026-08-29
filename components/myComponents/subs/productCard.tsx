@@ -241,7 +241,11 @@ export function ProductCard({
     e.stopPropagation();
     if (confirm(`Are you sure you want to delete ${product.name}?`)) {
       try {
-        await axios.delete(`/api/dbhandler?model=product&id=${product.id}`);
+        const targetBusinessId = product.businessId || currentBusiness?.id;
+        const url = targetBusinessId
+          ? `/api/dbhandler?model=product&id=${product.id}&businessId=${encodeURIComponent(targetBusinessId)}`
+          : `/api/dbhandler?model=product&id=${product.id}`;
+        await axios.delete(url);
         toast.success("Product deleted successfully");
         window.location.reload(); // Refresh to show changes
       } catch (err) {

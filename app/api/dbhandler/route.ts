@@ -207,7 +207,7 @@ function parseId(id: string | null, model: string) {
 async function canManageBusinessResource(session: any, model: string | null, businessId?: string | null, userId?: string | null) {
   const role = (session?.user as any)?.role || "visitor";
   const sessionUserId = (session?.user as any)?.id;
-  const effectiveUserId = userId || sessionUserId;
+  const effectiveUserId = sessionUserId ?? userId ?? null;
   const isAdminOrStaff = role === "admin" || role === "staff";
 
   if (role === "admin") return true;
@@ -263,11 +263,19 @@ export async function GET(req: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "50");
   const offset = parseInt(searchParams.get("offset") || "0");
   const minimal = searchParams.get("minimal") === "true";
+  const session = await auth();
 
   if (!model || !modelMap[model]) return NextResponse.json({ error: "Invalid model" }, { status: 400 });
 
   const prismaModel = modelMap[model];
   const businessId = searchParams.get("businessId");
+
+  if ((model === "product" || model === "category") && businessId && session?.user?.id) {
+    const role = (session.user as any)?.role || "visitor";
+    if (role !== "admin" && !(await canManageBusinessResource(session, model, businessId, null))) {
+      return NextResponse.json({ error: "Unauthorized access to this business" }, { status: 403 });
+    }
+  }
 
   try {
     if (!id) {
@@ -611,6 +619,20 @@ export async function GET(req: NextRequest) {
         include: Object.keys(include).length > 0 ? include : undefined
       });
       if (!item) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+
+      if ((model === "product" || model === "category") && item?.businessId) {
+        const requestedBusinessId = searchParams.get("businessId");
+        if (requestedBusinessId && String(item.businessId) !== String(requestedBusinessId)) {
+          return NextResponse.json({ error: "This record does not belong to the current business" }, { status: 403 });
+        }
+
+        if (session?.user?.id && (session.user as any)?.role !== "admin") {
+          const canAccessBusiness = await canManageBusinessResource(session, model, item.businessId, null);
+          if (!canAccessBusiness) {
+            return NextResponse.json({ error: "Unauthorized access to this business" }, { status: 403 });
+          }
+        }
+      }
 
       if (model === "product" && item.reviews) {
         item.reviews = item.reviews.map((review: any) => ({
@@ -960,6 +982,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 
+  if ((model === "product" || model === "category") && !businessId) {
+    const existing = await prismaModel.findUnique({ where: { id: String(parseId(body.id || searchParams.get("id"), model)) }, select: { businessId: true } }).catch(() => null);
+    if (!existing?.businessId) {
+      return NextResponse.json({ error: "Business-scoped updates require a valid business" }, { status: 403 });
+    }
+    if ((session?.user as any)?.role !== "admin" && !(await canManageBusinessResource(session, model, existing.businessId, null))) {
+      return NextResponse.json({ error: "Unauthorized access to this business" }, { status: 403 });
+    }
+  }
+
   if (model !== "user" && (session?.user as any)?.role === "staff") {
     return NextResponse.json({ error: "Staff accounts cannot update records" }, { status: 403 });
   }
@@ -984,8 +1016,26 @@ export async function PUT(req: NextRequest) {
   const id = parseId(body.id || searchParams.get("id"), model);
   if (!id) return NextResponse.json({ error: "Missing ID" }, { status: 400 });
 
+  const existingRecord = (model === "product" || model === "category")
+    ? await prismaModel.findUnique({
+        where: { id: String(id) },
+        select: { businessId: true },
+      }).catch(() => null)
+    : null;
+
   const { id: _, ...updatedData } = body;
   normalizeBusinessRelation(model, updatedData);
+
+  if ((model === "product" || model === "category") && existingRecord?.businessId) {
+    const effectiveBusinessId = (updatedData.businessId || updatedData.business?.id || existingRecord.businessId || null);
+    if (String(effectiveBusinessId) !== String(existingRecord.businessId)) {
+      return NextResponse.json({ error: "This record does not belong to the current business" }, { status: 403 });
+    }
+
+    if ((session?.user as any)?.role !== "admin" && !(await canManageBusinessResource(session, model, existingRecord.businessId, null))) {
+      return NextResponse.json({ error: "Unauthorized access to this business" }, { status: 403 });
+    }
+  }
 
   if (updatedData.isRead === "true") updatedData.isRead = true;
   if (updatedData.isRead === "false") updatedData.isRead = false;
@@ -1122,7 +1172,17 @@ export async function DELETE(req: NextRequest) {
   if (!model || !modelMap[model] || !id) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
   const item = await modelMap[model].findUnique({ where: { id: String(id) }, select: { businessId: true } }).catch(() => null);
+  const requestedBusinessId = searchParams.get("businessId");
   const userId = searchParams.get("userId") || searchParams.get("ownerId") || null;
+
+  if ((model === "product" || model === "category") && !item?.businessId) {
+    return NextResponse.json({ error: "Only business-owned products and categories can be deleted" }, { status: 403 });
+  }
+
+  if (requestedBusinessId && item?.businessId && String(item.businessId) !== String(requestedBusinessId)) {
+    return NextResponse.json({ error: "This record does not belong to the current business" }, { status: 403 });
+  }
+
   const canManage = model === "user"
     ? false
     : await canManageBusinessResource(session, model, item?.businessId || null, userId);

@@ -117,11 +117,21 @@ export async function POST(request: NextRequest) {
       : await prisma.category.findFirst({ where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } } })
         || await prisma.category.create({ data: { businessId, name: sourceCategory.name, description: sourceCategory.description } });
     if (!targetCategory) return NextResponse.json({ error: "Store category was not found" }, { status: 400 });
+
     const result = await prisma.product.updateMany({
       where: { businessId: null, categoryId: sourceCategoryId },
       data: { businessId, categoryId: targetCategory.id },
     });
-    return NextResponse.json({ attached: result.count });
+
+    if (result.count === 0) {
+      await prisma.category.upsert({
+        where: { id: targetCategory.id },
+        update: { name: targetCategory.name, businessId },
+        create: { id: targetCategory.id, businessId, name: targetCategory.name, description: targetCategory.description },
+      });
+    }
+
+    return NextResponse.json({ attached: result.count, categoryId: targetCategory.id });
   }
 
   const name = String(body.name || "").trim();
