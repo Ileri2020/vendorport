@@ -93,7 +93,13 @@ async function cloneProductsToBusiness({
   }
 
   const sourceProducts = await prisma.product.findMany({
-    where: { id: { in: uniqueProductIds }, businessId: null },
+    where: {
+      id: { in: uniqueProductIds },
+      OR: [
+        { businessId: null },
+        { businessId: { isSet: false } },
+      ],
+    },
     include: {
       variants: { include: { prices: true, inventoryItems: true } },
     },
@@ -235,7 +241,13 @@ export async function POST(request: NextRequest) {
     }
 
     const sourceProducts = await prisma.product.findMany({
-      where: { id: { in: productIds }, businessId: null },
+      where: {
+        id: { in: productIds },
+        OR: [
+          { businessId: null },
+          { businessId: { isSet: false } },
+        ],
+      },
       include: { category: true },
     });
     if (sourceProducts.some((product) => !product.category)) {
@@ -259,7 +271,13 @@ export async function POST(request: NextRequest) {
         data: { businessId, name: sourceCategory.name, description: sourceCategory.description },
       });
       const result = await prisma.product.updateMany({
-        where: { id: { in: productsInCategory.map((product) => product.id) }, businessId: null },
+        where: {
+          id: { in: productsInCategory.map((product) => product.id) },
+          OR: [
+            { businessId: null },
+            { businessId: { isSet: false } },
+          ],
+        },
         data: { businessId, categoryId: targetCategory.id },
       });
       attached += result.count;
@@ -288,7 +306,15 @@ export async function POST(request: NextRequest) {
     const sourceCategory = await prisma.category.findUnique({
       where: { id: sourceCategoryId },
       include: {
-        products: { where: { businessId: null }, select: { id: true } },
+        products: {
+          where: {
+            OR: [
+              { businessId: null },
+              { businessId: { isSet: false } },
+            ],
+          },
+          select: { id: true },
+        },
         productCategories: { where: { categoryId: sourceCategoryId }, select: { productId: true } },
       },
     });
@@ -334,6 +360,16 @@ export async function POST(request: NextRequest) {
       sourceCategoryId,
       targetCategoryId: targetCategory.id,
     });
+
+    if (result.attached === 0 && sourceProductIds.length > 0) {
+      console.error("[platform-products][attach-category] source products could not be cloned", {
+        sourceCategoryId,
+        sourceProductCount: sourceProductIds.length,
+        businessId,
+        targetCategoryId: targetCategory.id,
+      });
+      return NextResponse.json({ error: "The platform products could not be copied to this business" }, { status: 500 });
+    }
 
     if (result.attached === 0) {
       const existingBusinessCategory = await prisma.category.findFirst({
