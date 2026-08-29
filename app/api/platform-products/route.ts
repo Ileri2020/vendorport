@@ -54,17 +54,47 @@ export async function POST(request: NextRequest) {
     if (!business || (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-    const category = categoryId
-      ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })
-      : await prisma.category.findFirst({ where: { businessId, name: { equals: "General", mode: "insensitive" } } })
-        || await prisma.category.create({ data: { businessId, name: "General" } });
-    if (!category) return NextResponse.json({ error: "Category does not belong to this business" }, { status: 400 });
+    if (categoryId) {
+      const category = await prisma.category.findFirst({ where: { id: categoryId, businessId } });
+      if (!category) return NextResponse.json({ error: "Category does not belong to this business" }, { status: 400 });
+      const result = await prisma.product.updateMany({
+        where: { id: { in: productIds }, businessId: null },
+        data: { businessId, categoryId: category.id },
+      });
+      return NextResponse.json({ attached: result.count });
+    }
 
-    const result = await prisma.product.updateMany({
+    const sourceProducts = await prisma.product.findMany({
       where: { id: { in: productIds }, businessId: null },
-      data: { businessId, categoryId: category.id },
+      include: { category: true },
     });
-    return NextResponse.json({ attached: result.count });
+    if (sourceProducts.some((product) => !product.category)) {
+      return NextResponse.json({ error: "Every selected product must have a platform category" }, { status: 400 });
+    }
+
+    const productsByCategory = new Map<string, typeof sourceProducts>();
+    for (const product of sourceProducts) {
+      const sourceCategory = product.category!;
+      const group = productsByCategory.get(sourceCategory.id) || [];
+      group.push(product);
+      productsByCategory.set(sourceCategory.id, group);
+    }
+
+    let attached = 0;
+    for (const productsInCategory of productsByCategory.values()) {
+      const sourceCategory = productsInCategory[0].category!;
+      const targetCategory = await prisma.category.findFirst({
+        where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } },
+      }) || await prisma.category.create({
+        data: { businessId, name: sourceCategory.name, description: sourceCategory.description },
+      });
+      const result = await prisma.product.updateMany({
+        where: { id: { in: productsInCategory.map((product) => product.id) }, businessId: null },
+        data: { businessId, categoryId: targetCategory.id },
+      });
+      attached += result.count;
+    }
+    return NextResponse.json({ attached });
   }
 
   if (action === "attach-category") {
