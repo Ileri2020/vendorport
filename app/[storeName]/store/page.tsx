@@ -1,5 +1,6 @@
 "use client"
 import { useCallback, useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
 import { Stocks, GlobalSearch } from "@/components/myComponents/subs"
 import CategoryNavigator from "@/components/myComponents/subs/categoryNavigator"
@@ -11,6 +12,8 @@ import { useAppContext } from "@/hooks/useAppContext"
 
 const Store = () => {
   const { currentBusiness, user } = useAppContext();
+  const pathname = usePathname();
+  const isPlatformStore = (pathname || "").replace(/\/+$/, "") === "/store";
   const [hasCategories, setHasCategories] = useState<boolean | undefined>(undefined)
   const [hasProducts, setHasProducts] = useState<boolean | undefined>(undefined)
   const [setupLoaded, setSetupLoaded] = useState(false)
@@ -19,7 +22,7 @@ const Store = () => {
   const isOwner = Boolean(currentBusiness?.ownerId && currentBusiness?.ownerId === user?.id)
 
   const loadStoreContentState = useCallback(async () => {
-    if (!currentBusiness?.id) {
+    if (!isPlatformStore && !currentBusiness?.id) {
       setHasCategories(undefined)
       setHasProducts(undefined)
       setSetupLoaded(false)
@@ -27,24 +30,24 @@ const Store = () => {
     }
 
     try {
-      const businessId = currentBusiness.id
+      const businessQuery = isPlatformStore ? "" : `&businessId=${encodeURIComponent(currentBusiness.id)}`
       const [categoryRes, productRes] = await Promise.all([
-        fetch(`/api/dbhandler?model=category&businessId=${businessId}&limit=1`),
-        fetch(`/api/dbhandler?model=product&businessId=${businessId}&limit=1`),
+        fetch(`/api/dbhandler?model=category&limit=1${businessQuery}`),
+        fetch(`/api/dbhandler?model=product&limit=1${businessQuery}`),
       ])
 
       const categories = categoryRes.ok ? await categoryRes.json() : null
       const products = productRes.ok ? await productRes.json() : null
-      setHasCategories((Array.isArray(categories) && categories.length > 0) || Number(currentBusiness._count?.categories || 0) > 0)
-      setHasProducts((Array.isArray(products) && products.length > 0) || Number(currentBusiness._count?.products || 0) > 0)
+      setHasCategories((Array.isArray(categories) && categories.length > 0) || Number(currentBusiness?._count?.categories || 0) > 0)
+      setHasProducts((Array.isArray(products) && products.length > 0) || Number(currentBusiness?._count?.products || 0) > 0)
     } catch (error) {
       console.error("Failed to load store content state", error)
-      setHasCategories(Number(currentBusiness._count?.categories || 0) > 0)
-      setHasProducts(Number(currentBusiness._count?.products || 0) > 0)
+      setHasCategories(Number(currentBusiness?._count?.categories || 0) > 0)
+      setHasProducts(Number(currentBusiness?._count?.products || 0) > 0)
     } finally {
       setSetupLoaded(true)
     }
-  }, [currentBusiness?.id])
+  }, [currentBusiness?.id, isPlatformStore])
 
   useEffect(() => {
     loadStoreContentState()
@@ -64,11 +67,11 @@ const Store = () => {
           <GlobalSearch placeholder={settings?.heroSubtitle || "Search more products in our store..."} />
         </div>
 
-        {!currentBusiness || !setupLoaded ? (
+        {!setupLoaded || (!isPlatformStore && !currentBusiness) ? (
           <StoreSetupSkeleton />
-        ) : (!hasCategories || !hasProducts) ? (
+        ) : (!hasProducts || (!isPlatformStore && !hasCategories)) ? (
           <StoreSetupPrompt
-            businessName={currentBusiness.name}
+            businessName={currentBusiness?.name || "Platform"}
             isOwner={isOwner}
             hasCategories={!!hasCategories}
             hasProducts={!!hasProducts}

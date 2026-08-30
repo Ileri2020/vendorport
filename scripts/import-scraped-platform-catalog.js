@@ -2,6 +2,25 @@
 
 require('dotenv/config');
 
+function ensureAtlasDirectUrls() {
+  const hostList = [
+    'succomongo-shard-00-00.b5r4o.mongodb.net:27017',
+    'succomongo-shard-00-01.b5r4o.mongodb.net:27017',
+    'succomongo-shard-00-02.b5r4o.mongodb.net:27017',
+  ].join(',');
+
+  const directAtlasUrl = `mongodb://adepojuololade2020:j0k2iy9xXcraCpHn@${hostList}/scraped?authSource=admin&retryWrites=true&w=majority&tls=true`;
+
+  if (!process.env.PRICEPALLY_MONGODB_URL) {
+    process.env.PRICEPALLY_MONGODB_URL = directAtlasUrl;
+  }
+  if (!process.env.MARKET2HOME_MONGODB_URL) {
+    process.env.MARKET2HOME_MONGODB_URL = directAtlasUrl;
+  }
+}
+
+ensureAtlasDirectUrls();
+
 const fs = require('fs');
 const path = require('path');
 const { v2: cloudinary } = require('cloudinary');
@@ -9,21 +28,9 @@ const { PrismaClient } = require('@prisma/client');
 const { PrismaClient: PricepallyClient } = require('../generated/pricepally');
 const { PrismaClient: Market2HomeClient } = require('../generated/market2home');
 
-const prisma = new PrismaClient({
-  datasources: {
-    db: { url: process.env.DATABASE_URL },
-  },
-});
-const pricepally = new PricepallyClient({
-  datasources: {
-    db: { url: process.env.PRICEPALLY_MONGODB_URL },
-  },
-});
-const market2home = new Market2HomeClient({
-  datasources: {
-    db: { url: process.env.MARKET2HOME_MONGODB_URL },
-  },
-});
+const prisma = new PrismaClient();
+const pricepally = new PricepallyClient();
+const market2home = new Market2HomeClient();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -44,6 +51,13 @@ function getOption(name) {
   const prefix = `--${name}=`;
   const argument = process.argv.find((value) => value.startsWith(prefix));
   return argument ? argument.slice(prefix.length) : undefined;
+}
+
+function getNumberOption(name, fallback = 0) {
+  const raw = getOption(name);
+  if (raw == null) return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
 function snapshotDirectory() {
@@ -205,6 +219,98 @@ async function uploadImages(urls, cache) {
   return unique(uploaded);
 }
 
+async function createProductWithRelations(productData, categoryIds) {
+  const uniqueCategoryIds = unique(categoryIds);
+  const createdProduct = await prisma.product.create({
+    data: {
+      name: productData.name,
+      description: productData.description,
+      shortDescription: productData.shortDescription,
+      barcode: productData.barcode,
+      tags: productData.tags,
+      price: Number(productData.price || 0),
+      images: productData.images || [],
+      weight: productData.weight,
+      businessId: null,
+      activeIngredients: [],
+      for: [],
+      categoryId: uniqueCategoryIds[0] || undefined,
+    },
+  });
+
+  if (uniqueCategoryIds.length > 0) {
+    await prisma.productCategory.createMany({
+      data: uniqueCategoryIds.map((categoryId, position) => ({
+        productId: createdProduct.id,
+        categoryId,
+        position,
+      })),
+    });
+  }
+
+  const variantsToCreate = Array.isArray(productData.variants) ? productData.variants.filter(v => v && v.title) : [];
+  for (const variant of variantsToCreate) {
+    if (!variant || !variant.title) continue;
+
+    const createdVariant = await prisma.productVariant.create({
+      data: {
+        productId: createdProduct.id,
+        title: variant.title,
+        weight: variant.weight || null,
+        volume: variant.volume || null,
+        metadata: variant.metadata || undefined,
+        allowBackorder: Boolean(variant.allowBackorder),
+        manageInventory: variant.manageInventory !== false,
+        stockStatusByRegion: variant.stockStatusByRegion || undefined,
+      },
+    });
+
+    const prices = (variant.prices && Array.isArray(variant.prices)) ? variant.prices.filter(p => p) : [];
+    if (prices.length > 0) {
+      try {
+        await prisma.productVariantPrice.createMany({
+          data: prices.map((price) => ({
+            variantId: createdVariant.id,
+            amount: Number(price.amount ?? 0),
+            originalAmount: price.originalAmount == null ? null : Number(price.originalAmount),
+            calculatedAmount: price.calculatedAmount == null ? null : Number(price.calculatedAmount),
+            currencyCode: asText(price.currencyCode || 'ngn').toLowerCase(),
+            isDiscounted: Boolean(price.isDiscounted),
+            minQuantity: price.minQuantity == null ? null : Number(price.minQuantity),
+            maxQuantity: price.maxQuantity == null ? null : Number(price.maxQuantity),
+            metadata: price.metadata || undefined,
+          })),
+        });
+      } catch (priceErr) {
+        console.warn(`Skipped variant prices: ${priceErr.message}`);
+      }
+    }
+
+    const inventoryItems = (variant.inventoryItems && Array.isArray(variant.inventoryItems)) ? variant.inventoryItems.filter(i => i) : [];
+    if (inventoryItems.length > 0) {
+      try {
+        await prisma.productVariantInventory.createMany({
+          data: inventoryItems.map((item) => ({
+            variantId: createdVariant.id,
+            sku: item.sku || null,
+            requiredQuantity: item.requiredQuantity == null ? null : Number(item.requiredQuantity),
+            availableQuantity: item.availableQuantity == null ? null : Number(item.availableQuantity),
+            deliverableQuantity: item.deliverableQuantity == null ? null : Number(item.deliverableQuantity),
+            reservedQuantity: item.reservedQuantity == null ? null : Number(item.reservedQuantity),
+            stockedQuantity: item.stockedQuantity == null ? null : Number(item.stockedQuantity),
+            minStockLevel: item.minStockLevel == null ? null : Number(item.minStockLevel),
+            metadata: item.metadata || undefined,
+          })),
+        });
+      } catch (invErr) {
+        console.warn(`Skipped variant inventory: ${invErr.message}`);
+      }
+    }
+  }
+
+  return createdProduct;
+}
+
 async function retryWithBackoff(fn, maxRetries = 3, baseDelay = 2000) {
   let lastError;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
@@ -293,6 +399,7 @@ function buildLocalComparison(sources, appCatalog) {
 
 async function createPlatformCatalog() {
   const dryRun = hasFlag('dry-run');
+  const limit = getNumberOption('limit', 0);
   const sources = await loadSourceCatalog();
   const appCatalog = await loadAppCatalogSnapshot();
   const sourceSnapshotPath = writeSnapshot('scraped-catalog.json', sources);
@@ -304,6 +411,9 @@ async function createPlatformCatalog() {
   console.log(`Source snapshot: ${sourceSnapshotPath}`);
   console.log(`App snapshot: ${appSnapshotPath}`);
   console.log(`Comparison report: ${comparisonPath}`);
+  if (limit > 0) {
+    console.log(`Import limit enabled: first ${limit} missing products only`);
+  }
   const imageCache = new Map();
   const categoriesByKey = new Map();
   const sourceCategoryLookups = new Map();
@@ -350,6 +460,7 @@ async function createPlatformCatalog() {
     appCategories.set(asText(existing.name).toLocaleLowerCase(), existing.id);
   }
 
+  console.log(`Creating missing categories... (${categoriesByKey.size} deduped categories in source set)`);
   for (const category of categoriesByKey.values()) {
     const normalizedName = asText(category.name).toLocaleLowerCase();
     let categoryId = appCategories.get(normalizedName);
@@ -365,6 +476,7 @@ async function createPlatformCatalog() {
       categoryId = saved.id;
       appCategories.set(normalizedName, categoryId);
       categoryCount += 1;
+      console.log(`Created category: ${category.name}`);
     }
     appCategories.set(category.key, categoryId);
   }
@@ -377,8 +489,17 @@ async function createPlatformCatalog() {
     existingProducts.map((product) => `${asText(product.name).toLocaleLowerCase()}::${product.categoryId || ''}`)
   );
 
+  let productIteration = 0;
+  let reachedLimit = false;
+
   for (const sourceData of sources) {
     for (const product of sourceData.products) {
+      if (limit > 0 && productIteration >= limit) {
+        reachedLimit = true;
+        break;
+      }
+      productIteration += 1;
+
       const sourceProductId = product.id;
       if (!sourceProductId) continue;
 
@@ -400,6 +521,7 @@ async function createPlatformCatalog() {
 
       const sourceImages = imageUrls(product.images);
       if (product.thumbnail) sourceImages.unshift(product.thumbnail);
+      console.log(`Processing product ${productIteration}/${limit || 'all'}: ${productName}`);
       const images = await uploadImages(unique(sourceImages), imageCache);
 
       const productData = {
@@ -433,15 +555,17 @@ async function createPlatformCatalog() {
       };
 
       try {
-        await prisma.product.create({ data: { ...productData, categoryId: categoryIds[0] || undefined } });
+        await createProductWithRelations(productData, categoryIds);
         existingProductKeys.add(productKey);
         productCount += 1;
         if (productCount % 25 === 0) console.log(`Imported ${productCount} platform products`);
       } catch (error) {
         failedCount += 1;
         console.error(`Failed product ${sourceData.source}:${sourceProductId} (${productData.name}): ${error?.message || error}`);
+        if (error?.stack) console.error(error.stack);
       }
     }
+    if (reachedLimit) break;
   }
 
   console.log(`Imported ${productCount} products and prepared ${categoryCount} platform categories; failed ${failedCount}`);

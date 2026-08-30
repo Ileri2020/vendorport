@@ -52,6 +52,7 @@ model Portfolio {
   job                    String?
   jobDescription         String?
   jobType                String    @default("accepting") // accepting: looking for work, giving: offering work
+  isDefault              Boolean   @default(false)
   images                 String[]  @default([])
   cvDocuments            String[]  @default([])
   certificationDocuments String[]  @default([])

@@ -195,7 +195,7 @@ export default function CartPage() {
                 <CardContent>
                   <div className="flex items-center gap-4 bg-secondary/20 p-4 rounded-lg">
                     {/* Reusing cart side drawer trigger */}
-                    <CartClient cart={{}} />
+                    <CartClient cart={{}} platformPaymentsDisabled />
                     <div className="text-sm text-muted-foreground">
                       Click the icon to view and edit your current active checkout cart.
                     </div>

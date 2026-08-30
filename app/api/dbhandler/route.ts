@@ -232,7 +232,8 @@ function dedupeCatalogCategories(categories: any[]) {
   const seen = new Map<string, any>();
 
   for (const category of categories) {
-    const key = normalizeCatalogValue(category?.name);
+    const businessKey = category?.businessId ? String(category.businessId) : "platform";
+    const key = `${businessKey}|${normalizeCatalogValue(category?.name)}`;
     const existing = seen.get(key);
 
     if (!existing) {
@@ -542,6 +543,11 @@ export async function GET(req: NextRequest) {
 
         if (requestedUserId) {
           where.userId = requestedUserId;
+        }
+
+        const defaultFilter = searchParams.get("isDefault");
+        if (!requestedUserId || defaultFilter !== null) {
+          where.isDefault = defaultFilter === "true";
         }
 
         if (jobType === "accepting" || jobType === "giving") {
@@ -888,6 +894,7 @@ export async function POST(req: NextRequest) {
       const portfolioCount = await prisma.portfolio.count({
         where: {
           userId: String(body.userId),
+          isDefault: false,
           ...(jobType === "accepting"
             ? { OR: [{ jobType: "accepting" }, { jobType: null }] }
             : { jobType }),
@@ -899,6 +906,8 @@ export async function POST(req: NextRequest) {
         }, { status: 400 });
       }
       body.jobType = jobType;
+      if (body.isDefault === "true") body.isDefault = true;
+      if (body.isDefault === "false") body.isDefault = false;
 
       if (body.contactCount !== undefined) {
         body.contactCount = Number(body.contactCount) || 0;
@@ -1137,6 +1146,9 @@ export async function PUT(req: NextRequest) {
     if (updatedData.contactCount !== undefined) {
       updatedData.contactCount = Number(updatedData.contactCount) || 0;
     }
+
+    if (updatedData.isDefault === "true") updatedData.isDefault = true;
+    if (updatedData.isDefault === "false") updatedData.isDefault = false;
 
     if (updatedData.activatedAt) {
       updatedData.activatedAt = new Date(updatedData.activatedAt);

@@ -14,6 +14,8 @@ import { useAppContext } from "@/hooks/useAppContext"
 import { ProfileImg } from "@/components/myComponents/subs/fileupload"
 import { signOut } from "next-auth/react"
 import UserShippingAddressForm from "@/prisma/forms/userShippingAddressForm"
+import PortfolioForm from "@/prisma/forms/PortfolioForm"
+import { PortfolioCard } from "@/components/myComponents/subs/PortfolioCard"
 import Link from "next/link"
 import axios from "axios"
 import { toast } from "sonner"
@@ -53,6 +55,8 @@ const Account = () => {
   const { user, setUser, currentBusiness, setCurrentBusiness } = useAppContext()
   const [bankDetails, setBankDetails] = useState({ bankName: "", accountNumber: "", accountName: "" })
   const [savingBankDetails, setSavingBankDetails] = useState(false)
+  const [portfolios, setPortfolios] = useState<any[]>([])
+  const [editingPortfolio, setEditingPortfolio] = useState<any | null>(null)
   const [cardOrientation, setCardOrientation] = useState<"horizontal" | "vertical">("horizontal");
   const [isAffiliate, setIsAffiliate] = useState(false);
   const [affiliateData, setAffiliateData] = useState<any>(null);
@@ -92,6 +96,34 @@ const Account = () => {
       accountName: currentBusiness.siteSettings.accountName || "",
     });
   }, [currentBusiness?.id, currentBusiness?.siteSettings]);
+
+  useEffect(() => {
+    if (!user?.id || user.id === "nil") return;
+
+    const loadPortfolios = async () => {
+      try {
+        const response = await axios.get(`/api/dbhandler?model=portfolio&userId=${user.id}`);
+        const existingPortfolios = Array.isArray(response.data) ? response.data : response.data ? [response.data] : [];
+        if (existingPortfolios.length > 0) {
+          setPortfolios(existingPortfolios);
+          return;
+        }
+
+        const defaultResponse = await axios.post("/api/dbhandler?model=portfolio", {
+          userId: user.id,
+          job: "nil",
+          jobDescription: "unknown",
+          jobType: "accepting",
+          isDefault: true,
+        });
+        setPortfolios([{ ...defaultResponse.data, user: { id: user.id, name: user.name, image: user.image } }]);
+      } catch (error) {
+        console.error("Failed to load job profiles", error);
+      }
+    };
+
+    loadPortfolios();
+  }, [user?.id, user?.name, user?.image]);
 
   const saveBusinessBankDetails = async () => {
     if (!currentBusiness?.id) return;
@@ -578,6 +610,41 @@ const Account = () => {
             <Button onClick={saveBusinessBankDetails} disabled={savingBankDetails} className="w-full">
               {savingBankDetails ? "Saving details..." : "Save manual payment details"}
             </Button>
+          </div>
+        )}
+
+        {portfolios.length > 0 && (
+          <div className="rounded-xl border bg-card shadow-sm p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">My Job Profiles</h2>
+              <Badge variant="outline">{portfolios.length}</Badge>
+            </div>
+            <div className="space-y-3">
+              {portfolios.map((portfolio) => (
+                <div key={portfolio.id} className="space-y-2">
+                  <PortfolioCard portfolio={portfolio} layout="horizontal" />
+                  <Button type="button" variant="outline" className="w-full" onClick={() => setEditingPortfolio(portfolio)}>
+                    Edit job profile
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <Dialog open={Boolean(editingPortfolio)} onOpenChange={(open) => !open && setEditingPortfolio(null)}>
+              <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-2xl">
+                <DialogHeader><DialogTitle>Edit job profile</DialogTitle></DialogHeader>
+                {editingPortfolio && (
+                  <PortfolioForm
+                    key={editingPortfolio.id}
+                    portfolioId={editingPortfolio.id}
+                    onSubmitted={async () => {
+                      setEditingPortfolio(null);
+                      const response = await axios.get(`/api/dbhandler?model=portfolio&userId=${user.id}`);
+                      setPortfolios(Array.isArray(response.data) ? response.data : [response.data]);
+                    }}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         )}
 

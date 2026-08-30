@@ -23,6 +23,7 @@ import { AdminUserManager } from "@/components/myComponents/subs/AdminUserManage
 import { AdminBulkManager } from "@/components/myComponents/subs/AdminBulkManager"
 import { AffiliateDialog } from "@/components/myComponents/subs/AffiliateDialog"
 import { PortfolioCard } from "@/components/myComponents/subs/PortfolioCard"
+import PortfolioForm from "@/prisma/forms/PortfolioForm"
 import { ProfileSkeleton, TableSkeleton } from "@/components/skeletons"
 import MonnifyPaymentButton from "@/components/payment/monnify"
 import { ManualTransfer } from "@/components/payment/manual"
@@ -145,6 +146,7 @@ const Account = () => {
   const [downloadingDataOps, setDownloadingDataOps] = useState(false);
   const [affiliatePopupSeen, setAffiliatePopupSeen] = useState(false);
   const [portfolios, setPortfolios] = useState<any[]>([]);
+  const [editingPortfolio, setEditingPortfolio] = useState<any | null>(null);
   const [portfolioLoading, setPortfolioLoading] = useState(false);
   const [ownedBusinesses, setOwnedBusinesses] = useState<any[]>([]);
   const [staffApplications, setStaffApplications] = useState<any[]>([]);
@@ -340,7 +342,20 @@ const Account = () => {
       try {
         setPortfolioLoading(true);
         const res = await axios.get(`/api/dbhandler?model=portfolio&userId=${user.id}`);
-        setPortfolios(Array.isArray(res.data) ? res.data : res.data ? [res.data] : []);
+        const existingPortfolios = Array.isArray(res.data) ? res.data : res.data ? [res.data] : [];
+        if (existingPortfolios.length > 0) {
+          setPortfolios(existingPortfolios);
+          return;
+        }
+
+        const defaultResponse = await axios.post("/api/dbhandler?model=portfolio", {
+          userId: user.id,
+          job: "nil",
+          jobDescription: "unknown",
+          jobType: "accepting",
+          isDefault: true,
+        });
+        setPortfolios([{ ...defaultResponse.data, user: { id: user.id, name: user.name, image: user.image } }]);
       } catch (error) {
         console.error('Failed to fetch portfolios', error);
       } finally {
@@ -1025,6 +1040,9 @@ const Account = () => {
                       showActivateButton
                       onActivate={handlePortfolioActivation}
                     />
+                    <Button type="button" variant="outline" className="w-full" onClick={() => setEditingPortfolio(portfolio)}>
+                      Edit job profile
+                    </Button>
                     <Button
                       type="button"
                       onClick={() => handlePortfolioActivation(portfolio.id)}
@@ -1033,6 +1051,25 @@ const Account = () => {
                         active ? "bg-green-500 hover:bg-green-600" : "bg-red-500 hover:bg-red-600"
                       )}
                     >
+
+                    <Dialog open={Boolean(editingPortfolio)} onOpenChange={(open) => !open && setEditingPortfolio(null)}>
+                      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-2xl">
+                        <DialogHeader>
+                          <DialogTitle>Edit job profile</DialogTitle>
+                        </DialogHeader>
+                        {editingPortfolio && (
+                          <PortfolioForm
+                            key={editingPortfolio.id}
+                            portfolioId={editingPortfolio.id}
+                            onSubmitted={async () => {
+                              setEditingPortfolio(null);
+                              const response = await axios.get(`/api/dbhandler?model=portfolio&userId=${user.id}`);
+                              setPortfolios(Array.isArray(response.data) ? response.data : [response.data]);
+                            }}
+                          />
+                        )}
+                      </DialogContent>
+                    </Dialog>
                       {active ? "Active until countdown ends" : "Start 2-week activation countdown"}
                     </Button>
                   </div>

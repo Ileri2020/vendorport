@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -12,6 +13,15 @@ import { toast } from "sonner";
 import { PlusCircle, Trash2, ChevronDown } from "lucide-react";
 import { prepareImageForUpload } from "@/lib/compress-image";
 import { saveBusinessColorOverrides } from "@/lib/business-colors";
+
+const PLATFORM_COLOR_DEFAULTS = {
+  accentLight: "8365 100% 37%",
+  accentDark: "8365 100% 59%",
+  accentSecondaryLight: "45 93% 62%",
+  accentSecondaryDark: "45 93% 62%",
+  accentForegroundLight: "222 47% 12%",
+  accentForegroundDark: "222 47% 10%",
+};
 
 const SiteSettingsForm: React.FC = () => {
   const { currentBusiness, setCurrentBusiness } = useAppContext();
@@ -25,6 +35,7 @@ const SiteSettingsForm: React.FC = () => {
   const [colorDragging, setColorDragging] = useState(false);
   const [newOperatingState, setNewOperatingState] = useState("");
   const [newOperatingCountry, setNewOperatingCountry] = useState("Nigeria");
+  const [colorSaveSuccess, setColorSaveSuccess] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -364,6 +375,19 @@ const SiteSettingsForm: React.FC = () => {
 
     const result = await saveSettings(payload, { isSection: true, sectionKey, sectionLabel });
     if (result) syncCurrentBusinessSettings(result);
+    return result;
+  };
+
+  const savePlatformColorDefaults = async () => {
+    const result = await saveSettings(
+      { businessId: currentBusiness?.id, ...PLATFORM_COLOR_DEFAULTS },
+      { isSection: true, sectionKey: "colors", sectionLabel: "Platform colors" }
+    );
+    if (result) {
+      setForm((previous: any) => ({ ...previous, ...PLATFORM_COLOR_DEFAULTS, ...result }));
+      syncCurrentBusinessSettings(result);
+      setColorSaveSuccess(true);
+    }
   };
 
   const renderSectionSaveButton = (sectionKey: string, sectionLabel: string, keys: string[]) => (
@@ -992,11 +1016,35 @@ const SiteSettingsForm: React.FC = () => {
                   </div>
                 </div>
               </div>
-              {renderSectionSaveButton("colors", "Colors", ["defaultTheme", "productCardOrientation", "accentLight", "accentDark", "accentSecondaryLight", "accentSecondaryDark", "accentForegroundLight", "accentForegroundDark"])}
+              <div className="flex flex-wrap justify-end gap-2 pt-3">
+                <Button type="button" variant="outline" onClick={savePlatformColorDefaults} disabled={savingSection === "colors"}>
+                  Use platform default colors
+                </Button>
+                <Button
+                  type="button"
+                  onClick={async () => {
+                    const result = await handleSaveSection("colors", "Colors", ["defaultTheme", "productCardOrientation", "accentLight", "accentDark", "accentSecondaryLight", "accentSecondaryDark", "accentForegroundLight", "accentForegroundDark"]);
+                    if (result) setColorSaveSuccess(true);
+                  }}
+                  disabled={savingSection === "colors"}
+                >
+                  {savingSection === "colors" ? "Saving Colors..." : "Save Colors"}
+                </Button>
+              </div>
             </CollapsibleContent>
           </div>
         </Collapsible>
       </div>
+
+      <Dialog open={colorSaveSuccess} onOpenChange={setColorSaveSuccess}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Colors saved successfully</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Your store color settings have been saved and applied.</p>
+          <Button type="button" onClick={() => setColorSaveSuccess(false)}>Done</Button>
+        </DialogContent>
+      </Dialog>
 
       <Separator className="my-4" />
       <div className="flex justify-end">

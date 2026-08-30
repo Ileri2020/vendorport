@@ -12,6 +12,7 @@ type Category = {
   id: string
   name: string
   description?: string | null
+  businessId?: string | null
   _count?: { products?: number }
   business?: any
 }
@@ -57,28 +58,57 @@ export default function CategoryNavigator() {
   const [locationRevision, setLocationRevision] = useState(0)
 
   useEffect(() => {
+    const requestKey = `${currentBusiness?.id || "unknown"}:${isPlatformStore ? "platform" : "store"}:${locationRevision}`
     const shouldUseBusinessScope = !isPlatformStore && Boolean(currentBusiness?.id)
     const query = shouldUseBusinessScope
       ? `&businessId=${encodeURIComponent(currentBusiness.id)}`
-      : isPlatformStore ? "&platform=true" : ""
+      : ""
+
+    if (!shouldUseBusinessScope && !isPlatformStore) {
+      setCategories([])
+      setLocations([])
+      return
+    }
+
+    let cancelled = false
+
     fetch(`/api/dbhandler?model=category&limit=500${query}`)
       .then((response) => response.ok ? response.json() : [])
       .then(async (data) => {
-        const available = Array.isArray(data) ? data.filter((category) => category?._count?.products !== 0) : []
+        if (cancelled || requestKey !== `${currentBusiness?.id || "unknown"}:${isPlatformStore ? "platform" : "store"}:${locationRevision}`) return
+
+        const available = Array.isArray(data)
+          ? data.filter((category) => {
+              if (isPlatformStore) return true
+              if (!currentBusiness?.id) return false
+              return !category?.businessId || String(category.businessId) === String(currentBusiness.id)
+            })
+          : []
+        const filtered = available.filter((category) => category?._count?.products !== 0)
         const savedLocation = getSavedUserLocation()
-        const ranked = await rankByDistance(available, savedLocation, (category) => category.business)
-        setCategories(ranked)
+        const ranked = await rankByDistance(filtered, savedLocation, (category) => category.business)
+        if (!cancelled) setCategories(ranked)
       })
-      .catch(() => setCategories([]))
+      .catch(() => {
+        if (!cancelled) setCategories([])
+      })
 
     const locationsQuery = shouldUseBusinessScope
       ? `?businessId=${encodeURIComponent(currentBusiness.id)}`
       : ""
     fetch(`/api/store-locations${locationsQuery}`)
       .then((response) => response.ok ? response.json() : [])
-      .then((data) => setLocations(Array.isArray(data) ? data : []))
-      .catch(() => setLocations([]))
-  }, [currentBusiness?.id, pathname, locationRevision])
+      .then((data) => {
+        if (!cancelled) setLocations(Array.isArray(data) ? data : [])
+      })
+      .catch(() => {
+        if (!cancelled) setLocations([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [currentBusiness?.id, isPlatformStore, pathname, locationRevision])
 
   useEffect(() => {
     const refreshCategories = () => setLocationRevision((revision) => revision + 1)
@@ -184,8 +214,18 @@ export default function CategoryNavigator() {
     router.push(`${pathname}?${nextQuery.toString()}`, { scroll: false })
   }
 
-  const selectedCategories = categories.filter((category) => selected.includes(category.name))
-  const useThreeLanes = categories.length >= CATEGORY_LANES * 5
+  const businessScopedCategories = useMemo(() => {
+    if (isPlatformStore) return categories
+    if (!currentBusiness?.id) return []
+
+    return categories.filter((category) => {
+      if (!category?.businessId) return false
+      return String(category.businessId) === String(currentBusiness.id)
+    })
+  }, [categories, currentBusiness?.id, isPlatformStore])
+
+  const selectedCategories = businessScopedCategories.filter((category) => selected.includes(category.name))
+  const useThreeLanes = businessScopedCategories.length >= CATEGORY_LANES * 5
   const lanes = useThreeLanes ? [0, 1, 2] : [0]
 
   return (
@@ -222,7 +262,7 @@ export default function CategoryNavigator() {
                 <button type="button" aria-label="Close category selection" onClick={() => setCategoryMenuOpen(false)}><X className="h-4 w-4" /></button>
               </div>
               <div className="max-h-64 space-y-1 overflow-y-auto">
-                {categories.map((category) => {
+                {businessScopedCategories.map((category) => {
                   const isSelected = selected.includes(category.name)
                   return <button key={category.id} type="button" onClick={() => toggleCategory(category.name)} className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-sm ${isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
                     {isSelected && <Check className="h-3 w-3" />}{category.name}
@@ -285,7 +325,7 @@ export default function CategoryNavigator() {
 
       <div className="space-y-2 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
         {lanes.map((lane) => {
-          const items = laneItems(categories, lane, useThreeLanes)
+          const items = laneItems(businessScopedCategories, lane, useThreeLanes)
           const shouldMove = items.length > 3
           const movingItems = shouldMove ? [...items, ...items] : items
           return (

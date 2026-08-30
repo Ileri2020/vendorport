@@ -59,9 +59,10 @@ type CartClientProps = {
   className?: string;
   cart?: any;
   basePath?: string;
+  platformPaymentsDisabled?: boolean;
 };
 
-export function CartClient({ className, cart: _unusedCart, basePath }: CartClientProps) {
+export function CartClient({ className, cart: _unusedCart, basePath, platformPaymentsDisabled = false }: CartClientProps) {
   const { items, removeItem, clearCart, subtotal, updateQuantity, itemCount } = useCart();
   const { user, setUser, checkoutData, setCheckoutData } = useAppContext();
 
@@ -742,7 +743,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
                 </Button>
               )}
 
-              {showPaymentButtons && (
+              {showPaymentButtons && !platformPaymentsDisabled && (
                 <>
                   <div className="grid grid-cols-2 gap-2">
                     <Button 
@@ -782,7 +783,9 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
 
               {showPaymentButtons && (
                 <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-xs font-black text-primary">
-                  Cart saved. Use a payment option to complete your order.
+                  {platformPaymentsDisabled
+                    ? "Platform checkout payments are temporarily disabled while we certify product availability. Visit an individual store page to make your purchase."
+                    : "Cart saved. Use a payment option to complete your order."}
                 </div>
               )}
             </div>
@@ -883,7 +886,7 @@ export function CartClient({ className, cart: _unusedCart, basePath }: CartClien
         className="fixed bottom-0 left-0 w-1 h-1 overflow-hidden opacity-0 invisible z-[-1]" 
         aria-hidden="true"
       >
-        {checkoutData && (
+        {checkoutData && !platformPaymentsDisabled && (
           <>
             <MonnifyPaymentButton
               amount={checkoutData.amount}

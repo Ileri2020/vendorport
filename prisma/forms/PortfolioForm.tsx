@@ -26,10 +26,12 @@ export default function PortfolioForm({
   onSubmitted,
   jobType: initialJobType = "accepting",
   allowCreateNew = false,
+  portfolioId,
 }: {
   onSubmitted?: () => void;
   jobType?: "accepting" | "giving";
   allowCreateNew?: boolean;
+  portfolioId?: string;
 }) {
   const { user } = useAppContext();
   const [loading, setLoading] = useState(false);
@@ -46,7 +48,10 @@ export default function PortfolioForm({
       if (allowCreateNew) return;
       if (!user?.id || user.id === "nil") return;
       try {
-        const res = await axios.get(`/api/dbhandler?model=portfolio&userId=${user.id}`);
+        const query = portfolioId
+          ? `model=portfolio&id=${encodeURIComponent(portfolioId)}`
+          : `model=portfolio&userId=${user.id}`;
+        const res = await axios.get(`/api/dbhandler?${query}`);
         const data = Array.isArray(res.data) ? res.data[0] ?? null : res.data ?? null;
         if (data) {
           setPortfolio(data);
@@ -59,7 +64,7 @@ export default function PortfolioForm({
     };
 
     loadPortfolio();
-  }, [allowCreateNew, user?.id]);
+  }, [allowCreateNew, portfolioId, user?.id]);
 
   const totalImageCount = useMemo(() => images.length, [images]);
   const totalCvCount = useMemo(() => cvDocs.length, [cvDocs]);
@@ -126,6 +131,7 @@ export default function PortfolioForm({
       certDocs.forEach((file) => formData.append("certificationDocuments", file));
 
       if (portfolio?.id && !allowCreateNew) {
+        formData.append("isDefault", "false");
         await axios.put(`/api/dbhandler?model=portfolio&id=${portfolio.id}`, formData, {
           headers: { "Content-Type": "multipart/form-data" },
         });

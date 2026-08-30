@@ -209,25 +209,44 @@ const FeaturedCategories = ({ fetchAll = false, businessId: explicitBusinessId }
   const autoplay1 = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
   const autoplay2 = useRef(Autoplay({ delay: 3000, stopOnInteraction: false }));
 
+  const requestCounter = useRef(0);
+
   const fetchCategories = async () => {
+    const targetBusinessId = fetchAll ? undefined : explicitBusinessId ?? businessId;
+
+    if (!fetchAll && !targetBusinessId) {
+      setCategories([]);
+      setLoading(false);
+      return;
+    }
+
+    const requestId = ++requestCounter.current;
     setLoading(true);
     try {
-      const categoryBusinessId = fetchAll ? undefined : explicitBusinessId ?? businessId;
-      const cats = await getCategories(categoryBusinessId);
-
-      const visibleCats = isAdmin || isBusinessOwner
+      const cats = await getCategories(targetBusinessId);
+      const businessScopedCats = fetchAll
         ? cats
         : cats.filter((c: any) => {
+            if (!targetBusinessId) return false;
+            return !c.businessId || String(c.businessId) === String(targetBusinessId);
+          });
+
+      const visibleCats = isAdmin || isBusinessOwner
+        ? businessScopedCats
+        : businessScopedCats.filter((c: any) => {
             const images = Array.isArray(c.images) ? c.images.filter(Boolean) : [];
             return c.productCount > 0 && images.length > 0;
           });
 
+      if (requestId !== requestCounter.current) return;
       setCategories(visibleCats);
     } catch (error) {
       console.error("Failed to fetch categories for carousel:", error);
       setCategories([]);
     } finally {
-      setLoading(false);
+      if (requestId === requestCounter.current) {
+        setLoading(false);
+      }
     }
   };
 

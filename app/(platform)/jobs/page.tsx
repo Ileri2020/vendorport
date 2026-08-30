@@ -38,7 +38,7 @@ export default function JobsPage() {
     const fetchJobs = async () => {
       setLoading(true);
       try {
-        const params = new URLSearchParams({ model: "portfolio", limit: String(PAGE_SIZE), offset: String((page - 1) * PAGE_SIZE) });
+        const params = new URLSearchParams({ model: "portfolio", isDefault: "false", limit: String(PAGE_SIZE), offset: String((page - 1) * PAGE_SIZE) });
         if (query) params.set("query", query);
         if (jobType !== "all") params.set("jobType", jobType);
         const response = await axios.get(`/api/dbhandler?${params.toString()}`);
