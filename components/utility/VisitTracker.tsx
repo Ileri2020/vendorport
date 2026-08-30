@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useAppContext } from "@/hooks/useAppContext";
 
 /**
  * VisitTracker
@@ -11,6 +12,7 @@ import { usePathname } from "next/navigation";
  */
 export function VisitTracker() {
   const pathname = usePathname();
+  const { currentBusiness } = useAppContext();
   const sentRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -24,7 +26,9 @@ export function VisitTracker() {
     }
 
     // Debounce: only send once per path per browser tab session
-    const key = `visit:${pathname}`;
+    const platformRoutes = new Set(["/", "/home", "/store", "/jobs", "/about", "/help", "/account", "/contact", "/create-store", "/new-product", "/cart", "/wishlist", "/orders", "/privacy", "/terms", "/admin", "/analytics"]);
+    const businessId = platformRoutes.has(pathname) ? undefined : currentBusiness?.id;
+    const key = `visit:${pathname}:${businessId || "platform"}`;
     if (sentRef.current.has(key)) return;
     sentRef.current.add(key);
 
@@ -33,7 +37,7 @@ export function VisitTracker() {
       fetch("/api/visit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: pathname, browserId }),
+        body: JSON.stringify({ path: pathname, browserId, businessId }),
         // keepalive so it completes even if the user navigates away
         keepalive: true,
       }).catch(() => {}); // swallow errors silently
@@ -41,7 +45,7 @@ export function VisitTracker() {
       // noop
     }
 
-  }, [pathname]);
+  }, [pathname, currentBusiness?.id]);
 
   return null; // renders nothing
 }

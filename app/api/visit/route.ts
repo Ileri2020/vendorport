@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const path = body.path || "/";
     const browserId = body.browserId || body.fingerprint || "unknown";
+    const requestedBusinessId = typeof body.businessId === "string" ? body.businessId : null;
     const userAgent = req.headers.get("user-agent") || "";
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -46,6 +47,11 @@ export async function POST(req: NextRequest) {
       const businesses = await prisma.business.findMany({ select: { id: true, name: true } });
       const match = businesses.find((b) => businessSlug(b.name) === possibleStore);
       if (match) businessId = match.id;
+    }
+
+    if (requestedBusinessId) {
+      const business = await prisma.business.findUnique({ where: { id: requestedBusinessId }, select: { id: true } });
+      if (business) businessId = business.id;
     }
 
     // Only record once per browserId per business per day

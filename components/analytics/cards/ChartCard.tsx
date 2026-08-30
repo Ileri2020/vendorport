@@ -15,7 +15,7 @@ export function ChartCard({ title, children, className, action }: ChartCardProps
                 <CardTitle className="text-base font-semibold">{title}</CardTitle>
                 {action && <div>{action}</div>}
             </CardHeader>
-            <CardContent className="pt-4">
+            <CardContent className="min-w-[300px] w-full md:max-w-sm pt-4">
                 {children}
             </CardContent>
         </Card>
