@@ -304,6 +304,29 @@ export async function POST(req: NextRequest) {
     const purchasedBusinessIds = [...new Set(purchasedProducts.map((product) => product.businessId).filter(Boolean))];
     const cartBusinessId = purchasedBusinessIds.length === 1 ? purchasedBusinessIds[0] : null;
 
+    if (cartBusinessId) {
+      const siteSettings = await prisma.siteSettings.findUnique({
+        where: { businessId: cartBusinessId },
+        select: { maxOrdersPerDay: true },
+      });
+      const maxOrdersPerDay = siteSettings?.maxOrdersPerDay || 0;
+      if (maxOrdersPerDay > 0) {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const processedOrdersToday = await prisma.cart.count({
+          where: {
+            businessId: cartBusinessId,
+            createdAt: { gte: startOfDay },
+            status: { notIn: ["cancelled", "rejected"] },
+            ...(cartId ? { id: { not: cartId } } : {}),
+          },
+        });
+        if (processedOrdersToday >= maxOrdersPerDay) {
+          return NextResponse.json({ error: "This business has reached its maximum number of orders for today." }, { status: 429 });
+        }
+      }
+    }
+
     if (cartId) {
       // Re-initiate existing cart
       await prisma.cartItem.deleteMany({ where: { cartId } });

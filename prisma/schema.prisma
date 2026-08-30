@@ -184,6 +184,7 @@ model SiteSettings {
   accentForegroundDark  String   @default("222 47% 10%")
   defaultTheme          String?
   productCardOrientation String?
+  maxOrdersPerDay       Int      @default(0)
   bankName              String?  @default("")
   accountNumber         String?  @default("")
   accountName           String?  @default("")
@@ -737,16 +738,19 @@ model Visit {
 
 //one to one relation with cart, not d unique to avoid error
 model Refund {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  cart       Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  cartId     String    @unique @db.ObjectId
-  amount     Float
-  reason     String?
-  status     String    @default("pending")
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-  business   Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
-  businessId String?   @db.ObjectId
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  cart          Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId        String    @unique @db.ObjectId
+  amount        Float
+  reason        String?
+  status        String    @default("pending")
+  bankName      String?
+  accountNumber String?
+  accountName   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  business      Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId    String?   @db.ObjectId
 }
 
 model Message {

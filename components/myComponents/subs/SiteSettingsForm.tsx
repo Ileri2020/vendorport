@@ -575,6 +575,19 @@ const SiteSettingsForm: React.FC = () => {
             </CollapsibleTrigger>
             <CollapsibleContent className="p-3 space-y-3">
               <p className="text-sm text-muted-foreground">Products from this business are available in the states listed here.</p>
+              <div>
+                <Label htmlFor="max-orders-per-day">Maximum orders per day</Label>
+                <Input
+                  id="max-orders-per-day"
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={valOf("maxOrdersPerDay", 0)}
+                  onChange={(event) => handleChange("maxOrdersPerDay", Math.max(0, Math.floor(Number(event.target.value) || 0)))}
+                  placeholder="0 means unlimited"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Use 0 for unlimited orders. The limit resets at midnight.</p>
+              </div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
                 <div>
                   <Label htmlFor="operating-state">State or region</Label>
@@ -593,7 +606,7 @@ const SiteSettingsForm: React.FC = () => {
                   </button>
                 ))}
               </div>
-              {renderSectionSaveButton("locations", "Operating Locations", ["operatingStates"])}
+              {renderSectionSaveButton("locations", "Operating Locations", ["operatingStates", "maxOrdersPerDay"])}
             </CollapsibleContent>
           </div>
         </Collapsible>

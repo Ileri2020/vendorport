@@ -36,7 +36,8 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 const Stocks = () => {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const isPlatformStore = pathname.replace(/\/+$/, "") === "/store";
+  const routePath = (pathname || "").replace(/\/+$/, "");
+  const isPlatformStore = routePath === "/store";
   const categoryFilter = searchParams.get("category");
   const concernFilter = searchParams.get("concern"); // ✅ NEW: health concern filter
   const brandFilter = searchParams.get("brand");

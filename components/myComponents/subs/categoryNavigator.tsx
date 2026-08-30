@@ -40,7 +40,8 @@ export default function CategoryNavigator() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { currentBusiness } = useAppContext()
-  const isPlatformStore = pathname.replace(/\/+$/, "") === "/store"
+  const routePath = (pathname || "").replace(/\/+$/, "")
+  const isPlatformStore = routePath === "/store"
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<string[]>([])
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)

@@ -348,7 +348,7 @@ export async function GET(req: NextRequest) {
           take: Math.min(limit, 12),
           skip: offset,
           orderBy: [{ ratings: 'desc' as const }, { createdAt: 'desc' as const }],
-          include: { siteSettings: { select: { storefrontImageUrl: true, address: true, physicalLocation: true, operatingStates: true } } },
+          include: { siteSettings: { select: { storefrontImageUrl: true, address: true, physicalLocation: true, operatingStates: true, maxOrdersPerDay: true } } },
         });
 
         const ownerIds = businesses.map(b => b.ownerId).filter(Boolean);
@@ -635,7 +635,8 @@ export async function GET(req: NextRequest) {
               include: {
                   user: { select: { id: true, email: true, name: true, contact: true } },
                   products: { include: { product: true } },
-                  payment: true
+                  payment: true,
+                  refund: true,
               },
               take: limit,
               skip: offset,
@@ -672,6 +673,7 @@ export async function GET(req: NextRequest) {
           include.user = { select: { id: true, email: true, name: true, contact: true, addresses: true } };
           include.products = { include: { product: true } };
           include.payment = true;
+          include.refund = true;
       }
       
       const item = await prismaModel.findUnique({ 

@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 const Login = dynamic(() => import('@/components/myComponents/subs').then((e) => e.Login), { ssr: false })
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { useAppContext } from "@/hooks/useAppContext"
@@ -49,7 +50,9 @@ import {
 } from "lucide-react"
 
 const Account = () => {
-  const { user, setUser } = useAppContext()
+  const { user, setUser, currentBusiness, setCurrentBusiness } = useAppContext()
+  const [bankDetails, setBankDetails] = useState({ bankName: "", accountNumber: "", accountName: "" })
+  const [savingBankDetails, setSavingBankDetails] = useState(false)
   const [cardOrientation, setCardOrientation] = useState<"horizontal" | "vertical">("horizontal");
   const [isAffiliate, setIsAffiliate] = useState(false);
   const [affiliateData, setAffiliateData] = useState<any>(null);
@@ -76,6 +79,58 @@ const Account = () => {
     const seen = localStorage.getItem(AFFILIATE_ACCOUNT_POPUP_KEY) === 'true';
     setAffiliatePopupSeen(seen);
   }, []);
+
+  useEffect(() => {
+    if (!currentBusiness?.siteSettings) {
+      setBankDetails({ bankName: "", accountNumber: "", accountName: "" });
+      return;
+    }
+
+    setBankDetails({
+      bankName: currentBusiness.siteSettings.bankName || "",
+      accountNumber: currentBusiness.siteSettings.accountNumber || "",
+      accountName: currentBusiness.siteSettings.accountName || "",
+    });
+  }, [currentBusiness?.id, currentBusiness?.siteSettings]);
+
+  const saveBusinessBankDetails = async () => {
+    if (!currentBusiness?.id) return;
+
+    setSavingBankDetails(true);
+    try {
+      const response = await fetch("/api/site-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId: currentBusiness.id,
+          bankName: bankDetails.bankName.trim(),
+          accountNumber: bankDetails.accountNumber.trim(),
+          accountName: bankDetails.accountName.trim(),
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error || "Could not save bank details");
+
+      setCurrentBusiness((previous: any) => previous
+        ? {
+            ...previous,
+            siteSettings: {
+              ...(previous.siteSettings || {}),
+              bankName: bankDetails.bankName.trim(),
+              accountNumber: bankDetails.accountNumber.trim(),
+              accountName: bankDetails.accountName.trim(),
+            },
+          }
+        : previous);
+
+      toast.success("Manual payment account details saved");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save bank details");
+    } finally {
+      setSavingBankDetails(false);
+    }
+  };
 
   useEffect(() => {
     // Check affiliate status from session data
@@ -483,6 +538,48 @@ const Account = () => {
             </div>
           </div>
         </div>
+
+        {currentBusiness?.id && (
+          <div className="rounded-xl border bg-card shadow-sm p-4 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Manual Payment Details</h2>
+              <Badge variant="outline" className="text-[10px] font-black uppercase tracking-widest">{currentBusiness.name}</Badge>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <div className="md:col-span-2 space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Bank name</label>
+                <Input
+                  value={bankDetails.bankName}
+                  placeholder="e.g. Moniepoint MFB"
+                  onChange={(e) => setBankDetails((prev) => ({ ...prev, bankName: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Account number</label>
+                <Input
+                  value={bankDetails.accountNumber}
+                  placeholder="e.g. 1234567890"
+                  onChange={(e) => setBankDetails((prev) => ({ ...prev, accountNumber: e.target.value }))}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Account name</label>
+                <Input
+                  value={bankDetails.accountName}
+                  placeholder="e.g. HealthClique Limited"
+                  onChange={(e) => setBankDetails((prev) => ({ ...prev, accountName: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <Button onClick={saveBusinessBankDetails} disabled={savingBankDetails} className="w-full">
+              {savingBankDetails ? "Saving details..." : "Save manual payment details"}
+            </Button>
+          </div>
+        )}
 
         {isAffiliate && (
           <div className="rounded-xl border bg-card shadow-sm p-4 space-y-4">

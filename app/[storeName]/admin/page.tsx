@@ -89,6 +89,7 @@ const Admin = () => {
     const [cartDialogOpen, setCartDialogOpen] = useState(false);
     const [loadingCart, setLoadingCart] = useState(false);
     const [isConfirming, setIsConfirming] = useState(false);
+    const [isRejecting, setIsRejecting] = useState(false);
     const [showAllStatus, setShowAllStatus] = useState(false);
 
     const isAdmin = session?.user?.role === "admin";
@@ -304,6 +305,63 @@ const Admin = () => {
     }
   };
 
+  const handleRejectOrder = async () => {
+    if (!selectedCart) return;
+    setIsRejecting(true);
+    try {
+      const bankAccount = currentBusiness?.siteSettings?.accountNumber || "";
+      const bankName = currentBusiness?.siteSettings?.bankName || "";
+      const accountName = currentBusiness?.siteSettings?.accountName || currentBusiness?.name || "Business Account";
+      const refundPayload = {
+        cartId: selectedCart.id,
+        amount: Number(selectedCart.total || 0),
+        reason: "Rejected by business owner",
+        status: "rejected",
+        businessId: currentBusiness?.id,
+        bankName,
+        accountNumber: bankAccount,
+        accountName,
+      };
+
+      const refundRes = await fetch("/api/dbhandler?model=refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(refundPayload),
+      });
+
+      if (!refundRes.ok) {
+        const errorText = await refundRes.text();
+        throw new Error(errorText || "Failed to create refund record");
+      }
+
+      const refund = await refundRes.json();
+      const cartRes = await fetch("/api/dbhandler?model=cart", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedCart.id,
+          status: "rejected",
+          refund: { connect: { id: refund.id } },
+        })
+      });
+
+      if (!cartRes.ok) {
+        throw new Error("Failed to update cart status");
+      }
+
+      toast.success("Order rejected and refund record created");
+      setSelectedCart((prev) => prev ? { ...prev, status: "rejected", refund } : prev);
+      setCartDialogOpen(true);
+      setCartSearch(prev => prev + " ");
+      setTimeout(() => setCartSearch(prev => prev.trim()), 100);
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not reject order");
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+
   return (
     <motion.section
       initial={{ opacity: 0 }}
@@ -386,7 +444,10 @@ const Admin = () => {
         onOpenChange={setCartDialogOpen}
         cart={selectedCart}
         onConfirmPayment={handleConfirmOrder}
+        onRejectRefund={handleRejectOrder}
         loading={isConfirming}
+        rejecting={isRejecting}
+        businessBankDetails={currentBusiness?.siteSettings || {}}
       />
 
       <Separator className="my-10" />

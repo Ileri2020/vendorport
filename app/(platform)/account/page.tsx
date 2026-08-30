@@ -245,6 +245,55 @@ const Account = () => {
     }
   };
 
+  const saveMaxOrdersPerDay = async (business: any, value: string) => {
+    const maxOrdersPerDay = Math.max(0, Math.floor(Number(value) || 0));
+    try {
+      const response = await fetch("/api/site-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId: business.id, maxOrdersPerDay }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not save order limit");
+      setOwnedBusinesses((current) => current.map((item) => item.id === business.id ? { ...item, siteSettings: { ...(item.siteSettings || {}), maxOrdersPerDay } } : item));
+      toast.success(`Daily order limit saved for ${business.name}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save order limit");
+    }
+  };
+
+  const saveBusinessBankDetails = async (business: any, field: "bankName" | "accountNumber" | "accountName", value: string) => {
+    const trimmed = value.trim();
+    const payload: Record<string, any> = {
+      businessId: business.id,
+      [field]: trimmed,
+    };
+
+    try {
+      const response = await fetch("/api/site-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not save account details");
+
+      setOwnedBusinesses((current) => current.map((item) => item.id === business.id
+        ? {
+            ...item,
+            siteSettings: {
+              ...(item.siteSettings || {}),
+              [field]: trimmed,
+            },
+          }
+        : item));
+
+      toast.success(`${field === "bankName" ? "Bank name" : field === "accountNumber" ? "Account number" : "Account name"} saved for ${business.name}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save account details");
+    }
+  };
+
   useEffect(() => {
     if (!userLocation || ownedBusinesses.length === 0) return;
     let cancelled = false;
@@ -891,6 +940,55 @@ const Account = () => {
                           </div>
                         );
                       })}
+                    </div>
+                    <div className="mt-5 max-w-sm rounded-xl border bg-background p-4">
+                      <label htmlFor={`max-orders-${business.id}`} className="text-sm font-semibold">Maximum orders per day</label>
+                      <Input
+                        id={`max-orders-${business.id}`}
+                        type="number"
+                        min="0"
+                        step="1"
+                        defaultValue={business.siteSettings?.maxOrdersPerDay ?? 0}
+                        onBlur={(event) => saveMaxOrdersPerDay(business, event.target.value)}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">Use 0 for unlimited. The limit resets at midnight.</p>
+                    </div>
+
+                    <div className="mt-5 rounded-xl border bg-background p-4">
+                      <p className="text-sm font-semibold">Manual payment account</p>
+                      <p className="mt-1 text-xs text-muted-foreground">This is what customers see when they choose bank transfer for this store.</p>
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2">
+                        <div className="space-y-1 md:col-span-2">
+                          <label htmlFor={`bank-name-${business.id}`} className="text-xs font-medium text-muted-foreground">Bank name</label>
+                          <Input
+                            id={`bank-name-${business.id}`}
+                            defaultValue={business.siteSettings?.bankName ?? ""}
+                            placeholder="e.g. Moniepoint MFB"
+                            onBlur={(event) => saveBusinessBankDetails(business, "bankName", event.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label htmlFor={`account-number-${business.id}`} className="text-xs font-medium text-muted-foreground">Account number</label>
+                          <Input
+                            id={`account-number-${business.id}`}
+                            defaultValue={business.siteSettings?.accountNumber ?? ""}
+                            placeholder="e.g. 1234567890"
+                            onBlur={(event) => saveBusinessBankDetails(business, "accountNumber", event.target.value)}
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label htmlFor={`account-name-${business.id}`} className="text-xs font-medium text-muted-foreground">Account name</label>
+                          <Input
+                            id={`account-name-${business.id}`}
+                            defaultValue={business.siteSettings?.accountName ?? ""}
+                            placeholder="e.g. HealthClique Limited"
+                            onBlur={(event) => saveBusinessBankDetails(business, "accountName", event.target.value)}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );

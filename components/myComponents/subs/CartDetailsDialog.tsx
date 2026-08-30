@@ -21,13 +21,19 @@ export function CartDetailsDialog({
     onOpenChange,
     cart,
     onConfirmPayment,
-    loading = false
+    onRejectRefund,
+    loading = false,
+    rejecting = false,
+    businessBankDetails = {}
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     cart: any;
     onConfirmPayment: () => void;
+    onRejectRefund?: () => void;
     loading?: boolean;
+    rejecting?: boolean;
+    businessBankDetails?: any;
 }) {
     const [emailMessage, setEmailMessage] = useState("");
     const [sendingEmail, setSendingEmail] = useState(false);
@@ -38,6 +44,11 @@ export function CartDetailsDialog({
     const subtotalRounded = roundUpToNearest5(subtotal);
     const deliveryFeeRounded = roundUpToNearest5(cart.deliveryFee || 0);
     const discountAmountRounded = roundUpToNearest5(cart.discountAmount || 0);
+    const refundBankDetails = {
+        accountName: cart?.refund?.accountName || businessBankDetails?.accountName || "N/A",
+        accountNumber: cart?.refund?.accountNumber || businessBankDetails?.accountNumber || "N/A",
+        bankName: cart?.refund?.bankName || businessBankDetails?.bankName || "N/A",
+    };
 
     const handleSendEmail = async () => {
         if (!emailMessage.trim()) {
@@ -209,13 +220,33 @@ export function CartDetailsDialog({
                     </div>
                 </div>
 
+                {(cart.status === "rejected" || cart?.refund) && (
+                    <div className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                        <h4 className="text-xs font-black uppercase tracking-widest text-amber-800 mb-3">Refund / Rejection Details</h4>
+                        <div className="space-y-2 text-sm text-amber-900">
+                            <div className="flex justify-between gap-4"><span className="font-semibold">Account Name:</span><span>{refundBankDetails.accountName}</span></div>
+                            <div className="flex justify-between gap-4"><span className="font-semibold">Bank Name:</span><span>{refundBankDetails.bankName}</span></div>
+                            <div className="flex justify-between gap-4"><span className="font-semibold">Account Number:</span><span className="font-mono">{refundBankDetails.accountNumber}</span></div>
+                        </div>
+                    </div>
+                )}
+
                 {/* ACTION FOOTER */}
                 {(cart.status === "unconfirmed" || (cart.status === "pending" && !!cart.payment)) && (
-                    <DialogFooter className="mt-8 border-t pt-6">
+                    <DialogFooter className="mt-8 border-t pt-6 gap-3">
                         <Button 
-                            className="w-full h-12 rounded-xl font-black bg-gradient-to-r from-emerald-600 to-green-600 hover:scale-[1.02] transition-transform shadow-lg shadow-emerald-500/20 gap-2"
+                            variant="outline"
+                            className="h-12 rounded-xl font-black border-red-200 text-red-600 hover:bg-red-50"
+                            onClick={onRejectRefund}
+                            disabled={loading || rejecting}
+                        >
+                            {rejecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <span className="text-base">✕</span>}
+                            Reject / Refund
+                        </Button>
+                        <Button 
+                            className="flex-1 h-12 rounded-xl font-black bg-gradient-to-r from-emerald-600 to-green-600 hover:scale-[1.02] transition-transform shadow-lg shadow-emerald-500/20 gap-2"
                             onClick={onConfirmPayment}
-                            disabled={loading}
+                            disabled={loading || rejecting}
                         >
                             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                             Confirm Payment & Process Order
