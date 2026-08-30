@@ -35,14 +35,15 @@ export interface NavbarProps {
 const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element => {
   const { setUser, user, currentBusiness } = useAppContext();
   const { data: session, status, update } = useSession();
+  const activeBusiness = basePath ? (business ?? currentBusiness) : null;
   const homeHref = basePath ? `${basePath}/home` : "/";
-  const brandName = business?.name || currentBusiness?.name || "Vendor Hub";
-  const brandSubtitle = business?.siteSettings?.aboutText || currentBusiness?.siteSettings?.aboutText || "Your one stop shop for health needs";
+  const brandName = activeBusiness?.name || "Vendor Hub";
+  const brandSubtitle = activeBusiness?.siteSettings?.aboutText || "Your one stop shop for health needs";
   const customLogo = (() => {
-    const candidates = basePath
+    const candidates = activeBusiness
       ? [
-          currentBusiness?.siteSettings?.logoImageUrl,
-          currentBusiness?.siteSettings?.logoUrl,
+          activeBusiness?.siteSettings?.logoImageUrl,
+          activeBusiness?.siteSettings?.logoUrl,
           business?.siteSettings?.logoImageUrl,
           business?.siteSettings?.logoUrl,
         ]

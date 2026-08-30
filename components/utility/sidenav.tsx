@@ -35,12 +35,11 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
     const [open, setOpen] = useState(false);
     const [showAllCategories, setShowAllCategories] = useState(false);
     const [showAllConcerns, setShowAllConcerns] = useState(false);
-    const brandName = basePath
-        ? business?.name || currentBusiness?.name || "VendorPort"
-        : "VendorPort";
-    const customLogo = basePath
-                ? currentBusiness?.siteSettings?.logoImageUrl ||
-                    currentBusiness?.siteSettings?.logoUrl ||
+    const activeBusiness = basePath ? (business ?? currentBusiness) : null;
+    const brandName = activeBusiness?.name || "VendorPort";
+    const customLogo = activeBusiness
+                ? activeBusiness?.siteSettings?.logoImageUrl ||
+                    activeBusiness?.siteSettings?.logoUrl ||
                     business?.siteSettings?.logoImageUrl ||
                     business?.siteSettings?.logoUrl ||
                     greenlogo
@@ -49,7 +48,8 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const businessId = business?.id || currentBusiness?.id;
+                const shouldUseBusinessScope = Boolean(basePath) && (business?.id || currentBusiness?.id);
+                const businessId = shouldUseBusinessScope ? (business?.id || currentBusiness?.id) : undefined;
                 const categoryQuery = businessId ? `?model=category&businessId=${businessId}` : "?model=category";
                 const [catRes, concernRes] = await Promise.all([
                     axios.get(`/api/dbhandler${categoryQuery}`),
@@ -62,7 +62,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
             }
         };
         fetchData();
-    }, [business?.id, currentBusiness?.id]);
+    }, [basePath, business?.id, currentBusiness?.id]);
 
     const closeSheet = () => setOpen(false);
     const homeHref = basePath ? `${basePath}/home` : "/";

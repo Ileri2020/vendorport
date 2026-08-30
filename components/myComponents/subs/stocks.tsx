@@ -1,7 +1,7 @@
 "use client"
 import { Button } from '@/components/ui/button';
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import axios from "axios";
 import { ProductCard } from "./productCard";
 import { useCart } from "@/hooks/use-cart";
@@ -35,6 +35,8 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 const Stocks = () => {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const isPlatformStore = pathname.replace(/\/+$/, "") === "/store";
   const categoryFilter = searchParams.get("category");
   const concernFilter = searchParams.get("concern"); // ✅ NEW: health concern filter
   const brandFilter = searchParams.get("brand");
@@ -50,7 +52,7 @@ const Stocks = () => {
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
   const { currentBusiness } = useAppContext();
-  const businessId = currentBusiness?.id;
+  const businessId = isPlatformStore ? undefined : currentBusiness?.id;
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);

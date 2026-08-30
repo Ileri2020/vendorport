@@ -40,6 +40,7 @@ export default function CategoryNavigator() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { currentBusiness } = useAppContext()
+  const isPlatformStore = pathname.replace(/\/+$/, "") === "/store"
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<string[]>([])
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
@@ -55,8 +56,8 @@ export default function CategoryNavigator() {
   const [locationRevision, setLocationRevision] = useState(0)
 
   useEffect(() => {
-    const isPlatformStore = pathname.replace(/\/$/, "") === "/store" && !currentBusiness?.id
-    const query = currentBusiness?.id
+    const shouldUseBusinessScope = !isPlatformStore && Boolean(currentBusiness?.id)
+    const query = shouldUseBusinessScope
       ? `&businessId=${encodeURIComponent(currentBusiness.id)}`
       : isPlatformStore ? "&platform=true" : ""
     fetch(`/api/dbhandler?model=category&limit=500${query}`)
@@ -69,7 +70,7 @@ export default function CategoryNavigator() {
       })
       .catch(() => setCategories([]))
 
-    const locationsQuery = !isPlatformStore && currentBusiness?.id
+    const locationsQuery = shouldUseBusinessScope
       ? `?businessId=${encodeURIComponent(currentBusiness.id)}`
       : ""
     fetch(`/api/store-locations${locationsQuery}`)
