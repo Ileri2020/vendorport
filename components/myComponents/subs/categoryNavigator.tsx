@@ -42,7 +42,7 @@ export default function CategoryNavigator() {
   const searchParams = useSearchParams()
   const { currentBusiness } = useAppContext()
   const routePath = (pathname || "").replace(/\/+$/, "")
-  const isPlatformStore = routePath === "/store"
+  const isPlatformStore = !currentBusiness?.id && routePath === "/store"
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<string[]>([])
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
@@ -81,7 +81,7 @@ export default function CategoryNavigator() {
           ? data.filter((category) => {
               if (isPlatformStore) return true
               if (!currentBusiness?.id) return false
-              return !category?.businessId || String(category.businessId) === String(currentBusiness.id)
+              return category?.businessId && String(category.businessId) === String(currentBusiness.id)
             })
           : []
         const filtered = available.filter((category) => category?._count?.products !== 0)

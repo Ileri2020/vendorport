@@ -10,6 +10,7 @@
 import Navbar from "@/components/utility/navbar";
 import { Footer } from "@/components/myComponents/subs/footer";
 import ColorInjector from "@/components/platform/ColorInjector";
+import BusinessContextProvider from "@/components/platform/BusinessContextProvider";
 
 export default function PlatformLayout({
   children,
@@ -17,11 +18,11 @@ export default function PlatformLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <BusinessContextProvider business={null}>
       <ColorInjector business={null} />
       <Navbar />
       {children}
       <Footer />
-    </>
+    </BusinessContextProvider>
   );
 }

@@ -36,8 +36,9 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 const Stocks = () => {
   const searchParams = useSearchParams();
   const pathname = usePathname();
+  const { currentBusiness } = useAppContext();
   const routePath = (pathname || "").replace(/\/+$/, "");
-  const isPlatformStore = routePath === "/store";
+  const isPlatformStore = !currentBusiness?.id && routePath === "/store";
   const categoryFilter = searchParams.get("category");
   const concernFilter = searchParams.get("concern"); // ✅ NEW: health concern filter
   const brandFilter = searchParams.get("brand");
@@ -52,7 +53,6 @@ const Stocks = () => {
   const [products, setProducts] = useState<any[]>([]);
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
-  const { currentBusiness } = useAppContext();
   const businessId = isPlatformStore ? undefined : currentBusiness?.id;
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

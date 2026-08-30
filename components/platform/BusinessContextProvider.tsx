@@ -43,10 +43,12 @@ function BusinessInjector({ business }: { business: any }) {
 
   useEffect(() => {
     // Only update if business actually changed (prevents infinite re-renders)
-    if (business && business.id !== currentBusiness?.id) {
+    if (business === null && currentBusiness !== null) {
+      setCurrentBusiness(null);
+    } else if (business && business.id !== currentBusiness?.id) {
       setCurrentBusiness(business);
     }
-  }, [business, currentBusiness?.id, setCurrentBusiness]);
+  }, [business, currentBusiness, setCurrentBusiness]);
 
   useEffect(() => {
     if (!business?.slug || typeof window === "undefined") return;

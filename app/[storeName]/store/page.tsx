@@ -13,7 +13,7 @@ import { useAppContext } from "@/hooks/useAppContext"
 const Store = () => {
   const { currentBusiness, user } = useAppContext();
   const pathname = usePathname();
-  const isPlatformStore = (pathname || "").replace(/\/+$/, "") === "/store";
+  const isPlatformStore = !currentBusiness?.id && (pathname || "").replace(/\/+$/, "") === "/store";
   const [hasCategories, setHasCategories] = useState<boolean | undefined>(undefined)
   const [hasProducts, setHasProducts] = useState<boolean | undefined>(undefined)
   const [setupLoaded, setSetupLoaded] = useState(false)
@@ -69,7 +69,7 @@ const Store = () => {
 
         {!setupLoaded || (!isPlatformStore && !currentBusiness) ? (
           <StoreSetupSkeleton />
-        ) : (!hasProducts || (!isPlatformStore && !hasCategories)) ? (
+        ) : (!hasProducts && !hasCategories) ? (
           <StoreSetupPrompt
             businessName={currentBusiness?.name || "Platform"}
             isOwner={isOwner}
