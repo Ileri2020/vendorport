@@ -81,14 +81,16 @@ const Stocks = () => {
       let url = `/api/dbhandler?model=product&include=category,brand,stock${bizQ}`;
       
       if (brandFilter) url += `&brand=${encodeURIComponent(brandFilter)}`;
-      if (categoryFilter) url += `&categoryName=${encodeURIComponent(categoryFilter)}`;
+      if (categoryFilter && categoryFilter.trim().toLowerCase() !== "all") {
+        url += `&categoryName=${encodeURIComponent(categoryFilter)}`;
+      }
       if (concernFilter) url += `&concern=${encodeURIComponent(concernFilter)}`;
       if (minPriceFilter) url += `&minPrice=${encodeURIComponent(minPriceFilter)}`;
       if (maxPriceFilter) url += `&maxPrice=${encodeURIComponent(maxPriceFilter)}`;
       if (locationFilter) url += `&location=${encodeURIComponent(locationFilter)}`;
 
       if (!isAdmin) {
-         url += `&requireImages=true&requirePrice=true`;
+         url += `&requirePrice=true`;
       }
 
       if (isFeatured || isDiscounted) {

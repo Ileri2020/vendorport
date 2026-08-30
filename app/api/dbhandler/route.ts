@@ -448,11 +448,13 @@ export async function GET(req: NextRequest) {
           ];
         }
         if (categoryId) where.categoryId = categoryId;
-        if (categoryName) {
+        if (categoryName && categoryName.trim().toLowerCase() !== "all") {
           const categoryNames = categoryName.split(",").map((name) => name.trim()).filter(Boolean);
-          where.category = categoryNames.length > 1
-            ? { name: { in: categoryNames, mode: 'insensitive' } }
-            : { name: { equals: categoryNames[0], mode: 'insensitive' } };
+          if (categoryNames.length > 0) {
+            where.category = categoryNames.length > 1
+              ? { name: { in: categoryNames, mode: 'insensitive' } }
+              : { name: { equals: categoryNames[0], mode: 'insensitive' } };
+          }
         }
         if (Number.isFinite(minPrice)) where.price = { ...(where.price || {}), gte: Math.max(0, minPrice) };
         if (Number.isFinite(maxPrice)) where.price = { ...(where.price || {}), lte: Math.max(0, maxPrice) };

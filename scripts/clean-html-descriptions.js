@@ -22,8 +22,8 @@ function removeMarketplacePrefix(text) {
   if (!text || typeof text !== 'string') return text;
 
   const cleaned = text
-    .replace(/^\s*Buy\s+.+?\s+(?:online\s+)?on\s+Price[Pp]ally\.?\s*/i, '')
-    .replace(/^\s*Buy\s+.+?\s+(?:online\s+)?on\s+Pricepally\.?\s*/i, '')
+    .replace(/^\s*Buy\s+.+?\s+(?:online\s+)?on\s+(?:Price[Pp]ally|Market2Home)\.?\s*/i, '')
+    .replace(/\b(?:Price[Pp]ally|Market2Home)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -37,7 +37,10 @@ function hasHtmlTags(text) {
 
 function hasMarketplacePrefix(text) {
   if (!text || typeof text !== 'string') return false;
-  return /^\s*Buy\s+.+?\s+(?:online\s+)?on\s+Price[Pp]ally\.?\s*/i.test(text);
+  return (
+    /^\s*Buy\s+.+?\s+(?:online\s+)?on\s+(?:Price[Pp]ally|Market2Home)\.?\s*/i.test(text) ||
+    /\b(?:Price[Pp]ally|Market2Home)\b/i.test(text)
+  );
 }
 
 async function cleanDescriptions() {
