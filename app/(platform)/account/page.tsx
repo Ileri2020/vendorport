@@ -716,8 +716,8 @@ const Account = () => {
             <h1 className="text-2xl font-bold">{user.name || "—"}</h1>
             <div className="flex flex-col items-center justify-center gap-2">
               <div className="flex items-center gap-2">
-                <Badge variant={user.role === "admin" ? "default" : "secondary"} className="capitalize text-xs">
-                  {user.role === "admin" && <Shield className="h-3 w-3 mr-1" />}
+                <Badge variant={user.role === "admin" || user.role === "supreme" ? "default" : "secondary"} className="capitalize text-xs">
+                  {(user.role === "admin" || user.role === "supreme") && <Shield className="h-3 w-3 mr-1" />}
                   {user.role || "customer"}
                 </Badge>
                 {user.verificationStatus === "verified" && (

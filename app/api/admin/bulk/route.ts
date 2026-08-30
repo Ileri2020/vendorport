@@ -5,8 +5,9 @@ import { prisma } from "@/lib/prisma";
 export async function GET(req: NextRequest) {
     const session = await auth();
     const role = (session?.user as any)?.role;
+    const isPlatformManager = role === "admin" || role === "supreme";
 
-    if (role !== "admin") {
+    if (!isPlatformManager) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -124,8 +125,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
     const session = await auth();
     const role = (session?.user as any)?.role;
+    const isPlatformManager = role === "admin" || role === "supreme";
 
-    if (role !== "admin") {
+    if (!isPlatformManager) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 

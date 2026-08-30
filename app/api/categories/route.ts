@@ -16,8 +16,9 @@ export async function POST(request: NextRequest) {
 
   if (businessId) {
     const business = await prisma.business.findUnique({ where: { id: businessId } });
-    const isAdmin = (session as any)?.user?.role === "admin";
-    if (!business || (String(business.ownerId) !== String(userId) && !isAdmin)) {
+    const role = (session as any)?.user?.role;
+    const isPlatformManager = role === "admin" || role === "supreme";
+    if (!business || (String(business.ownerId) !== String(userId) && !isPlatformManager)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
   }
@@ -55,11 +56,12 @@ export async function DELETE(request: NextRequest) {
   if (!userId || !categoryId) return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 
   const category = await prisma.category.findUnique({ where: { id: categoryId } });
-  const isAdmin = (session as any)?.user?.role === "admin";
+  const role = (session as any)?.user?.role;
+  const isPlatformManager = role === "admin" || role === "supreme";
   if (!category || !category.businessId) return NextResponse.json({ error: "Only business categories can be deleted" }, { status: 400 });
 
   const business = await prisma.business.findUnique({ where: { id: category.businessId }, select: { ownerId: true } });
-  if (!isAdmin && (!business || String(business.ownerId) !== String(userId))) {
+  if (!isPlatformManager && (!business || String(business.ownerId) !== String(userId))) {
     return NextResponse.json({ error: "Only the business owner can delete this category" }, { status: 403 });
   }
 

@@ -17,10 +17,13 @@ const PRICE_MARKUPS: Record<string, number> = {
   professional: 1.2,
   wholesaler: 1.1,
   admin: 1.1,
+  supreme: 1.0,
   staff: 1.1,
   visitor: 1.3,
   user: 1.3,
 };
+
+const isPlatformManagerRole = (role?: string | null) => role === "admin" || role === "supreme";
 
 // Centralized model mapping
 const modelMap: Record<string, any> = {
@@ -269,9 +272,10 @@ async function canManageBusinessResource(session: any, model: string | null, bus
   const role = (session?.user as any)?.role || "visitor";
   const sessionUserId = (session?.user as any)?.id;
   const effectiveUserId = sessionUserId ?? userId ?? null;
-  const isAdminOrStaff = role === "admin" || role === "staff";
+  const isPlatformManager = isPlatformManagerRole(role);
+  const isAdminOrStaff = isPlatformManager || role === "staff";
 
-  if (role === "admin") return true;
+  if (isPlatformManager) return true;
   if (role === "staff") {
     if (!businessId || !effectiveUserId) return false;
     const staffMembership = await prisma.staff.findFirst({
@@ -694,7 +698,7 @@ export async function GET(req: NextRequest) {
           return NextResponse.json({ error: "This record does not belong to the current business" }, { status: 403 });
         }
 
-        if (session?.user?.id && (session.user as any)?.role !== "admin") {
+        if (session?.user?.id && !isPlatformManagerRole((session.user as any)?.role)) {
           const canAccessBusiness = await canManageBusinessResource(session, model, item.businessId, null);
           if (!canAccessBusiness) {
             return NextResponse.json({ error: "Unauthorized access to this business" }, { status: 403 });
@@ -1053,12 +1057,16 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
   }
 
+  if (model === "business" && session?.user && isPlatformManagerRole((session.user as any)?.role)) {
+    // Supreme/admin users can create platform-level data and manage all businesses.
+  }
+
   if ((model === "product" || model === "category") && !businessId) {
     const existing = await prismaModel.findUnique({ where: { id: String(parseId(body.id || searchParams.get("id"), model)) }, select: { businessId: true } }).catch(() => null);
     if (!existing?.businessId) {
       return NextResponse.json({ error: "Business-scoped updates require a valid business" }, { status: 403 });
     }
-    if ((session?.user as any)?.role !== "admin" && !(await canManageBusinessResource(session, model, existing.businessId, null))) {
+    if (!isPlatformManagerRole((session?.user as any)?.role) && !(await canManageBusinessResource(session, model, existing.businessId, null))) {
       return NextResponse.json({ error: "Unauthorized access to this business" }, { status: 403 });
     }
   }
@@ -1103,7 +1111,7 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: "This record does not belong to the current business" }, { status: 403 });
     }
 
-    if ((session?.user as any)?.role !== "admin" && !(await canManageBusinessResource(session, model, existingRecord.businessId, null))) {
+    if (!isPlatformManagerRole((session?.user as any)?.role) && !(await canManageBusinessResource(session, model, existingRecord.businessId, null))) {
       return NextResponse.json({ error: "Unauthorized access to this business" }, { status: 403 });
     }
   }
@@ -1259,7 +1267,9 @@ export async function DELETE(req: NextRequest) {
 
   const canManage = model === "user"
     ? false
-    : await canManageBusinessResource(session, model, item?.businessId || null, userId);
+    : isPlatformManagerRole((session?.user as any)?.role)
+      ? true
+      : await canManageBusinessResource(session, model, item?.businessId || null, userId);
 
   if (!canManage) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
