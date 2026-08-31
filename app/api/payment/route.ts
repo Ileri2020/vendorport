@@ -27,11 +27,13 @@ async function generateOrderBarcodeImage(value: string) {
 }
 
 const PRICE_MARKUPS: Record<string, number> = {
-  customer: 1.3,
-  professional: 1.2,
-  wholesaler: 1.1,
+  customer: 1.0,
+  professional: 1.0,
+  wholesaler: 1.0,
   admin: 1.0,
   staff: 1.0,
+  visitor: 1.0,
+  user: 1.0,
 };
 
 export async function POST(req: NextRequest) {
@@ -261,7 +263,7 @@ export async function POST(req: NextRequest) {
       include: { bulkPrices: true, variants: { include: { prices: true } } }
     });
 
-    const markup = PRICE_MARKUPS[user.role] || 1.3;
+    const markup = PRICE_MARKUPS[user.role] || 1.0;
     
     let subtotal = 0;
     for (const item of items) {

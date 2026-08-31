@@ -69,7 +69,7 @@ export function CartProvider({ children, businessSlug }: CartProviderProps) {
   const [items, setItems] = React.useState<CartItem[]>(() => loadCartFromStorage(businessSlug));
   
   const role = user?.role || "customer";
-  const markup = PRICE_MARKUPS[role as keyof typeof PRICE_MARKUPS] || 1.3;
+  const markup = PRICE_MARKUPS[role as keyof typeof PRICE_MARKUPS] || 1.0;
 
   /* -------------------- Persist to localStorage (debounced) ------------- */
   const saveTimeout = React.useRef<null | ReturnType<typeof setTimeout>>(null);

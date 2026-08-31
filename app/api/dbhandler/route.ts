@@ -13,14 +13,14 @@ cloudinary.v2.config({
 });
 
 const PRICE_MARKUPS: Record<string, number> = {
-  customer: 1.3,
-  professional: 1.2,
-  wholesaler: 1.1,
-  admin: 1.1,
+  customer: 1.0,
+  professional: 1.0,
+  wholesaler: 1.0,
+  admin: 1.0,
   supreme: 1.0,
-  staff: 1.1,
-  visitor: 1.3,
-  user: 1.3,
+  staff: 1.0,
+  visitor: 1.0,
+  user: 1.0,
 };
 
 const isPlatformManagerRole = (role?: string | null) => role === "admin" || role === "supreme";
@@ -856,7 +856,7 @@ export async function POST(req: NextRequest) {
         const dbUser = await prisma.user.findUnique({ where: { id: userId } });
         if (dbUser) userRole = dbUser.role;
       }
-      const markup = PRICE_MARKUPS[userRole] || 1.3;
+      const markup = PRICE_MARKUPS[userRole] || 1.0;
 
       products.forEach((item: any) => {
         if (item.productId?.startsWith("special-")) {

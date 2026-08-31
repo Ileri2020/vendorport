@@ -9,7 +9,7 @@ const Cartitem = (props:{name: string, price: number, qty: number, totalPrice: n
     const { user } = useAppContext();
     const { updateQuantity, removeItem } = useCart();
     const role = user?.role || "customer";
-    const markup = PRICE_MARKUPS[role as keyof typeof PRICE_MARKUPS] || 1.3;
+    const markup = PRICE_MARKUPS[role as keyof typeof PRICE_MARKUPS] || 1.0;
     
     // props.price is the base cost
     const dynamicPrice = props.price * markup;

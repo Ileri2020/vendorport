@@ -223,7 +223,7 @@ export function CartClient({ className, cart: _unusedCart, basePath, platformPay
   const showPaymentButtons = items.length > 0 && hasSavedCart && isCartUnchanged;
 
   const role = user?.role || "customer";
-  const markup = PRICE_MARKUPS[role as keyof typeof PRICE_MARKUPS] || 1.3;
+  const markup = PRICE_MARKUPS[role as keyof typeof PRICE_MARKUPS] || 1.0;
 
   React.useEffect(() => {
     setIsMounted(true);

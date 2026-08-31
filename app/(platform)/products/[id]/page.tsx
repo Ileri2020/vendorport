@@ -252,7 +252,7 @@ const Description = () => {
 
           <div className="flex items-baseline gap-3">
             <span className="text-4xl font-black text-foreground">
-                ₦ {formatPrice((selectedBulk ? selectedBulk.price : variantPriceRange?.minimum ?? getProductPrice(product, user?.role)) * (selectedBulk ? (PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || 1.3) : 1))}
+                ₦ {formatPrice((selectedBulk ? selectedBulk.price : variantPriceRange?.minimum ?? getProductPrice(product, user?.role)) * (selectedBulk ? (PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || 1.0) : 1))}
                 {variantPriceRange && !selectedBulk && variantPriceRange.minimum !== variantPriceRange.maximum && ` - ₦ ${formatPrice(variantPriceRange.maximum)}`}
             </span>
             {selectedBulk && (
@@ -284,7 +284,7 @@ const Description = () => {
                         >
                             <div className="text-[10px] font-black uppercase text-muted-foreground">{bp.name}</div>
                             <div className="text-sm font-bold">{bp.quantity} {product.weight || 'Units'}</div>
-                            <div className="text-xs font-black mt-1 text-primary">₦ {formatPrice(bp.price * (PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || 1.3))}</div>
+                            <div className="text-xs font-black mt-1 text-primary">₦ {formatPrice(bp.price * (PRICE_MARKUPS[user?.role as keyof typeof PRICE_MARKUPS] || 1.0))}</div>
                         </button>
                     ))}
                 </div>
