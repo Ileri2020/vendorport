@@ -7,9 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Search, ChevronLeft, ChevronRight, ArrowUpDown, X, CheckCircle } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, ArrowUpDown, X, CheckCircle, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useAppContext } from '@/hooks/useAppContext';
 import { prepareImageForUpload } from '@/lib/compress-image';
 
@@ -143,6 +143,18 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   const [showPlanDialog, setShowPlanDialog] = useState(false);
   const [activePlanId, setActivePlanId] = useState(isPharmacy ? 'premium' : 'basic');
   const productLimit = isPharmacy ? 200 : activePlanId === 'premium' ? 200 : 15;
+  const [submitting, setSubmitting] = useState(false);
+  const [resultDialog, setResultDialog] = useState<{
+    open: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+  }>({
+    open: false,
+    type: "success",
+    title: "",
+    message: "",
+  });
 
   useEffect(() => {
     const loadPricingSettings = async () => {
@@ -337,6 +349,8 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       return;
     }
 
+    setSubmitting(true);
+
     const pformData = new FormData();
 
     files.forEach((selectedFile) => pformData.append("file", selectedFile));
@@ -408,12 +422,26 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       } else {
         await axios.post(`/api/product`, pformData);
       }
+      setSubmitting(false);
       setUploadStatus("Product saved successfully");
+      setResultDialog({
+        open: true,
+        type: "success",
+        title: editId ? "Product Updated" : "Product Created",
+        message: editId ? "Product updated successfully." : "Product created successfully.",
+      });
       toast.success(editId ? "Product updated successfully" : "Product created successfully");
       resetForm();
       fetchProducts();
     } catch (error) {
       console.error(error);
+      setSubmitting(false);
+      setResultDialog({
+        open: true,
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save product. Please try again.",
+      });
       toast.error("Failed to save product.");
     }
   };
@@ -538,6 +566,23 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
   return (
     <div>
+      <Dialog open={resultDialog.open} onOpenChange={(open) => setResultDialog((prev) => ({ ...prev, open }))}>
+        <DialogContent className="max-w-md text-center">
+          <DialogHeader className="flex flex-col items-center gap-2">
+            <div className={`flex h-12 w-12 items-center justify-center rounded-full ${resultDialog.type === "success" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+              {resultDialog.type === "success" ? <CheckCircle2 className="h-6 w-6" /> : <AlertCircle className="h-6 w-6" />}
+            </div>
+            <DialogTitle className="text-xl font-bold">{resultDialog.title}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground my-2">{resultDialog.message}</p>
+          <DialogFooter className="sm:justify-center">
+            <Button type="button" onClick={() => setResultDialog((prev) => ({ ...prev, open: false }))}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={showPlanDialog} onOpenChange={setShowPlanDialog}>
         <DialogContent className="max-w-5xl">
           <DialogHeader>

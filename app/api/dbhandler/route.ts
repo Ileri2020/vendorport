@@ -271,12 +271,11 @@ function parseId(id: string | null, model: string) {
 async function canManageBusinessResource(session: any, model: string | null, businessId?: string | null, userId?: string | null) {
   const role = (session?.user as any)?.role || "visitor";
   const sessionUserId = (session?.user as any)?.id;
-  const effectiveUserId = sessionUserId ?? userId ?? null;
   const isPlatformManager = isPlatformManagerRole(role);
-  const isAdminOrStaff = isPlatformManager || role === "staff";
 
   if (isPlatformManager) return true;
   if (role === "staff") {
+    const effectiveUserId = sessionUserId ?? userId ?? null;
     if (!businessId || !effectiveUserId) return false;
     const staffMembership = await prisma.staff.findFirst({
       where: { userId: String(effectiveUserId), businessId: String(businessId), status: "accepted" },
@@ -300,14 +299,20 @@ async function canManageBusinessResource(session: any, model: string | null, bus
     "message",
   ]);
 
-  if (!businessScopedModels.has(model || "") || !businessId || !effectiveUserId) return false;
+  if (!businessScopedModels.has(model || "") || !businessId) return false;
 
   const business = await prisma.business.findUnique({
-    where: { id: businessId },
+    where: { id: String(businessId) },
     select: { ownerId: true },
   });
 
-  return Boolean(business && String(business.ownerId) === String(effectiveUserId));
+  if (!business) return false;
+
+  const ownerIdStr = String(business.ownerId);
+  if (sessionUserId && String(sessionUserId) === ownerIdStr) return true;
+  if (userId && String(userId) === ownerIdStr) return true;
+
+  return false;
 }
 
 async function handleUpload(file: File | string) {
@@ -788,8 +793,8 @@ export async function POST(req: NextRequest) {
   }
 
   const businessId = body?.businessId || body?.business?.id || body?.business?.connect?.id || null;
-  body = normalizeBusinessRelation(model, body);
   const requestUserId = body?.userId || body?.ownerId || searchParams.get("userId") || searchParams.get("ownerId") || null;
+  body = normalizeBusinessRelation(model, body);
   const canManage = protectedModels.includes(model || "")
     ? await canManageBusinessResource(session, model, businessId, requestUserId)
     : true;

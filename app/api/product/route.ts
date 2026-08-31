@@ -117,7 +117,7 @@ export async function POST(req , res) {
 
   console.log("Post Response", postRes)
 
-  return NextResponse.json(postRes.data, { status: 200 });
+  return NextResponse.json(postRes.data, { status: postRes.status || 200 });
 
   // cloudinary response {  work on cloudinary environment variable
   //   asset_id: 'a51be13d7609010625bdd7b5d8434bc6',

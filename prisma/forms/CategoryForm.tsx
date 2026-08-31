@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Edit3, Trash2, GitMerge, Check } from "lucide-react";
+import { Edit3, Trash2, GitMerge, Check, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
 import { prepareImageForUpload } from "@/lib/compress-image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -36,6 +36,17 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
   const [mergeFile, setMergeFile] = useState<File | null>(null);
   const [mergePreview, setMergePreview] = useState<string | null>(null);
   const [mergeImageSource, setMergeImageSource] = useState<string>("");
+  const [resultDialog, setResultDialog] = useState<{
+    open: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+  }>({
+    open: false,
+    type: "success",
+    title: "",
+    message: "",
+  });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileKey, setFileKey] = useState("file-0"); // Unique key to reset input
@@ -76,12 +87,18 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formData.name.trim()) {
+      toast.error("Category name is required");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const data = new FormData();
-      data.append("name", formData.name);
-      data.append("description", formData.description);
+      data.append("name", formData.name.trim());
+      data.append("description", formData.description.trim());
 
       if (file) {
         data.append("file", file); // new upload
@@ -108,13 +125,25 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
       }
 
       setLoading(false);
+      setResultDialog({
+        open: true,
+        type: "success",
+        title: editId ? "Category Updated" : "Category Created",
+        message: editId ? "Category updated successfully." : "Category created successfully.",
+      });
       toast.success(editId ? "Category updated" : "Category created");
       resetForm();
       fetchCategories();
     } catch (err) {
       console.error(err);
-      toast.error("Failed to save category");
       setLoading(false);
+      setResultDialog({
+        open: true,
+        type: "error",
+        title: "Save Failed",
+        message: "Failed to save category. Please try again.",
+      });
+      toast.error("Failed to save category");
     }
   };
 
@@ -212,6 +241,23 @@ export default function CategoriesForm({ initialCategory, hideList = false }: Ca
 
   return (
     <div className="flex flex-col items-center max-h-[72vh] overflow-y-auto">
+      <Dialog open={resultDialog.open} onOpenChange={(open) => setResultDialog((prev) => ({ ...prev, open }))}>
+        <DialogContent className="max-w-md text-center">
+          <DialogHeader className="flex flex-col items-center gap-2">
+            <div className={`flex h-12 w-12 items-center justify-center rounded-full ${resultDialog.type === "success" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+              {resultDialog.type === "success" ? <CheckCircle2 className="h-6 w-6" /> : <AlertCircle className="h-6 w-6" />}
+            </div>
+            <DialogTitle className="text-xl font-bold">{resultDialog.title}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground my-2">{resultDialog.message}</p>
+          <DialogFooter className="sm:justify-center">
+            <Button type="button" onClick={() => setResultDialog((prev) => ({ ...prev, open: false }))}>
+              OK
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
