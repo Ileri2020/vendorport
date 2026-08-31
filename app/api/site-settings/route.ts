@@ -17,31 +17,51 @@ export async function GET(req: NextRequest) {
   }
 }
 
+const VALID_SITE_SETTINGS_FIELDS = new Set([
+  "aboutText", "addToHome", "heroTitle", "heroSubtitle", "heroCTA", "heroCTALink", "heroImage",
+  "logoImageUrl", "storefrontImageUrl", "markupEnabled", "markupPercentage", "iconMode", "iconText",
+  "iconFontSize", "iconFontColor", "iconImageUrl", "iconImageWidth", "iconImageHeight", "contactDesc",
+  "contactEmail", "contactPhone", "helpText", "facebook", "instagram", "twitter", "linkedin",
+  "headerCTA", "footerText", "address", "physicalLocation", "newsletterTitle", "newsletterText",
+  "badgeText", "preHeroText", "heroHighlight", "promoTitle", "promoBannerText", "animatedTexts",
+  "operatingStates", "aboutSub", "whoWeAreText", "visionText", "promiseText", "whatWeDoText",
+  "aiSystemText", "integrityText", "accentLight", "accentDark", "accentSecondaryLight",
+  "accentSecondaryDark", "accentForegroundLight", "accentForegroundDark", "defaultTheme",
+  "productCardOrientation", "maxOrdersPerDay", "bankName", "accountNumber", "accountName"
+]);
+
 export async function PUT(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
     const body = await req.json();
-    const businessId = body.businessId;
+    const businessId = body.businessId || searchParams.get("businessId");
     if (!businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
 
     const session = await auth();
-    const userId = (session?.user as any)?.id;
-    if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const sessionUserId = (session?.user as any)?.id;
+    const requestUserId = body.userId || body.ownerId || searchParams.get("userId") || searchParams.get("ownerId") || null;
+    const effectiveUserId = sessionUserId || requestUserId;
+
+    if (!effectiveUserId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const business = await prisma.business.findUnique({ where: { id: businessId } });
     if (!business) return NextResponse.json({ error: "Business not found" }, { status: 404 });
 
-    if (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin") {
+    const isOwner = String(business.ownerId) === String(effectiveUserId);
+    const isAdmin = (session?.user as any)?.role === "admin" || (session?.user as any)?.role === "supreme";
+
+    if (!isOwner && !isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id, businessId: _b, updatedAt, ...updatedData } = body;
+    const { id, businessId: _b, updatedAt, createdAt, ...updatedData } = body;
 
     const sanitizedData = Object.fromEntries(
-      Object.entries(updatedData).filter(([, value]) => value !== undefined)
+      Object.entries(updatedData).filter(([key, value]) => VALID_SITE_SETTINGS_FIELDS.has(key) && value !== undefined)
     );
 
     if (Object.keys(sanitizedData).length === 0) {
-      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+      return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
     }
 
     const chunkSize = 20;
@@ -83,7 +103,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const updated = await prisma.siteSettings.findUnique({ where: { businessId } });
-  revalidateTag("business", "max");
+    revalidateTag("business", "max");
     return NextResponse.json(updated ?? existing);
   } catch (err) {
     console.error("site-settings PUT error", err);

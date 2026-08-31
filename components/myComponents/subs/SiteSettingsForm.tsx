@@ -24,7 +24,7 @@ const PLATFORM_COLOR_DEFAULTS = {
 };
 
 const SiteSettingsForm: React.FC = () => {
-  const { currentBusiness, setCurrentBusiness } = useAppContext();
+  const { currentBusiness, setCurrentBusiness, user } = useAppContext();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingSection, setSavingSection] = useState<string | null>(null);
@@ -311,21 +311,29 @@ const SiteSettingsForm: React.FC = () => {
     else setSaving(true);
 
     try {
+      const fullPayload = {
+        userId: user?.id,
+        ownerId: user?.id,
+        businessId: currentBusiness.id,
+        ...payload,
+      };
+
       const res = await fetch(`/api/site-settings`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(fullPayload),
       });
       const result = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(result?.error || "Save failed");
 
       setForm((prev: any) => ({ ...prev, ...result }));
       saveBusinessColorOverrides(String(currentBusiness.id), result);
+      syncCurrentBusinessSettings(result);
       toast.success(`${sectionLabel} saved`);
       return result;
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      toast.error(`${sectionLabel} could not be saved. Please try again.`);
+      toast.error(err?.message || `${sectionLabel} could not be saved. Please try again.`);
       return null;
     } finally {
       if (isSection) setSavingSection(null);
@@ -360,13 +368,12 @@ const SiteSettingsForm: React.FC = () => {
   };
 
   const handleSave = async () => {
-    const payload = { ...form, businessId: currentBusiness?.id };
-    const result = await saveSettings(payload, { sectionLabel: "Site settings" });
-    if (result) syncCurrentBusinessSettings(result);
+    const result = await saveSettings({ ...form }, { sectionLabel: "Site settings" });
+    return result;
   };
 
   const handleSaveSection = async (sectionKey: string, sectionLabel: string, keys: string[]) => {
-    const payload: Record<string, any> = { businessId: currentBusiness?.id };
+    const payload: Record<string, any> = {};
     for (const key of keys) {
       if (Object.prototype.hasOwnProperty.call(form, key)) {
         payload[key] = form[key];
@@ -374,18 +381,16 @@ const SiteSettingsForm: React.FC = () => {
     }
 
     const result = await saveSettings(payload, { isSection: true, sectionKey, sectionLabel });
-    if (result) syncCurrentBusinessSettings(result);
     return result;
   };
 
   const savePlatformColorDefaults = async () => {
     const result = await saveSettings(
-      { businessId: currentBusiness?.id, ...PLATFORM_COLOR_DEFAULTS },
+      { ...PLATFORM_COLOR_DEFAULTS },
       { isSection: true, sectionKey: "colors", sectionLabel: "Platform colors" }
     );
     if (result) {
       setForm((previous: any) => ({ ...previous, ...PLATFORM_COLOR_DEFAULTS, ...result }));
-      syncCurrentBusinessSettings(result);
       setColorSaveSuccess(true);
     }
   };
