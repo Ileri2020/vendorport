@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { useAppContext } from "@/hooks/useAppContext";
 import { toast } from "sonner";
-import { PlusCircle, Trash2, ChevronDown } from "lucide-react";
+import { PlusCircle, Trash2, ChevronDown, CheckCircle2, AlertCircle } from "lucide-react";
 import { prepareImageForUpload } from "@/lib/compress-image";
 import { saveBusinessColorOverrides } from "@/lib/business-colors";
 
@@ -35,7 +35,17 @@ const SiteSettingsForm: React.FC = () => {
   const [colorDragging, setColorDragging] = useState(false);
   const [newOperatingState, setNewOperatingState] = useState("");
   const [newOperatingCountry, setNewOperatingCountry] = useState("Nigeria");
-  const [colorSaveSuccess, setColorSaveSuccess] = useState(false);
+  const [resultDialog, setResultDialog] = useState<{
+    open: boolean;
+    type: "success" | "error";
+    title: string;
+    message: string;
+  }>({
+    open: false,
+    type: "success",
+    title: "",
+    message: "",
+  });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -303,6 +313,12 @@ const SiteSettingsForm: React.FC = () => {
   ) => {
     if (!currentBusiness?.id) {
       toast.error("Settings could not be saved. Please try again.");
+      setResultDialog({
+        open: true,
+        type: "error",
+        title: "Save Failed",
+        message: "Business information is missing. Please refresh and try again.",
+      });
       return null;
     }
 
@@ -330,10 +346,26 @@ const SiteSettingsForm: React.FC = () => {
       saveBusinessColorOverrides(String(currentBusiness.id), result);
       syncCurrentBusinessSettings(result);
       toast.success(`${sectionLabel} saved`);
+
+      setResultDialog({
+        open: true,
+        type: "success",
+        title: `${sectionLabel} Saved Successfully`,
+        message: `Your ${sectionLabel.toLowerCase()} settings have been saved and applied to your store.`,
+      });
+
       return result;
     } catch (err: any) {
       console.error(err);
       toast.error(err?.message || `${sectionLabel} could not be saved. Please try again.`);
+
+      setResultDialog({
+        open: true,
+        type: "error",
+        title: `Failed to Save ${sectionLabel}`,
+        message: `Could not save your ${sectionLabel.toLowerCase()} settings. Please check your connection and try again.`,
+      });
+
       return null;
     } finally {
       if (isSection) setSavingSection(null);
@@ -391,7 +423,6 @@ const SiteSettingsForm: React.FC = () => {
     );
     if (result) {
       setForm((previous: any) => ({ ...previous, ...PLATFORM_COLOR_DEFAULTS, ...result }));
-      setColorSaveSuccess(true);
     }
   };
 
@@ -1028,8 +1059,7 @@ const SiteSettingsForm: React.FC = () => {
                 <Button
                   type="button"
                   onClick={async () => {
-                    const result = await handleSaveSection("colors", "Colors", ["defaultTheme", "productCardOrientation", "accentLight", "accentDark", "accentSecondaryLight", "accentSecondaryDark", "accentForegroundLight", "accentForegroundDark"]);
-                    if (result) setColorSaveSuccess(true);
+                    await handleSaveSection("colors", "Colors", ["defaultTheme", "productCardOrientation", "accentLight", "accentDark", "accentSecondaryLight", "accentSecondaryDark", "accentForegroundLight", "accentForegroundDark"]);
                   }}
                   disabled={savingSection === "colors"}
                 >
@@ -1041,13 +1071,31 @@ const SiteSettingsForm: React.FC = () => {
         </Collapsible>
       </div>
 
-      <Dialog open={colorSaveSuccess} onOpenChange={setColorSaveSuccess}>
+      <Dialog
+        open={resultDialog.open}
+        onOpenChange={(open) => setResultDialog((prev) => ({ ...prev, open }))}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Colors saved successfully</DialogTitle>
+            <DialogTitle className={`text-xl font-bold flex items-center gap-2 ${resultDialog.type === "success" ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+              {resultDialog.type === "success" ? (
+                <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+              ) : (
+                <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+              )}
+              {resultDialog.title}
+            </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-muted-foreground">Your store color settings have been saved and applied.</p>
-          <Button type="button" onClick={() => setColorSaveSuccess(false)}>Done</Button>
+          <p className="text-sm text-muted-foreground py-2">
+            {resultDialog.message}
+          </p>
+          <Button
+            type="button"
+            className="w-full mt-2 font-bold"
+            onClick={() => setResultDialog((prev) => ({ ...prev, open: false }))}
+          >
+            Close
+          </Button>
         </DialogContent>
       </Dialog>
 

@@ -95,10 +95,6 @@ async function cloneProductsToBusiness({
   const sourceProducts = await prisma.product.findMany({
     where: {
       id: { in: uniqueProductIds },
-      OR: [
-        { businessId: null },
-        { businessId: { isSet: false } },
-      ],
     },
     include: {
       variants: { include: { prices: true, inventoryItems: true } },
@@ -254,44 +250,28 @@ export async function POST(request: NextRequest) {
     const sourceProducts = await prisma.product.findMany({
       where: {
         id: { in: productIds },
-        OR: [
-          { businessId: null },
-          { businessId: { isSet: false } },
-        ],
       },
       include: { category: true },
     });
-    if (sourceProducts.some((product) => !product.category)) {
-      return NextResponse.json({ error: "Every selected product must have a platform category" }, { status: 400 });
-    }
-
-    const productsByCategory = new Map<string, typeof sourceProducts>();
-    for (const product of sourceProducts) {
-      const sourceCategory = product.category!;
-      const group = productsByCategory.get(sourceCategory.id) || [];
-      group.push(product);
-      productsByCategory.set(sourceCategory.id, group);
-    }
 
     let attached = 0;
-    for (const productsInCategory of productsByCategory.values()) {
-      const sourceCategory = productsInCategory[0].category!;
-      const targetCategory = await prisma.category.findFirst({
-        where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } },
-      }) || await prisma.category.create({
-        data: { businessId, name: sourceCategory.name, description: sourceCategory.description },
+    for (const product of sourceProducts) {
+      const catName = product.category?.name || "General";
+      let targetCategory = await prisma.category.findFirst({
+        where: { businessId, name: { equals: catName, mode: "insensitive" } },
       });
-      const result = await prisma.product.updateMany({
-        where: {
-          id: { in: productsInCategory.map((product) => product.id) },
-          OR: [
-            { businessId: null },
-            { businessId: { isSet: false } },
-          ],
-        },
-        data: { businessId, categoryId: targetCategory.id },
+      if (!targetCategory) {
+        targetCategory = await prisma.category.create({
+          data: { businessId, name: catName, description: product.category?.description || null },
+        });
+      }
+      const result = await cloneProductsToBusiness({
+        businessId,
+        categoryId: targetCategory.id,
+        productIds: [product.id],
+        userId,
       });
-      attached += result.count;
+      attached += result.attached;
     }
     return NextResponse.json({ attached });
   }
@@ -300,12 +280,6 @@ export async function POST(request: NextRequest) {
     const businessId = String(body.businessId || "");
     const categoryId = String(body.categoryId || "");
     const sourceCategoryId = String(body.sourceCategoryId || "");
-    console.log("[platform-products][attach-category] start", {
-      businessId,
-      categoryId,
-      sourceCategoryId,
-      userId,
-    });
 
     if (!businessId || !sourceCategoryId) {
       return NextResponse.json({ error: "Business and source category are required" }, { status: 400 });
@@ -318,20 +292,20 @@ export async function POST(request: NextRequest) {
       where: { id: sourceCategoryId },
       include: {
         products: {
-          where: {
-            OR: [
-              { businessId: null },
-              { businessId: { isSet: false } },
-            ],
-          },
           select: { id: true },
         },
         productCategories: { where: { categoryId: sourceCategoryId }, select: { productId: true } },
       },
     });
-    if (!sourceCategory || sourceCategory.businessId === businessId) {
-      return NextResponse.json({ error: "Source category was not found or already belongs to this business" }, { status: 400 });
+    if (!sourceCategory) {
+      return NextResponse.json({ error: "Source category was not found" }, { status: 400 });
     }
+
+    const targetCategory = categoryId
+      ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })
+      : await prisma.category.findFirst({ where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } } })
+        || await prisma.category.create({ data: { businessId, name: sourceCategory.name, description: sourceCategory.description, image: sourceCategory.image || null } });
+    if (!targetCategory) return NextResponse.json({ error: "Store category could not be created" }, { status: 500 });
 
     const sourceProductIds = [
       ...new Set([
@@ -340,24 +314,6 @@ export async function POST(request: NextRequest) {
       ]),
     ];
 
-    console.log("[platform-products][attach-category] source category", {
-      sourceCategoryId,
-      sourceCategoryName: sourceCategory.name,
-      platformProductCount: sourceProductIds.length,
-    });
-
-    const targetCategory = categoryId
-      ? await prisma.category.findFirst({ where: { id: categoryId, businessId } })
-      : await prisma.category.findFirst({ where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } } })
-        || await prisma.category.create({ data: { businessId, name: sourceCategory.name, description: sourceCategory.description, image: sourceCategory.image || null } });
-    if (!targetCategory) return NextResponse.json({ error: "Store category was not found" }, { status: 400 });
-
-    console.log("[platform-products][attach-category] target category", {
-      targetCategoryId: targetCategory.id,
-      targetCategoryName: targetCategory.name,
-      businessId,
-    });
-
     const result = await cloneProductsToBusiness({
       businessId,
       categoryId: targetCategory.id,
@@ -365,53 +321,17 @@ export async function POST(request: NextRequest) {
       userId,
     });
 
-    console.log("[platform-products][attach-category] clone result", {
-      count: result.attached,
-      businessId,
-      sourceCategoryId,
-      targetCategoryId: targetCategory.id,
-    });
-
-    if (result.attached === 0 && sourceProductIds.length > 0) {
-      console.error("[platform-products][attach-category] source products could not be cloned", {
-        sourceCategoryId,
-        sourceProductCount: sourceProductIds.length,
-        businessId,
-        targetCategoryId: targetCategory.id,
-      });
-      return NextResponse.json({ error: "The platform products could not be copied to this business" }, { status: 500 });
-    }
-
-    if (result.attached === 0) {
-      const existingBusinessCategory = await prisma.category.findFirst({
-        where: { businessId, name: { equals: sourceCategory.name, mode: "insensitive" } },
-      });
-
-      console.log("[platform-products][attach-category] no products cloned; verifying business category", {
-        sourceCategoryName: sourceCategory.name,
-        existingBusinessCategoryId: existingBusinessCategory?.id ?? null,
-      });
-
-      if (!existingBusinessCategory) {
-        const createdCategory = await prisma.category.create({
-          data: { businessId, name: sourceCategory.name, description: sourceCategory.description, image: sourceCategory.image || null },
-        });
-        console.log("[platform-products][attach-category] created fallback business category", {
-          createdCategoryId: createdCategory.id,
-        });
-        return NextResponse.json({ attached: 0, categoryId: createdCategory.id, categoryCreated: true });
-      }
-
-      return NextResponse.json({ attached: 0, categoryId: existingBusinessCategory.id, categoryCreated: false });
-    }
-
-    return NextResponse.json({ attached: result.attached, categoryId: targetCategory.id, categoryCreated: false });
+    return NextResponse.json({ attached: result.attached, categoryId: targetCategory.id, categoryName: targetCategory.name });
   }
 
   const name = String(body.name || "").trim();
   const price = Number(body.price);
   if (!name || !Number.isFinite(price) || price < 0) {
     return NextResponse.json({ error: "Name and valid price are required" }, { status: 400 });
+  }
+
+  if (!body.categoryId) {
+    return NextResponse.json({ error: "Category is required. Every product must belong to a category." }, { status: 400 });
   }
 
   if (body.categoryId) {
@@ -444,7 +364,7 @@ export async function POST(request: NextRequest) {
           })),
         },
       } : {}),
-      ...(body.categoryId ? { categoryId: String(body.categoryId) } : {}),
+      categoryId: String(body.categoryId),
     },
   });
   return NextResponse.json(product, { status: 201 });

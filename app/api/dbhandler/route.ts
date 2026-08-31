@@ -940,6 +940,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (model === "product") {
+      const parsedCatIds = parseJsonValue(body.categoryIds, []);
+      const hasCatId = body.categoryId && String(body.categoryId).trim() !== "" && String(body.categoryId) !== "null";
+      const hasCatIds = Array.isArray(parsedCatIds) && parsedCatIds.filter(Boolean).length > 0;
+
+      if (!hasCatId && !hasCatIds) {
+        return NextResponse.json({ error: "Category is required. Every product must belong to a category." }, { status: 400 });
+      }
+
       if (typeof body.brand === "string") {
         body.brand = body.brand.trim();
         if (!body.brand) delete body.brand;
@@ -972,7 +980,7 @@ export async function POST(req: NextRequest) {
       body.volume = body.volume || undefined;
       body.tags = Array.isArray(body.tags) ? body.tags : parseJsonValue(body.tags, []);
       body.metadata = parseJsonValue(body.metadata, null);
-      body.categoryIds = parseJsonValue(body.categoryIds, []);
+      body.categoryIds = parsedCatIds;
       body.variants = parseJsonValue(body.variants, []);
 
       if (Array.isArray(body.categoryIds) && body.categoryIds.length > 0) {

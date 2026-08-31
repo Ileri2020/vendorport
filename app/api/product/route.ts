@@ -55,6 +55,15 @@ export async function POST(req , res) {
     }
   }
 
+  const categoryIdVal = Formdata.get("categoryId");
+  const categoryIdsVal = Formdata.get("categoryIds");
+  const hasCategoryId = categoryIdVal && String(categoryIdVal).trim() !== "" && String(categoryIdVal) !== "null" && String(categoryIdVal) !== "undefined";
+  const hasCategoryIds = categoryIdsVal && String(categoryIdsVal).trim() !== "" && String(categoryIdsVal) !== "[]" && String(categoryIdsVal) !== "null";
+
+  if (!hasCategoryId && !hasCategoryIds) {
+    return NextResponse.json({ error: "Category is required. Every product must belong to a category." }, { status: 400 });
+  }
+
   const productBody: any = {
     description: Formdata.get("description"),
     name: Formdata.get("name"),

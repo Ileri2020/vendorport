@@ -349,6 +349,12 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       return;
     }
 
+    const hasCategory = Boolean(formData.categoryId && String(formData.categoryId).trim()) || (Array.isArray(formData.categoryIds) && formData.categoryIds.length > 0);
+    if (!hasCategory) {
+      toast.error("Select or create a category for this product");
+      return;
+    }
+
     setSubmitting(true);
 
     const pformData = new FormData();
