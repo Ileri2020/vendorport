@@ -84,7 +84,7 @@ export default function StoreSetupPrompt({
           </div>
         </div>
 
-        <div className="mt-10 grid gap-6 lg:grid-cols-2 mx-auto justify-center items-center">
+        <div className={`mt-10 grid gap-6 ${needsCategories && needsProducts ? "lg:grid-cols-2" : "max-w-xl"} mx-auto justify-center items-center`}>
           {needsCategories && (
             <div className="rounded-3xl border border-primary/10 bg-white/80 p-6 shadow-sm mx-auto">
               <div className="flex items-center gap-3 text-primary">

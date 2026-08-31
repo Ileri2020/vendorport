@@ -36,7 +36,7 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 const Stocks = () => {
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const { currentBusiness } = useAppContext();
+  const { currentBusiness, user } = useAppContext();
   const routePath = (pathname || "").replace(/\/+$/, "");
   const isPlatformStore = !currentBusiness?.id && routePath === "/store";
   const categoryFilter = searchParams.get("category");
@@ -50,6 +50,7 @@ const Stocks = () => {
   const closestToMe = searchParams.get("closest") === "true";
   
   const { addItem } = useCart();
+  const isOwner = Boolean(currentBusiness?.ownerId && user?.id && String(currentBusiness.ownerId) === String(user.id));
   const [products, setProducts] = useState<any[]>([]);
   const isAdmin = useIsAdmin();
   const isMobile = useIsMobile();
@@ -281,8 +282,30 @@ const Stocks = () => {
           ))}
         </div>
       ) : (
-        <div className="py-20 text-center">
-          <h3 className="text-xl font-medium text-muted-foreground">No products found in this category.</h3>
+        <div className="py-16 px-4 text-center flex flex-col items-center justify-center gap-4 bg-muted/10 rounded-3xl border border-dashed border-muted my-6 max-w-2xl mx-auto w-full">
+          <h3 className="text-xl font-bold text-muted-foreground">
+            {categoryFilter ? `No products found in "${categoryFilter}".` : "No products found in this store."}
+          </h3>
+          <p className="text-sm text-muted-foreground max-w-md">
+            {isOwner || isAdmin
+              ? "You haven't added any products to this category yet. Click below to add your first product."
+              : "Check back later for new arrivals and collections."}
+          </p>
+          {(isOwner || isAdmin) && (
+            <Dialog onOpenChange={(open) => !open && fetchProducts()}>
+              <DialogTrigger asChild>
+                <Button className="mt-2 gap-2 bg-primary text-white font-bold px-6 py-3 rounded-full shadow-lg hover:bg-primary/90">
+                  <Plus className="h-5 w-5" /> Add Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Create Product</DialogTitle>
+                </DialogHeader>
+                <ProductForm hideList={true} />
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       )}
 

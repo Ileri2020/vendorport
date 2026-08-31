@@ -69,14 +69,17 @@ const Store = () => {
 
         {!setupLoaded || (!isPlatformStore && !currentBusiness) ? (
           <StoreSetupSkeleton />
-        ) : (!hasProducts && !hasCategories) ? (
-          <StoreSetupPrompt
-            businessName={currentBusiness?.name || "Platform"}
-            isOwner={isOwner}
-            hasCategories={!!hasCategories}
-            hasProducts={!!hasProducts}
-            onRefresh={loadStoreContentState}
-          />
+        ) : (!hasProducts) ? (
+          <div className="space-y-6">
+            {hasCategories && <CategoryNavigator />}
+            <StoreSetupPrompt
+              businessName={currentBusiness?.name || "Platform"}
+              isOwner={isOwner}
+              hasCategories={!!hasCategories}
+              hasProducts={!!hasProducts}
+              onRefresh={loadStoreContentState}
+            />
+          </div>
         ) : (
           <>
             <CategoryNavigator />
