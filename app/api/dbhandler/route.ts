@@ -770,9 +770,9 @@ export async function POST(req: NextRequest) {
         body.certificationDocuments = [...(body.certificationDocuments || []), ...urls];
       }
       if (model === "product") body.images = urls;
-      if (model === "user") body.image = urls[0];
-      if (model === "category") body.image = urls[0];
-      if (model === "post") body.contentUrl = urls[0];
+      if (model === "user") { body.image = urls[0]; delete body.images; }
+      if (model === "category") { body.image = urls[0]; delete body.images; }
+      if (model === "post") { body.contentUrl = urls[0]; delete body.images; }
     }
 
     formData.forEach((value, key) => {
@@ -1041,9 +1041,10 @@ export async function PUT(req: NextRequest) {
       if (field === "certificationDocuments" || field === "documents") {
         body.certificationDocuments = [...(body.certificationDocuments || []), ...urls];
       }
-      if (model === "category") body.image = urls[0];
-      if (model === "user") body.image = urls[0];
       if (model === "product") body.images = urls;
+      if (model === "user") { body.image = urls[0]; delete body.images; }
+      if (model === "category") { body.image = urls[0]; delete body.images; }
+      if (model === "post") { body.contentUrl = urls[0]; delete body.images; }
     }
 
     formData.forEach((value, key) => {
