@@ -197,9 +197,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       const response = await fetch("/api/platform-products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "attach", businessId: business.id, categoryId, productIds: selected }),
+        body: JSON.stringify({ action: "attach", businessId: business.id, userId: session?.user?.id, categoryId, productIds: selected }),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Could not attach products");
       toast.success(`${result.attached} product${result.attached === 1 ? "" : "s"} added to ${business.name}`);
       setSelected([]);
@@ -220,9 +220,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         const response = await fetch("/api/platform-products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId, sourceCategoryId }),
+          body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId, sourceCategoryId }),
         });
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "Could not attach category");
         return result.attached || 0;
       }));
@@ -246,9 +246,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       const response = await fetch("/api/platform-products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "attach", businessId: business.id, categoryId, productIds }),
+        body: JSON.stringify({ action: "attach", businessId: business.id, userId: session?.user?.id, categoryId, productIds }),
       });
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Could not attach category products");
       toast.success(`${result.attached} product${result.attached === 1 ? "" : "s"} added to ${business.name}`);
       setCategoryDialog(null);
@@ -279,9 +279,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           const response = await fetch("/api/platform-products", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "attach-category", businessId: business.id, categoryId: targetCategoryId || undefined, sourceCategoryId }),
+            body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId: targetCategoryId || undefined, sourceCategoryId }),
           });
-          const result = await response.json();
+          const result = await response.json().catch(() => ({}));
           console.log("[saveSelectedCatalog][attach-category] response", {
             sourceCategoryId,
             status: response.status,
@@ -298,9 +298,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         const response = await fetch("/api/platform-products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "attach", businessId: business.id, categoryId: targetCategoryId || undefined, productIds: selected }),
+          body: JSON.stringify({ action: "attach", businessId: business.id, userId: session?.user?.id, categoryId: targetCategoryId || undefined, productIds: selected }),
         });
-        const result = await response.json();
+        const result = await response.json().catch(() => ({}));
         console.log("[saveSelectedCatalog][attach] response", {
           status: response.status,
           ok: response.ok,

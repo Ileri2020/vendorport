@@ -103,76 +103,80 @@ async function cloneProductsToBusiness({
 
   let attached = 0;
   for (const product of sourceProducts) {
-    const created = await prisma.product.create({
-      data: {
-        name: product.name,
-        description: product.description,
-        shortDescription: product.shortDescription,
-        barcode: product.barcode,
-        tags: product.tags,
-        activeIngredients: product.activeIngredients,
-        scarce: product.scarce,
-        for: product.for,
-        brand: product.brand,
-        price: product.price,
-        stock: product.stock?.length ? { create: product.stock.map((stock) => ({
-          addedQuantity: stock.addedQuantity,
-          costPerProduct: stock.costPerProduct,
-        })) } : undefined,
-        images: product.images,
-        costPrice: product.costPrice,
-        businessId,
-        categoryId,
-        creatorId: userId || product.creatorId || null,
-        brandId: product.brandId || null,
-        activeIngredientIds: product.activeIngredientIds,
-        healthConcernIds: product.healthConcernIds,
-        regulatoryClassification: product.regulatoryClassification,
-        requiresPrescription: product.requiresPrescription,
-        weight: product.weight,
-        variants: {
-          create: product.variants.map((variant) => ({
-            title: variant.title,
-            weight: variant.weight,
-            volume: variant.volume,
-            metadata: variant.metadata,
-            allowBackorder: variant.allowBackorder,
-            manageInventory: variant.manageInventory,
-            stockStatusByRegion: variant.stockStatusByRegion,
-            prices: {
-              create: variant.prices.map((price) => ({
-                amount: price.amount,
-                originalAmount: price.originalAmount,
-                calculatedAmount: price.calculatedAmount,
-                currencyCode: price.currencyCode,
-                isDiscounted: price.isDiscounted,
-                minQuantity: price.minQuantity,
-                maxQuantity: price.maxQuantity,
-                metadata: price.metadata,
-              })),
-            },
-            inventoryItems: {
-              create: variant.inventoryItems.map((item) => ({
-                sku: item.sku,
-                requiredQuantity: item.requiredQuantity,
-                availableQuantity: item.availableQuantity,
-                deliverableQuantity: item.deliverableQuantity,
-                reservedQuantity: item.reservedQuantity,
-                stockedQuantity: item.stockedQuantity,
-                minStockLevel: item.minStockLevel,
-                metadata: item.metadata,
-              })),
-            },
-          })),
+    try {
+      const created = await prisma.product.create({
+        data: {
+          name: product.name,
+          description: product.description,
+          shortDescription: product.shortDescription,
+          barcode: product.barcode,
+          tags: product.tags,
+          activeIngredients: product.activeIngredients,
+          scarce: product.scarce,
+          for: product.for,
+          brand: product.brand,
+          price: product.price,
+          stock: product.stock?.length ? { create: product.stock.map((stock) => ({
+            addedQuantity: stock.addedQuantity,
+            costPerProduct: stock.costPerProduct,
+          })) } : undefined,
+          images: product.images,
+          costPrice: product.costPrice,
+          businessId,
+          categoryId,
+          creatorId: userId || product.creatorId || null,
+          brandId: product.brandId || null,
+          activeIngredientIds: product.activeIngredientIds,
+          healthConcernIds: product.healthConcernIds,
+          regulatoryClassification: product.regulatoryClassification,
+          requiresPrescription: product.requiresPrescription,
+          weight: product.weight,
+          variants: {
+            create: (product.variants || []).map((variant) => ({
+              title: variant.title,
+              weight: variant.weight,
+              volume: variant.volume,
+              metadata: variant.metadata,
+              allowBackorder: variant.allowBackorder,
+              manageInventory: variant.manageInventory,
+              stockStatusByRegion: variant.stockStatusByRegion,
+              prices: {
+                create: (variant.prices || []).map((price) => ({
+                  amount: price.amount,
+                  originalAmount: price.originalAmount,
+                  calculatedAmount: price.calculatedAmount,
+                  currencyCode: price.currencyCode,
+                  isDiscounted: price.isDiscounted,
+                  minQuantity: price.minQuantity,
+                  maxQuantity: price.maxQuantity,
+                  metadata: price.metadata,
+                })),
+              },
+              inventoryItems: {
+                create: (variant.inventoryItems || []).map((item) => ({
+                  sku: item.sku,
+                  requiredQuantity: item.requiredQuantity,
+                  availableQuantity: item.availableQuantity,
+                  deliverableQuantity: item.deliverableQuantity,
+                  reservedQuantity: item.reservedQuantity,
+                  stockedQuantity: item.stockedQuantity,
+                  minStockLevel: item.minStockLevel,
+                  metadata: item.metadata,
+                })),
+              },
+            })),
+          },
+          productCategories: {
+            create: [{ categoryId, position: 0 }],
+          },
         },
-        productCategories: {
-          create: [{ categoryId, position: 0 }],
-        },
-      },
-    });
+      });
 
-    if (created?.id) {
-      attached += 1;
+      if (created?.id) {
+        attached += 1;
+      }
+    } catch (err) {
+      console.error(`[cloneProductsToBusiness] Failed to clone product ${product.id}:`, err);
     }
   }
 
@@ -180,10 +184,14 @@ async function cloneProductsToBusiness({
 }
 
 export async function GET(request: NextRequest) {
-  const { userId } = await getSessionUser();
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
+  const session = await auth();
   const searchParams = new URL(request.url).searchParams;
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+  const requestUserId = searchParams.get("userId") || null;
+  const effectiveUserId = sessionUserId || requestUserId;
+
+  if (!effectiveUserId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
   const query = searchParams.get("query")?.trim() || "";
   const categoryIds = searchParams.getAll("categoryId").map((value) => value.trim()).filter(Boolean);
   const page = Math.max(1, Number(searchParams.get("page") || 1));
@@ -222,10 +230,15 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { session, userId } = await getSessionUser();
-  if (!userId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const session = await auth();
+  const { searchParams } = new URL(request.url);
+  const body = await request.json().catch(() => ({}));
+  const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+  const requestUserId = body.userId || body.ownerId || searchParams.get("userId") || searchParams.get("ownerId") || null;
+  const effectiveUserId = sessionUserId || requestUserId;
 
-  const body = await request.json();
+  if (!effectiveUserId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+
   const action = body.action || "create";
 
   if (action === "attach") {
@@ -237,13 +250,13 @@ export async function POST(request: NextRequest) {
     }
 
     const business = await prisma.business.findUnique({ where: { id: businessId } });
-    if (!business || (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin")) {
+    if (!business || (String(business.ownerId) !== String(effectiveUserId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     if (categoryId) {
       const category = await prisma.category.findFirst({ where: { id: categoryId, businessId } });
       if (!category) return NextResponse.json({ error: "Category does not belong to this business" }, { status: 400 });
-      const result = await cloneProductsToBusiness({ businessId, categoryId: category.id, productIds, userId });
+      const result = await cloneProductsToBusiness({ businessId, categoryId: category.id, productIds, userId: effectiveUserId });
       return NextResponse.json({ attached: result.attached });
     }
 
@@ -269,7 +282,7 @@ export async function POST(request: NextRequest) {
         businessId,
         categoryId: targetCategory.id,
         productIds: [product.id],
-        userId,
+        userId: effectiveUserId,
       });
       attached += result.attached;
     }
@@ -285,7 +298,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Business and source category are required" }, { status: 400 });
     }
     const business = await prisma.business.findUnique({ where: { id: businessId } });
-    if (!business || (String(business.ownerId) !== String(userId) && (session as any)?.user?.role !== "admin")) {
+    if (!business || (String(business.ownerId) !== String(effectiveUserId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const sourceCategory = await prisma.category.findUnique({
@@ -318,7 +331,7 @@ export async function POST(request: NextRequest) {
       businessId,
       categoryId: targetCategory.id,
       productIds: sourceProductIds,
-      userId,
+      userId: effectiveUserId,
     });
 
     return NextResponse.json({ attached: result.attached, categoryId: targetCategory.id, categoryName: targetCategory.name });
@@ -348,7 +361,7 @@ export async function POST(request: NextRequest) {
       images: Array.isArray(body.images) ? body.images.map(String) : [],
       activeIngredients: [],
       for: [],
-      creatorId: userId,
+      creatorId: effectiveUserId,
       ...(Array.isArray(body.variants) && body.variants.length > 0 ? {
         variants: {
           create: body.variants.filter((variant: any) => String(variant?.title || "").trim()).map((variant: any) => ({
