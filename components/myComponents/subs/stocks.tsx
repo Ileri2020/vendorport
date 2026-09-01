@@ -95,42 +95,39 @@ const Stocks = () => {
       }
 
       if (isFeatured || isDiscounted) {
-        url += `&limit=5000`;
+        url += `&limit=100`;
         const res = await axios.get(url);
-        let data = res.data.data || res.data; // Handle potential format change just in case
+        let data = res.data.data || res.data;
+        if (!Array.isArray(data)) data = [];
 
         if (closestToMe) data = await rankByDistance(data, getSavedUserLocation(), (product: any) => product.business);
 
         if (isFeatured) {
           const featRes = await axios.get(`/api/dbhandler?model=featuredProduct&minimal=true${bizQ}`);
-          const featIds = new Set(featRes.data.map((f: any) => f.productId));
+          const featIds = new Set((featRes.data || []).map((f: any) => f.productId));
           data = data.filter((p: any) => featIds.has(p.id));
         }
 
         if (isDiscounted) {
           const discRes = await axios.get('/api/heavily-discounted?admin=false');
-          const discIds = new Set(discRes.data.map((d: any) => d.productId));
+          const discIds = new Set((discRes.data || []).map((d: any) => d.productId));
           data = data.filter((p: any) => discIds.has(p.id));
         }
 
         const shuffled = closestToMe ? data : shuffleArray(data);
-        setProducts(shuffled);
-        setTotalProducts(shuffled.length);
-      } else {
-        // Load up to 5000 matching products, then randomize order on the client.
-        // This ensures the platform and store product page show a different mix each load.
-        url += `&limit=5000`;
-        const res = await axios.get(url);
-        const fetchedProducts = res.data.data || res.data;
-        const savedLocation = closestToMe ? getSavedUserLocation() : null;
-        const prioritizedProducts = closestToMe
-          ? await rankByDistance(fetchedProducts, savedLocation, (product: any) => product.business)
-          : fetchedProducts;
-        const shuffled = closestToMe ? prioritizedProducts : shuffleArray(prioritizedProducts);
-
         const pagedProducts = shuffled.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
         setProducts(pagedProducts);
-        setTotalProducts(fetchedProducts.length);
+        setTotalProducts(shuffled.length);
+      } else {
+        // Server-side pagination for lightning fast store loading
+        const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+        url += `&pagination=true&limit=${ITEMS_PER_PAGE}&offset=${offset}`;
+        const res = await axios.get(url);
+        const fetchedData = res.data.data ?? (Array.isArray(res.data) ? res.data : []);
+        const total = res.data.total ?? (Array.isArray(fetchedData) ? fetchedData.length : 0);
+
+        setProducts(fetchedData);
+        setTotalProducts(total);
       }
     } catch (err) {
       console.error("Failed to fetch products", err);

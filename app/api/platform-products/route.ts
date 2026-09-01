@@ -205,6 +205,71 @@ export async function GET(request: NextRequest) {
 
   if (!effectiveUserId) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
+  const businessId = searchParams.get("businessId");
+  const action = searchParams.get("action");
+
+  let todayAddedCount = 0;
+  if (businessId) {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    todayAddedCount = await prisma.product.count({
+      where: {
+        businessId,
+        createdAt: { gte: startOfDay },
+      },
+    });
+  }
+
+  if (action === "unadded-category-products" && businessId) {
+    const sourceCategoryId = searchParams.get("sourceCategoryId");
+    if (!sourceCategoryId) return NextResponse.json({ error: "Source category is required" }, { status: 400 });
+
+    const sourceCategory = await prisma.category.findUnique({
+      where: { id: sourceCategoryId },
+      include: {
+        products: {
+          include: {
+            variants: { include: { prices: true } },
+          },
+        },
+        productCategories: {
+          include: {
+            product: {
+              include: {
+                variants: { include: { prices: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!sourceCategory) return NextResponse.json({ error: "Category not found" }, { status: 400 });
+
+    const allSourceProducts = dedupeCatalogProducts([
+      ...sourceCategory.products,
+      ...sourceCategory.productCategories.map((pc) => pc.product).filter(Boolean),
+    ]);
+
+    const existingBusinessProducts = await prisma.product.findMany({
+      where: { businessId },
+      select: { name: true },
+    });
+
+    const existingNames = new Set(existingBusinessProducts.map((p) => p.name.trim().toLowerCase()));
+
+    const unaddedProducts = allSourceProducts.filter(
+      (p) => !existingNames.has(p.name.trim().toLowerCase())
+    );
+
+    return NextResponse.json({
+      unaddedProducts,
+      todayAddedCount,
+      remainingLimit: Math.max(0, 300 - todayAddedCount),
+      dailyLimit: 300,
+    });
+  }
+
   const query = searchParams.get("query")?.trim() || "";
   const categoryIds = searchParams.getAll("categoryId").map((value) => value.trim()).filter(Boolean);
   const page = Math.max(1, Number(searchParams.get("page") || 1));
@@ -239,6 +304,9 @@ export async function GET(request: NextRequest) {
     pageSize,
     total,
     hasMore: page * pageSize < total,
+    todayAddedCount,
+    remainingLimit: Math.max(0, 300 - todayAddedCount),
+    dailyLimit: 300,
   });
 }
 
@@ -266,16 +334,29 @@ export async function POST(request: NextRequest) {
     if (!business || (String(business.ownerId) !== String(effectiveUserId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayAddedCount = await prisma.product.count({
+      where: { businessId, createdAt: { gte: startOfDay } },
+    });
+    const remainingLimit = Math.max(0, 300 - todayAddedCount);
+    if (remainingLimit <= 0) {
+      return NextResponse.json({ error: "Daily limit of 300 products per day reached. Please try again tomorrow." }, { status: 400 });
+    }
+
+    const allowedProductIds = productIds.slice(0, remainingLimit);
+
     if (categoryId) {
       const category = await prisma.category.findFirst({ where: { id: categoryId, businessId } });
       if (!category) return NextResponse.json({ error: "Category does not belong to this business" }, { status: 400 });
-      const result = await cloneProductsToBusiness({ businessId, categoryId: category.id, productIds, userId: effectiveUserId });
-      return NextResponse.json({ attached: result.attached });
+      const result = await cloneProductsToBusiness({ businessId, categoryId: category.id, productIds: allowedProductIds, userId: effectiveUserId });
+      return NextResponse.json({ attached: result.attached, todayAddedCount: todayAddedCount + result.attached });
     }
 
     const sourceProducts = await prisma.product.findMany({
       where: {
-        id: { in: productIds },
+        id: { in: allowedProductIds },
       },
       include: { category: true },
     });
@@ -299,7 +380,7 @@ export async function POST(request: NextRequest) {
       });
       attached += result.attached;
     }
-    return NextResponse.json({ attached });
+    return NextResponse.json({ attached, todayAddedCount: todayAddedCount + attached });
   }
 
   if (action === "attach-category") {
@@ -314,6 +395,17 @@ export async function POST(request: NextRequest) {
     if (!business || (String(business.ownerId) !== String(effectiveUserId) && (session as any)?.user?.role !== "admin")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const todayAddedCount = await prisma.product.count({
+      where: { businessId, createdAt: { gte: startOfDay } },
+    });
+    const remainingLimit = Math.max(0, 300 - todayAddedCount);
+    if (remainingLimit <= 0) {
+      return NextResponse.json({ error: "Daily limit of 300 products per day reached. Please try again tomorrow." }, { status: 400 });
+    }
+
     const sourceCategory = await prisma.category.findUnique({
       where: { id: sourceCategoryId },
       include: {
@@ -340,18 +432,21 @@ export async function POST(request: NextRequest) {
       ]),
     ];
 
+    const allowedProductIds = sourceProductIds.slice(0, remainingLimit);
+
     // Asynchronously clone products in background so user can navigate away immediately
     cloneProductsToBusiness({
       businessId,
       categoryId: targetCategory.id,
-      productIds: sourceProductIds,
+      productIds: allowedProductIds,
       userId: effectiveUserId,
     }).catch((err) => console.error("[attach-category] Background clone error:", err));
 
     return NextResponse.json({
-      attached: sourceProductIds.length,
+      attached: allowedProductIds.length,
       categoryId: targetCategory.id,
       categoryName: targetCategory.name,
+      todayAddedCount: todayAddedCount + allowedProductIds.length,
       async: true,
     });
   }

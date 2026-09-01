@@ -45,12 +45,23 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [saveDialog, setSaveDialog] = useState<{ title: string; message: string; success: boolean } | null>(null);
   const [savingCategoryIds, setSavingCategoryIds] = useState<string[]>([]);
   const [savedCategoryIds, setSavedCategoryIds] = useState<string[]>([]);
+  const [todayAddedCount, setTodayAddedCount] = useState(0);
+  const [limitDialog, setLimitDialog] = useState<{
+    category: any;
+    unaddedProducts: any[];
+    remainingLimit: number;
+  } | null>(null);
+  const [limitDialogSelection, setLimitDialogSelection] = useState<string[]>([]);
+  const [limitDialogPage, setLimitDialogPage] = useState(1);
+  const [limitDialogLoading, setLimitDialogLoading] = useState(false);
+  const DAILY_LIMIT = 300;
   const ITEMS_PER_PAGE = 20;
 
   const loadProducts = async (page = catalogProductPage) => {
     const params = new URLSearchParams({ query });
     params.set("page", String(page));
     params.set("pageSize", "100");
+    if (business?.id) params.set("businessId", business.id);
     selectedCatalogCategories.forEach((id) => params.append("categoryId", id));
     const response = await fetch(`/api/platform-products?${params.toString()}`);
     if (!response.ok) return;
@@ -59,6 +70,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     setProducts(shuffledProducts);
     setCatalogProductPage(result.page || page);
     setCatalogProductHasMore(Boolean(result.hasMore));
+    if (result.todayAddedCount !== undefined) {
+      setTodayAddedCount(result.todayAddedCount);
+    }
   };
 
   const loadBusinessCategories = async () => {
@@ -158,14 +172,41 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       return;
     }
 
-    setSelectedCategories((items) => [...items, sourceCategoryId]);
-
     if (savedCategoryIds.includes(sourceCategoryId)) return;
     if (!business?.id) return;
 
     setSavingCategoryIds((prev) => [...prev, sourceCategoryId]);
     try {
-      // Pass categoryId override only if explicitly selected by the store owner, else undefined so sourceCategory.name is created/linked
+      const checkRes = await fetch(
+        `/api/platform-products?action=unadded-category-products&businessId=${business.id}&sourceCategoryId=${sourceCategoryId}`
+      );
+      const checkData = await checkRes.json().catch(() => ({}));
+      const unaddedProducts = checkData.unaddedProducts || [];
+      const currentTodayCount = checkData.todayAddedCount ?? todayAddedCount;
+      setTodayAddedCount(currentTodayCount);
+
+      const remainingLimit = Math.max(0, DAILY_LIMIT - currentTodayCount);
+
+      if (remainingLimit <= 0) {
+        toast.error("Daily limit of 300 products per day reached. Please try again tomorrow.");
+        setSavingCategoryIds((prev) => prev.filter((id) => id !== sourceCategoryId));
+        return;
+      }
+
+      if (unaddedProducts.length > remainingLimit) {
+        setLimitDialog({
+          category: sourceCategory,
+          unaddedProducts,
+          remainingLimit,
+        });
+        setLimitDialogSelection(unaddedProducts.slice(0, remainingLimit).map((p: any) => p.id));
+        setLimitDialogPage(1);
+        setSavingCategoryIds((prev) => prev.filter((id) => id !== sourceCategoryId));
+        return;
+      }
+
+      setSelectedCategories((items) => [...items, sourceCategoryId]);
+
       const targetCategoryId = categoryId ? String(categoryId) : undefined;
       const response = await fetch("/api/platform-products", {
         method: "POST",
@@ -182,6 +223,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       const result = await response.json().catch(() => ({}));
       if (response.ok) {
         setSavedCategoryIds((prev) => [...new Set([...prev, sourceCategoryId])]);
+        if (result.todayAddedCount !== undefined) setTodayAddedCount(result.todayAddedCount);
         toast.success(`Category "${sourceCategory.name}" added to ${business.name}`);
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("vport:clear-api-cache"));
@@ -195,6 +237,44 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       toast.error(`Could not save category ${sourceCategory.name}`);
     } finally {
       setSavingCategoryIds((prev) => prev.filter((id) => id !== sourceCategoryId));
+    }
+  };
+
+  const saveLimitDialogSelection = async () => {
+    if (!business?.id || !limitDialog) return;
+    if (limitDialogSelection.length === 0) {
+      toast.error("Select at least one product to add");
+      return;
+    }
+    setLimitDialogLoading(true);
+    try {
+      const targetCategoryId = categoryId ? String(categoryId) : undefined;
+      const response = await fetch("/api/platform-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          action: "attach",
+          businessId: business.id,
+          userId: session?.user?.id,
+          categoryId: targetCategoryId,
+          productIds: limitDialogSelection,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || "Could not attach products");
+      if (result.todayAddedCount !== undefined) setTodayAddedCount(result.todayAddedCount);
+      toast.success(`Added ${result.attached} product(s) to ${business.name}`);
+      setSavedCategoryIds((prev) => [...new Set([...prev, limitDialog.category.id])]);
+      setSelectedCategories((prev) => [...new Set([...prev, limitDialog.category.id])]);
+      setLimitDialog(null);
+      setLimitDialogSelection([]);
+      await loadBusinessCategories();
+      await loadProducts();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not attach products");
+    } finally {
+      setLimitDialogLoading(false);
     }
   };
 
@@ -428,12 +508,27 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
 
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-4 py-10">
-      <header>
-        <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Vport Catalog</p>
-        <h1 className="mt-2 text-4xl font-black tracking-tight">New Product</h1>
-        <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
-          Create products in the shared platform catalog. Products stay outside every website until a business owner adds them to a category.
-        </p>
+      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.25em] text-primary">Vport Catalog</p>
+          <h1 className="mt-2 text-4xl font-black tracking-tight">New Product</h1>
+          <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+            Create products in the shared platform catalog. Products stay outside every website until a business owner adds them to a category.
+          </p>
+        </div>
+        {isOwner && (
+          <div className="flex shrink-0 items-center gap-2 rounded-2xl border bg-card p-3 shadow-sm">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <PackagePlus className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground">Daily Product Limit</p>
+              <p className={`text-sm font-black ${todayAddedCount >= DAILY_LIMIT ? "text-destructive" : "text-emerald-600"}`}>
+                {todayAddedCount} / {DAILY_LIMIT} added today
+              </p>
+            </div>
+          </div>
+        )}
       </header>
 
       <section className="rounded-2xl border border-primary/25 bg-primary/5 p-5 shadow-sm">
@@ -624,6 +719,145 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm"><option value="">Select your store category</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
           {categoryProductsLoading ? <p className="py-8 text-center text-sm text-muted-foreground">Loading products...</p> : <div className="grid gap-2 sm:grid-cols-2">{categoryProducts.map((product) => { const checked = categoryProductSelection.includes(product.id); return <button type="button" key={product.id} onClick={() => setCategoryProductSelection((items) => checked ? items.filter((id) => id !== product.id) : [...items, product.id])} className={`flex items-center gap-2 rounded-lg border p-2 text-left ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className="h-12 w-12 shrink-0 overflow-hidden rounded-md bg-muted">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-3 h-5 w-5 text-muted-foreground" />}</span><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{product.name}</span><span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()}</span></span>{checked && <Check className="h-4 w-4 text-primary" />}</button>; })}</div>}
           <div className="flex flex-col gap-2 border-t pt-4 sm:flex-row"><Button type="button" className="flex-1" disabled={categoryProducts.length === 0} onClick={() => { setSelected((items) => [...new Set([...items, ...categoryProducts.map((product) => product.id)])]); setCategoryDialog(null); setCategoryProducts([]); setCategoryProductSelection([]); }}>Add all to save</Button><Button type="button" variant="outline" className="flex-1" disabled={categoryProductSelection.length === 0} onClick={() => { setSelected((items) => [...new Set([...items, ...categoryProductSelection])]); setCategoryDialog(null); setCategoryProducts([]); setCategoryProductSelection([]); }}>Add selected to save ({categoryProductSelection.length})</Button></div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(limitDialog)} onOpenChange={(open) => { if (!open) setLimitDialog(null); }}>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <span className="rounded-full bg-amber-100 p-1.5 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                ⚠️
+              </span>
+              Daily Limit Notice — {limitDialog?.category?.name}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border border-amber-300/60 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-400/30 dark:bg-amber-950/30 dark:text-amber-300">
+              <p className="font-semibold">
+                Adding all products in this category ({limitDialog?.unaddedProducts.length}) will exceed your daily limit of 300 products per day.
+              </p>
+              <p className="mt-1">
+                You have <span className="font-bold underline">{limitDialog?.remainingLimit}</span> product slots remaining today ({todayAddedCount}/300 added today). Select up to {limitDialog?.remainingLimit} products below to add today.
+              </p>
+            </div>
+
+            {limitDialog && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Selected {limitDialogSelection.length} of max {limitDialog.remainingLimit} allowed today
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setLimitDialogSelection(limitDialog.unaddedProducts.slice(0, limitDialog.remainingLimit).map((p) => p.id))}
+                    >
+                      Select top {limitDialog.remainingLimit}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setLimitDialogSelection([])}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {limitDialog.unaddedProducts
+                    .slice((limitDialogPage - 1) * 20, limitDialogPage * 20)
+                    .map((product: any) => {
+                      const checked = limitDialogSelection.includes(product.id);
+                      return (
+                        <button
+                          type="button"
+                          key={product.id}
+                          onClick={() => {
+                            if (checked) {
+                              setLimitDialogSelection((items) => items.filter((id) => id !== product.id));
+                            } else {
+                              if (limitDialogSelection.length >= limitDialog.remainingLimit) {
+                                toast.error(`Daily limit reached: you can select at most ${limitDialog.remainingLimit} products today.`);
+                                return;
+                              }
+                              setLimitDialogSelection((items) => [...items, product.id]);
+                            }
+                          }}
+                          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${
+                            checked ? "border-primary bg-primary/10" : "hover:bg-muted/50"
+                          }`}
+                        >
+                          <span
+                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
+                              checked ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                            }`}
+                          >
+                            {checked && <Check className="h-3 w-3" />}
+                          </span>
+                          <span className="h-12 w-12 shrink-0 overflow-hidden rounded-lg border bg-muted">
+                            {product.images?.[0] ? (
+                              <img src={product.images[0]} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              <PackagePlus className="m-3 h-5 w-5 text-muted-foreground" />
+                            )}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold">{product.name}</span>
+                            <span className="text-xs text-muted-foreground">₦{Number(product.price).toLocaleString()}</span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                </div>
+
+                {Math.ceil(limitDialog.unaddedProducts.length / 20) > 1 && (
+                  <div className="flex items-center justify-center gap-3 pt-2">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      disabled={limitDialogPage === 1}
+                      onClick={() => setLimitDialogPage((p) => Math.max(1, p - 1))}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-xs text-muted-foreground">
+                      Page {limitDialogPage} of {Math.ceil(limitDialog.unaddedProducts.length / 20)}
+                    </span>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="outline"
+                      disabled={limitDialogPage >= Math.ceil(limitDialog.unaddedProducts.length / 20)}
+                      onClick={() => setLimitDialogPage((p) => p + 1)}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
+                <div className="flex gap-2 border-t pt-4">
+                  <Button type="button" variant="outline" onClick={() => setLimitDialog(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1 font-semibold"
+                    disabled={limitDialogLoading || limitDialogSelection.length === 0}
+                    onClick={saveLimitDialogSelection}
+                  >
+                    {limitDialogLoading ? "Saving..." : `Add Selected (${limitDialogSelection.length}/${limitDialog.remainingLimit})`}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </main>
