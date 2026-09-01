@@ -391,6 +391,22 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         {isOwner && <Button type="button" size="lg" variant={catalogMode === "categories" ? "default" : "outline"} aria-expanded={catalogMode === "categories"} className="h-auto border-2 border-accent/70  shadow-md shadow-accent/20 justify-between gap-3 p-5 text-left" onClick={() => setCatalogMode(catalogMode === "categories" ? null : "categories")}><span className="flex items-center gap-3"><FolderPlus className="h-5 w-5" /><span><span className="block font-bold">Add platform categories</span><span className="mt-1 block text-xs font-normal opacity-75">Browse category cards and products</span></span></span><ChevronDown className={`h-4 w-4 transition-transform ${catalogMode === "categories" ? "rotate-180" : ""}`} /></Button>}
       </section>
 
+      {isOwner && (
+        <section className="flex items-start gap-3 rounded-2xl border border-amber-300/60 bg-amber-50 px-5 py-4 shadow-sm dark:border-amber-400/30 dark:bg-amber-950/30">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-400/20 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
+              <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 1.998-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.502-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Important notice</p>
+            <p className="mt-0.5 text-sm leading-relaxed text-amber-700 dark:text-amber-400">
+              Ensure you only select products and categories you can deliver to your customers, as reports from customers may result in sanctions.
+            </p>
+          </div>
+        </section>
+      )}
+
       {createOpen && <section className="rounded-2xl border bg-card p-5 shadow-sm">
         <form onSubmit={createProduct} className="space-y-4">
           <div className="flex items-center gap-2 font-bold"><PackagePlus className="h-5 w-5 text-primary" /> Create platform product</div>

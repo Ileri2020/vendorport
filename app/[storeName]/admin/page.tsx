@@ -47,7 +47,10 @@ function getFirstDayOfWeek(d: Date) {
   return new Date(date.setDate(diff));
 }
 
+const SITE_SETTINGS_FORM_NAME = "SiteSettings";
+
 const forms = [
+  { name: "SiteSettings", component: null }, // rendered separately
   { name: "User", component: UserForm },
   { name: "Product", component: ProductForm },
   { name: "Category", component: CategoryForm },
@@ -80,7 +83,8 @@ const Admin = () => {
       session?.user?.id &&
       String(currentBusiness.ownerId) === String(session.user.id);
 
-    const [selectedForms, setSelectedForms] = useState<string[]>([]);
+    // SiteSettings is selected by default
+    const [selectedForms, setSelectedForms] = useState<string[]>([SITE_SETTINGS_FORM_NAME]);
     const [searchQuery, setSearchQuery] = useState("");
 
     const [cartData, setCartData] = useState<any[]>([]);
@@ -98,7 +102,8 @@ const Admin = () => {
 
     const toggleForm = (name: string) => {
       setSelectedForms((prev) =>
-        prev.includes(name) ? prev.filter((f) => f !== name) : [...prev, name]
+        // removing: filter it out; adding: prepend so newest shows first
+        prev.includes(name) ? prev.filter((f) => f !== name) : [name, ...prev]
       );
     };
 
@@ -386,28 +391,32 @@ const Admin = () => {
         <AdminUserManager />
       </div>
 
-      {/* Render selected forms */}
-      <div className="flex flex-col md:grid md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-5">
-        {/* DataTable for form selection */}
-        <div className="mb-6 max-w-md">
-          <DataTableDemo columns={columns} data={filteredForms} />
-        </div>
-
-        {/* Site settings editor (owner-only) */}
-        {isBusinessOwner && (
-          <div className="col-span-full mt-4">
-            <SiteSettingsForm />
-          </div>
-        )}
-
-        {selectedForms.map((name) => {
-          const FormComponent = forms.find((f) => f.name === name)?.component;
-          if (!FormComponent) return null;
-          return name === "Product" && isStaff
-            ? <ProductForm key={name} hideList={true} />
-            : <FormComponent key={name} />;
-        })}
+      {/* Forms table for selecting which forms to display */}
+      <div className="mb-6 max-w-md">
+        <DataTableDemo columns={columns} data={filteredForms} />
       </div>
+
+      {/* Selected forms — rendered directly below the table, newest first */}
+      {selectedForms.filter((name) => name !== SITE_SETTINGS_FORM_NAME).length > 0 && (
+        <div className="flex flex-col md:grid md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-5 mb-6">
+          {selectedForms
+            .filter((name) => name !== SITE_SETTINGS_FORM_NAME)
+            .map((name) => {
+              const FormComponent = forms.find((f) => f.name === name)?.component;
+              if (!FormComponent) return null;
+              return name === "Product" && isStaff
+                ? <ProductForm key={name} hideList={true} />
+                : <FormComponent key={name} />;
+            })}
+        </div>
+      )}
+
+      {/* Site Settings form — shown when selected (selected by default), owner-only */}
+      {isBusinessOwner && selectedForms.includes(SITE_SETTINGS_FORM_NAME) && (
+        <div className="mb-6">
+          <SiteSettingsForm />
+        </div>
+      )}
 
       {/* ORDER MANAGEMENT SECTION */}
       {!isStaff && <div className="mt-12 bg-card p-6 rounded-2xl border shadow-sm col-span-full">
