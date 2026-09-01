@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Search, PackagePlus, Link2, Check, Plus, X, ChevronLeft, ChevronRight, FolderPlus, ChevronDown } from "lucide-react";
+import { Search, PackagePlus, Link2, Check, Plus, X, ChevronLeft, ChevronRight, FolderPlus, ChevronDown, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,6 +43,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [categoryProductsLoading, setCategoryProductsLoading] = useState(false);
   const [categoryProductSelection, setCategoryProductSelection] = useState<string[]>([]);
   const [saveDialog, setSaveDialog] = useState<{ title: string; message: string; success: boolean } | null>(null);
+  const [savingCategoryIds, setSavingCategoryIds] = useState<string[]>([]);
+  const [savedCategoryIds, setSavedCategoryIds] = useState<string[]>([]);
   const ITEMS_PER_PAGE = 20;
 
   const loadProducts = async (page = catalogProductPage) => {
@@ -147,6 +149,54 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       .finally(() => setCategoryProductsLoading(false));
   }, [categoryDialog]);
 
+  const autoSaveCategory = async (sourceCategory: any) => {
+    const sourceCategoryId = sourceCategory.id;
+    const isAlreadySelected = selectedCategories.includes(sourceCategoryId);
+
+    if (isAlreadySelected) {
+      setSelectedCategories((items) => items.filter((id) => id !== sourceCategoryId));
+      return;
+    }
+
+    setSelectedCategories((items) => [...items, sourceCategoryId]);
+
+    if (savedCategoryIds.includes(sourceCategoryId)) return;
+    if (!business?.id) return;
+
+    setSavingCategoryIds((prev) => [...prev, sourceCategoryId]);
+    try {
+      const targetCategoryId = categoryId || (businessCategories.length === 1 ? String(businessCategories[0].id) : "");
+      const response = await fetch("/api/platform-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        body: JSON.stringify({
+          action: "attach-category",
+          businessId: business.id,
+          userId: session?.user?.id,
+          categoryId: targetCategoryId || undefined,
+          sourceCategoryId,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (response.ok) {
+        setSavedCategoryIds((prev) => [...new Set([...prev, sourceCategoryId])]);
+        toast.success(`Category "${sourceCategory.name}" added to ${business.name}`);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("vport:clear-api-cache"));
+        }
+        await loadBusinessCategories();
+      } else {
+        toast.error(result.error || `Could not save category ${sourceCategory.name}`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(`Could not save category ${sourceCategory.name}`);
+    } finally {
+      setSavingCategoryIds((prev) => prev.filter((id) => id !== sourceCategoryId));
+    }
+  };
+
   const createCategory = async () => {
     if (!newCategory.name.trim()) return toast.error("Enter a category name");
     const response = await fetch("/api/categories", {
@@ -173,6 +223,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       const response = await fetch("/api/platform-products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        keepalive: true,
         body: JSON.stringify(form),
       });
       const result = await response.json();
@@ -197,6 +248,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       const response = await fetch("/api/platform-products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        keepalive: true,
         body: JSON.stringify({ action: "attach", businessId: business.id, userId: session?.user?.id, categoryId, productIds: selected }),
       });
       const result = await response.json().catch(() => ({}));
@@ -220,10 +272,12 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         const response = await fetch("/api/platform-products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          keepalive: true,
           body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId, sourceCategoryId }),
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "Could not attach category");
+        setSavedCategoryIds((prev) => [...new Set([...prev, sourceCategoryId])]);
         return result.attached || 0;
       }));
       toast.success(`${results.reduce((total, count) => total + count, 0)} products added to ${business.name}`);
@@ -246,6 +300,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       const response = await fetch("/api/platform-products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        keepalive: true,
         body: JSON.stringify({ action: "attach", businessId: business.id, userId: session?.user?.id, categoryId, productIds }),
       });
       const result = await response.json().catch(() => ({}));
@@ -270,27 +325,37 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
     }
     const targetCategoryId = categoryId || (businessCategories.length === 1 ? String(businessCategories[0].id) : "");
 
+    const unsavedCategories = selectedCategories.filter((id) => !savedCategoryIds.includes(id));
+
+    if (unsavedCategories.length === 0 && selected.length === 0) {
+      const title = "Saved successfully";
+      const message = `All selected items were saved to ${business.name}.`;
+      toast.success(message);
+      setSaveDialog({ title, message, success: true });
+      setSelected([]);
+      setSelectedCategories([]);
+      setCategoryId("");
+      return;
+    }
+
     setLoading(true);
     try {
       let addedProducts = 0;
-      if (selectedCategories.length) {
-        const categoryResults: number[] = [];
-        for (const sourceCategoryId of selectedCategories) {
-          const response = await fetch("/api/platform-products", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId: targetCategoryId || undefined, sourceCategoryId }),
-          });
-          const result = await response.json().catch(() => ({}));
-          console.log("[saveSelectedCatalog][attach-category] response", {
-            sourceCategoryId,
-            status: response.status,
-            ok: response.ok,
-            result,
-          });
-          if (!response.ok) throw new Error(result.error || "Could not add categories");
-          categoryResults.push(Number(result.attached) || 0);
-        }
+      if (unsavedCategories.length) {
+        const categoryResults = await Promise.all(
+          unsavedCategories.map(async (sourceCategoryId) => {
+            const response = await fetch("/api/platform-products", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              keepalive: true,
+              body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId: targetCategoryId || undefined, sourceCategoryId }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(result.error || "Could not add categories");
+            setSavedCategoryIds((prev) => [...new Set([...prev, sourceCategoryId])]);
+            return Number(result.attached) || 0;
+          })
+        );
         addedProducts += categoryResults.reduce((total, count) => total + count, 0);
       }
 
@@ -298,14 +363,10 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
         const response = await fetch("/api/platform-products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          keepalive: true,
           body: JSON.stringify({ action: "attach", businessId: business.id, userId: session?.user?.id, categoryId: targetCategoryId || undefined, productIds: selected }),
         });
         const result = await response.json().catch(() => ({}));
-        console.log("[saveSelectedCatalog][attach] response", {
-          status: response.status,
-          ok: response.ok,
-          result,
-        });
         if (!response.ok) throw new Error(result.error || "Could not add products");
         addedProducts += Number(result.attached) || 0;
       }
@@ -480,7 +541,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       {catalogMode === "categories" && isOwner && <section className="space-y-5 rounded-2xl border bg-card p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="font-bold">Platform categories</h2><p className="text-xs text-muted-foreground">Each card shows products available in that category.</p></div><div className="relative w-full sm:max-w-xs"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input className="pl-9" placeholder="Search categories" value={categoryQuery} onChange={(e) => setCategoryQuery(e.target.value)} /></div></div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleCategories.map((category) => <div key={category.id} className="overflow-hidden rounded-xl border bg-background text-left transition hover:border-primary hover:shadow-md"><div className="grid h-28 grid-cols-3 gap-1 bg-muted p-1">{(category.products || []).slice(0, 3).map((product: any, index: number) => <div key={index} className="overflow-hidden rounded-md bg-background">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-auto mt-9 h-5 w-5 text-muted-foreground" />}</div>)}</div><div className="p-3"><h3 className="font-bold">{category.name}</h3><p className="mt-1 text-xs text-muted-foreground">{category._count?.products || 0} products</p><div className="mt-3 flex gap-2"><Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => { setCategoryDialog(category); setCategoryProductSelection([]); }}><Check className="mr-1 h-3 w-3" />Choose products</Button><Button type="button" size="sm" className="flex-1" onClick={() => setSelectedCategories((items) => items.includes(category.id) ? items.filter((id) => id !== category.id) : [...items, category.id])}><Plus className="mr-1 h-3 w-3" />Add category</Button></div></div></div>)}
+          {visibleCategories.map((category) => <div key={category.id} className="overflow-hidden rounded-xl border bg-background text-left transition hover:border-primary hover:shadow-md"><div className="grid h-28 grid-cols-3 gap-1 bg-muted p-1">{(category.products || []).slice(0, 3).map((product: any, index: number) => <div key={index} className="overflow-hidden rounded-md bg-background">{product.images?.[0] ? <img src={product.images[0]} alt="" className="h-full w-full object-cover" /> : <PackagePlus className="m-auto mt-9 h-5 w-5 text-muted-foreground" />}</div>)}</div><div className="p-3"><h3 className="font-bold">{category.name}</h3><p className="mt-1 text-xs text-muted-foreground">{category._count?.products || 0} products</p><div className="mt-3 flex gap-2"><Button type="button" size="sm" variant="outline" className="flex-1" onClick={() => { setCategoryDialog(category); setCategoryProductSelection([]); }}><Check className="mr-1 h-3 w-3" />Choose products</Button><Button type="button" size="sm" className={`flex-1 ${savedCategoryIds.includes(category.id) ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}`} disabled={savingCategoryIds.includes(category.id)} onClick={() => autoSaveCategory(category)}>{savingCategoryIds.includes(category.id) ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Saving...</> : savedCategoryIds.includes(category.id) || selectedCategories.includes(category.id) ? <><Check className="mr-1 h-3 w-3" />Added</> : <><Plus className="mr-1 h-3 w-3" />Add category</>}</Button></div></div></div>)}
         </div>
         {categoryPages > 1 && <div className="flex items-center justify-center gap-3"><Button type="button" size="icon" variant="outline" disabled={categoryPage === 1} onClick={() => setCategoryPage((page) => page - 1)}><ChevronLeft className="h-4 w-4" /></Button><span className="text-xs text-muted-foreground">Page {categoryPage} of {categoryPages}</span><Button type="button" size="icon" variant="outline" disabled={categoryPage === categoryPages} onClick={() => setCategoryPage((page) => page + 1)}><ChevronRight className="h-4 w-4" /></Button></div>}
       </section>}
@@ -492,7 +553,9 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           <div className="grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
             {categories.filter((category) => category.businessId !== business?.id).map((category) => {
               const checked = selectedCategories.includes(category.id);
-              return <button type="button" key={category.id} onClick={() => setSelectedCategories((items) => checked ? items.filter((id) => id !== category.id) : [...items, category.id])} className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{checked && <Check className="h-3 w-3" />}</span><span className="truncate">{category.name}</span></button>;
+              const isSaved = savedCategoryIds.includes(category.id);
+              const isSaving = savingCategoryIds.includes(category.id);
+              return <button type="button" key={category.id} onClick={() => autoSaveCategory(category)} className={`flex items-center gap-2 rounded-lg border p-3 text-left text-sm ${checked ? "border-primary bg-primary/10" : "hover:bg-muted"}`}><span className={`flex h-5 w-5 items-center justify-center rounded border ${checked ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{isSaving ? <Loader2 className="h-3 w-3 animate-spin text-primary" /> : checked && <Check className="h-3 w-3" />}</span><span className="truncate">{category.name}</span>{isSaved && <span className="ml-auto text-xs font-bold text-emerald-600">Saved</span>}</button>;
             })}
           </div>
           <div className="flex flex-col gap-3 sm:flex-row"><select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-10 rounded-md border bg-background px-3 text-sm sm:max-w-xs"><option value="">Store category for selected items</option>{businessCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></div>

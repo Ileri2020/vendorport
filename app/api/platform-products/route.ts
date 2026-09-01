@@ -101,84 +101,97 @@ async function cloneProductsToBusiness({
     },
   });
 
-  let attached = 0;
-  for (const product of sourceProducts) {
-    try {
-      const created = await prisma.product.create({
-        data: {
-          name: product.name,
-          description: product.description,
-          shortDescription: product.shortDescription,
-          barcode: product.barcode,
-          tags: product.tags,
-          activeIngredients: product.activeIngredients,
-          scarce: product.scarce,
-          for: product.for,
-          brand: product.brand,
-          price: product.price,
-          stock: product.stock?.length ? { create: product.stock.map((stock) => ({
-            addedQuantity: stock.addedQuantity,
-            costPerProduct: stock.costPerProduct,
-          })) } : undefined,
-          images: product.images,
-          costPrice: product.costPrice,
-          businessId,
-          categoryId,
-          creatorId: userId || product.creatorId || null,
-          brandId: product.brandId || null,
-          activeIngredientIds: product.activeIngredientIds,
-          healthConcernIds: product.healthConcernIds,
-          regulatoryClassification: product.regulatoryClassification,
-          requiresPrescription: product.requiresPrescription,
-          weight: product.weight,
-          variants: {
-            create: (product.variants || []).map((variant) => ({
-              title: variant.title,
-              weight: variant.weight,
-              volume: variant.volume,
-              metadata: variant.metadata,
-              allowBackorder: variant.allowBackorder,
-              manageInventory: variant.manageInventory,
-              stockStatusByRegion: variant.stockStatusByRegion,
-              prices: {
-                create: (variant.prices || []).map((price) => ({
-                  amount: price.amount,
-                  originalAmount: price.originalAmount,
-                  calculatedAmount: price.calculatedAmount,
-                  currencyCode: price.currencyCode,
-                  isDiscounted: price.isDiscounted,
-                  minQuantity: price.minQuantity,
-                  maxQuantity: price.maxQuantity,
-                  metadata: price.metadata,
-                })),
-              },
-              inventoryItems: {
-                create: (variant.inventoryItems || []).map((item) => ({
-                  sku: item.sku,
-                  requiredQuantity: item.requiredQuantity,
-                  availableQuantity: item.availableQuantity,
-                  deliverableQuantity: item.deliverableQuantity,
-                  reservedQuantity: item.reservedQuantity,
-                  stockedQuantity: item.stockedQuantity,
-                  minStockLevel: item.minStockLevel,
-                  metadata: item.metadata,
-                })),
-              },
-            })),
-          },
-          productCategories: {
-            create: [{ categoryId, position: 0 }],
-          },
-        },
-      });
+  const existingProducts = await prisma.product.findMany({
+    where: { businessId, categoryId },
+    select: { name: true },
+  });
+  const existingNames = new Set(existingProducts.map((p) => p.name.trim().toLowerCase()));
 
-      if (created?.id) {
-        attached += 1;
-      }
-    } catch (err) {
-      console.error(`[cloneProductsToBusiness] Failed to clone product ${product.id}:`, err);
-    }
+  const productsToClone = sourceProducts.filter((p) => !existingNames.has(p.name.trim().toLowerCase()));
+  if (productsToClone.length === 0) {
+    return { attached: 0 };
   }
+
+  let attached = 0;
+  await Promise.all(
+    productsToClone.map(async (product) => {
+      try {
+        const created = await prisma.product.create({
+          data: {
+            name: product.name,
+            description: product.description,
+            shortDescription: product.shortDescription,
+            barcode: product.barcode,
+            tags: product.tags,
+            activeIngredients: product.activeIngredients,
+            scarce: product.scarce,
+            for: product.for,
+            brand: product.brand,
+            price: product.price,
+            stock: product.stock?.length ? { create: product.stock.map((stock) => ({
+              addedQuantity: stock.addedQuantity,
+              costPerProduct: stock.costPerProduct,
+            })) } : undefined,
+            images: product.images,
+            costPrice: product.costPrice,
+            businessId,
+            categoryId,
+            creatorId: userId || product.creatorId || null,
+            brandId: product.brandId || null,
+            activeIngredientIds: product.activeIngredientIds,
+            healthConcernIds: product.healthConcernIds,
+            regulatoryClassification: product.regulatoryClassification,
+            requiresPrescription: product.requiresPrescription,
+            weight: product.weight,
+            variants: {
+              create: (product.variants || []).map((variant) => ({
+                title: variant.title,
+                weight: variant.weight,
+                volume: variant.volume,
+                metadata: variant.metadata,
+                allowBackorder: variant.allowBackorder,
+                manageInventory: variant.manageInventory,
+                stockStatusByRegion: variant.stockStatusByRegion,
+                prices: {
+                  create: (variant.prices || []).map((price) => ({
+                    amount: price.amount,
+                    originalAmount: price.originalAmount,
+                    calculatedAmount: price.calculatedAmount,
+                    currencyCode: price.currencyCode,
+                    isDiscounted: price.isDiscounted,
+                    minQuantity: price.minQuantity,
+                    maxQuantity: price.maxQuantity,
+                    metadata: price.metadata,
+                  })),
+                },
+                inventoryItems: {
+                  create: (variant.inventoryItems || []).map((item) => ({
+                    sku: item.sku,
+                    requiredQuantity: item.requiredQuantity,
+                    availableQuantity: item.availableQuantity,
+                    deliverableQuantity: item.deliverableQuantity,
+                    reservedQuantity: item.reservedQuantity,
+                    stockedQuantity: item.stockedQuantity,
+                    minStockLevel: item.minStockLevel,
+                    metadata: item.metadata,
+                  })),
+                },
+              })),
+            },
+            productCategories: {
+              create: [{ categoryId, position: 0 }],
+            },
+          },
+        });
+
+        if (created?.id) {
+          attached += 1;
+        }
+      } catch (err) {
+        console.error(`[cloneProductsToBusiness] Failed to clone product ${product.id}:`, err);
+      }
+    })
+  );
 
   return { attached };
 }
@@ -327,14 +340,20 @@ export async function POST(request: NextRequest) {
       ]),
     ];
 
-    const result = await cloneProductsToBusiness({
+    // Asynchronously clone products in background so user can navigate away immediately
+    cloneProductsToBusiness({
       businessId,
       categoryId: targetCategory.id,
       productIds: sourceProductIds,
       userId: effectiveUserId,
-    });
+    }).catch((err) => console.error("[attach-category] Background clone error:", err));
 
-    return NextResponse.json({ attached: result.attached, categoryId: targetCategory.id, categoryName: targetCategory.name });
+    return NextResponse.json({
+      attached: sourceProductIds.length,
+      categoryId: targetCategory.id,
+      categoryName: targetCategory.name,
+      async: true,
+    });
   }
 
   const name = String(body.name || "").trim();
