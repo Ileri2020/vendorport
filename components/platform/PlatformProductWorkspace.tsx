@@ -165,7 +165,8 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
 
     setSavingCategoryIds((prev) => [...prev, sourceCategoryId]);
     try {
-      const targetCategoryId = categoryId || (businessCategories.length === 1 ? String(businessCategories[0].id) : "");
+      // Pass categoryId override only if explicitly selected by the store owner, else undefined so sourceCategory.name is created/linked
+      const targetCategoryId = categoryId ? String(categoryId) : undefined;
       const response = await fetch("/api/platform-products", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,7 +175,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           action: "attach-category",
           businessId: business.id,
           userId: session?.user?.id,
-          categoryId: targetCategoryId || undefined,
+          categoryId: targetCategoryId,
           sourceCategoryId,
         }),
       });
@@ -265,15 +266,16 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   };
 
   const attachCategories = async () => {
-    if (!business || selectedCategories.length === 0 || !categoryId) return toast.error("Select categories and a store category");
+    if (!business || selectedCategories.length === 0) return toast.error("Select categories to add");
     setLoading(true);
     try {
+      const targetCategoryId = categoryId ? String(categoryId) : undefined;
       const results = await Promise.all(selectedCategories.map(async (sourceCategoryId) => {
         const response = await fetch("/api/platform-products", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           keepalive: true,
-          body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId, sourceCategoryId }),
+          body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId: targetCategoryId, sourceCategoryId }),
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(result.error || "Could not attach category");
@@ -323,7 +325,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       toast.error("Select at least one product or category");
       return;
     }
-    const targetCategoryId = categoryId || (businessCategories.length === 1 ? String(businessCategories[0].id) : "");
+    const targetCategoryId = categoryId ? String(categoryId) : undefined;
 
     const unsavedCategories = selectedCategories.filter((id) => !savedCategoryIds.includes(id));
 
@@ -348,7 +350,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
               method: "POST",
               headers: { "Content-Type": "application/json" },
               keepalive: true,
-              body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId: targetCategoryId || undefined, sourceCategoryId }),
+              body: JSON.stringify({ action: "attach-category", businessId: business.id, userId: session?.user?.id, categoryId: targetCategoryId, sourceCategoryId }),
             });
             const result = await response.json().catch(() => ({}));
             if (!response.ok) throw new Error(result.error || "Could not add categories");
