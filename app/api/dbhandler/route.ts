@@ -527,10 +527,68 @@ export async function GET(req: NextRequest) {
         // Always include business data so UI can render ownership badges correctly.
         include.business = { include: { siteSettings: { select: { address: true, physicalLocation: true, operatingStates: true } } } };
 
+        // For category diversity across pages, perform category-interleaved fetching when listing storefront products
+        const isFilteredSingleCategory = Boolean(categoryId || categoryName || concern);
+        
+        if (!isFilteredSingleCategory) {
+          const allLightProducts = await prisma.product.findMany({
+            where,
+            select: { id: true, categoryId: true, createdAt: true },
+            orderBy: { createdAt: 'desc' as const },
+          });
+
+          const categoryGroups = new Map<string, typeof allLightProducts>();
+          for (const p of allLightProducts) {
+            const catKey = p.categoryId || "uncategorized";
+            if (!categoryGroups.has(catKey)) categoryGroups.set(catKey, []);
+            categoryGroups.get(catKey)!.push(p);
+          }
+
+          const groupArrays = Array.from(categoryGroups.values());
+          let maxLen = 0;
+          for (const arr of groupArrays) {
+            if (arr.length > maxLen) maxLen = arr.length;
+          }
+
+          const interleavedIds: string[] = [];
+          for (let i = 0; i < maxLen; i++) {
+            for (const arr of groupArrays) {
+              if (i < arr.length) {
+                interleavedIds.push(arr[i].id);
+              }
+            }
+          }
+
+          const total = interleavedIds.length;
+          const pageIds = interleavedIds.slice(offset, offset + Math.min(limit, 100));
+
+          if (pageIds.length === 0) {
+            if (searchParams.get("pagination") === "true") {
+              return NextResponse.json({ data: [], total: 0 });
+            }
+            return NextResponse.json([]);
+          }
+
+          const pageProducts = await prisma.product.findMany({
+            where: { id: { in: pageIds } },
+            include: Object.keys(include).length > 0 ? include : undefined,
+          });
+
+          const productMap = new Map(pageProducts.map((p) => [p.id, p]));
+          const orderedProducts = pageIds.map((id) => productMap.get(id)).filter(Boolean);
+          const finalProducts = dedupeCatalogProducts(orderedProducts);
+
+          if (searchParams.get("pagination") === "true") {
+            return NextResponse.json({ data: finalProducts, total });
+          }
+
+          return NextResponse.json(finalProducts);
+        }
+
         const query = {
           where,
           include: Object.keys(include).length > 0 ? include : undefined,
-          take: Math.min(limit, 5000), // Cap product fetch to 5000
+          take: Math.min(limit, 5000),
           skip: offset,
           orderBy: { createdAt: 'desc' as const }
         };
