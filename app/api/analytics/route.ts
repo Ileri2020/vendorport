@@ -15,6 +15,9 @@ export async function GET(req: Request) {
 
   const from = new Date(fromStr);
   const to = new Date(toStr);
+  if (!Number.isNaN(to.getTime())) {
+    to.setHours(23, 59, 59, 999);
+  }
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -23,11 +26,11 @@ export async function GET(req: Request) {
   if (businessId) {
     const business = await prisma.business.findUnique({ where: { id: businessId }, select: { ownerId: true } });
     const isOwner = business && String(business.ownerId) === String(session.user.id);
-    const isAdmin = (session.user as any).role === "admin";
-    if (!business || (!isOwner && !isAdmin)) {
+    const isPlatformManager = ["admin", "supreme"].includes((session.user as any).role);
+    if (!business || (!isOwner && !isPlatformManager)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
-  } else if ((session.user as any).role !== "admin") {
+  } else if (!["admin", "supreme"].includes((session.user as any).role)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 

@@ -26,8 +26,7 @@ export function VisitTracker() {
     }
 
     // Debounce: only send once per path per browser tab session
-    const platformRoutes = new Set(["/", "/home", "/store", "/jobs", "/about", "/help", "/account", "/contact", "/create-store", "/new-product", "/cart", "/wishlist", "/orders", "/privacy", "/terms", "/admin", "/analytics"]);
-    const businessId = platformRoutes.has(pathname) ? undefined : currentBusiness?.id;
+    const businessId = currentBusiness?.id;
     const key = `visit:${pathname}:${businessId || "platform"}`;
     if (sentRef.current.has(key)) return;
     sentRef.current.add(key);

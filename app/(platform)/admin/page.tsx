@@ -68,18 +68,18 @@ import { useRouter } from "next/navigation";
 const Admin = () => {
     const { data: session, status } = useSession();
     const router = useRouter();
-    const isAdmin = session?.user?.role === "admin";
+    const isPlatformManager = session?.user?.role === "admin" || session?.user?.role === "supreme";
     const isStaff = session?.user?.role === "staff";
 
     useEffect(() => {
       if (status !== "loading") {
-        if (!session || session.user?.role !== "admin") {
+        if (!session || !isPlatformManager) {
           router.push("/");
         }
       }
-    }, [status, session, router]);
+    }, [status, session, router, isPlatformManager]);
 
-    if (status === "loading" || !isAdmin) {
+    if (status === "loading" || !isPlatformManager) {
       return null;
     }
 
@@ -187,7 +187,7 @@ const Admin = () => {
 
   /* ================= DATA FETCH (CARTS) ================= */
   useEffect(() => {
-    if (!isAdmin && !isStaff) return;
+    if (!isPlatformManager && !isStaff) return;
 
     const fetchCarts = async () => {
         try {
@@ -238,7 +238,7 @@ const Admin = () => {
 
     const debounce = setTimeout(fetchCarts, 500);
     return () => clearTimeout(debounce);
-  }, [isAdmin, isStaff, cartSearch]);
+  }, [isPlatformManager, isStaff, cartSearch]);
 
   const handleCartRowClick = (row: any) => {
     if (row.status === 'separator') return;

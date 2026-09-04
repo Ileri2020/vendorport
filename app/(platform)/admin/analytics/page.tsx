@@ -30,15 +30,15 @@ import { useRouter } from "next/navigation";
 export default function AnalyticsDashboard() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const isAdmin = session?.user?.role === "admin";
+  const isPlatformManager = session?.user?.role === "admin" || session?.user?.role === "supreme";
 
   useEffect(() => {
     if (status !== "loading") {
-      if (!session || session.user?.role !== "admin") {
+      if (!session || !isPlatformManager) {
         router.push("/");
       }
     }
-  }, [status, session, router]);
+  }, [status, session, router, isPlatformManager]);
 
   const [date, setDate] = useState<DateRange | undefined>({
     from: subDays(new Date(), 30),
@@ -68,7 +68,7 @@ export default function AnalyticsDashboard() {
       });
   }, [queryParams.from, queryParams.to]);
 
-  if (status === "loading" || !isAdmin) {
+  if (status === "loading" || !isPlatformManager) {
     return null;
   }
 

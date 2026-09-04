@@ -72,7 +72,7 @@ export default function CategoryNavigator() {
 
     let cancelled = false
 
-    fetch(`/api/dbhandler?model=category&limit=100${query}`)
+    fetch(`/api/dbhandler?model=category&limit=500${query}`)
       .then((response) => response.ok ? response.json() : [])
       .then(async (data) => {
         if (cancelled || requestKey !== `${currentBusiness?.id || "unknown"}:${isPlatformStore ? "platform" : "store"}:${locationRevision}`) return
