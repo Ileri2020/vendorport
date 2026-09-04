@@ -15,9 +15,11 @@ export async function GET(req: Request) {
 
   const from = new Date(fromStr);
   const to = new Date(toStr);
-  if (!Number.isNaN(to.getTime())) {
-    to.setHours(23, 59, 59, 999);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
   }
+  from.setUTCHours(0, 0, 0, 0);
+  to.setUTCHours(23, 59, 59, 999);
 
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
@@ -148,15 +150,15 @@ export async function GET(req: Request) {
     /* ================= VISITS OVER TIME (from Visit model) ================= */
     const visitsRaw = await prisma.visit.findMany({
       where: { 
-        createdAt: { gte: from, lte: to },
+        visitDate: { gte: from, lte: to },
         ...(businessId && { businessId }),
       },
-      select: { createdAt: true },
+      select: { visitDate: true },
     });
 
     const visitsByDay: Record<string, number> = {};
     visitsRaw.forEach((v) => {
-      const day = v.createdAt.toISOString().split("T")[0];
+      const day = v.visitDate.toISOString().split("T")[0];
       visitsByDay[day] = (visitsByDay[day] || 0) + 1;
     });
 
@@ -250,7 +252,7 @@ export async function GET(req: Request) {
     /* ================= UNIQUE BROWSERS COUNT ================= */
     const uniqueBrowsers = await prisma.visit.findMany({
       where: { 
-        createdAt: { gte: from, lte: to },
+        visitDate: { gte: from, lte: to },
         ...(businessId && { businessId }),
       },
       select: { fingerprint: true },

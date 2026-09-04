@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     if (!existing) {
       await withTimeout(
         prisma.visit.create({
-          data: { fingerprint: browserId, userAgent, ipAddress: ip, businessId },
+          data: { fingerprint: browserId, visitDate: new Date(), userAgent, ipAddress: ip, businessId },
         }),
         5000
       );

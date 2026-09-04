@@ -69,13 +69,17 @@ export default function AnalyticsDashboard() {
     fetch(
       `/api/analytics?from=${queryParams.from}&to=${queryParams.to}&businessId=${queryParams.businessId}`
     )
-      .then((res) => res.json())
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Analytics request failed (${res.status})`);
+        return res.json();
+      })
       .then((json) => {
         setData(json);
         setIsLoading(false);
       })
       .catch((err) => {
         console.error("Failed to fetch analytics:", err);
+        setData(null);
         setIsLoading(false);
       });
   }, [queryParams.from, queryParams.to, queryParams.businessId]);
