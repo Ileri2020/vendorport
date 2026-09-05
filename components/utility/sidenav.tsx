@@ -277,7 +277,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                             <div className="flex items-center gap-3 bg-background/50 p-2 rounded-2xl flex-1 border border-border/50">
                                 <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-primary/20 bg-muted shrink-0">
                                     <img 
-                                        src={user.avatarUrl || user.image || "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png"} 
+                                        src={user.avatarUrl || user.image || process.env.NEXT_PUBLIC_DEFAULT_AVATAR_URL || "/logo.png"} 
                                         alt={user.name} 
                                         className="w-full h-full object-cover"
                                     />
@@ -295,7 +295,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                                                 name: "visitor",
                                                 id: "nil",
                                                 email: "nil",
-                                                avatarUrl: "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png",
+                                                avatarUrl: process.env.NEXT_PUBLIC_DEFAULT_AVATAR_URL || "/logo.png",
                                                 role: "user",
                                                 contact: "xxxx",
                                                 walletBalance: 0,

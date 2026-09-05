@@ -164,7 +164,7 @@ const Post = ({ post }: any) => {
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full border-2 border-primary/20 p-0.5 overflow-hidden">
             <img 
-              src={post?.user?.avatarUrl || "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png"}
+              src={post?.user?.avatarUrl || process.env.NEXT_PUBLIC_DEFAULT_AVATAR_URL || "/logo.png"}
               className="w-full h-full rounded-full object-cover"
               alt="avatar"
             />

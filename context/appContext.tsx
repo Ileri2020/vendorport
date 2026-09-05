@@ -53,7 +53,7 @@ export const AppContextProvider: React.FC<any> = ({ children }) => {
     name: "visitor", 
     id: "nil", 
     email: "nil", 
-    avatarUrl: "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png", 
+    avatarUrl: process.env.NEXT_PUBLIC_DEFAULT_AVATAR_URL || "/logo.png", 
     role: "user", 
     contact: "xxxx",
     walletBalance: 0,

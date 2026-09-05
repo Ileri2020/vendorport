@@ -35,7 +35,7 @@ export function PortfolioCard({
   showActivateButton = false,
   compact = false,
 }: PortfolioCardProps) {
-  const image = portfolio.images?.[0] || "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png";
+  const image = portfolio.images?.[0] || process.env.NEXT_PUBLIC_DEFAULT_PORTFOLIO_IMAGE_URL || "/logo.png";
   const statusDate = portfolio.activationExpiresAt ? new Date(portfolio.activationExpiresAt) : null;
   const isExpired = Boolean(statusDate && statusDate.getTime() <= Date.now());
   const badgeTone = active && !isExpired ? "bg-green-500 text-white" : "bg-red-500 text-white";

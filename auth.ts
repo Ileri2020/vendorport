@@ -176,7 +176,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             image?.replace(/=s\d+(-c)?$/, "=s500-c") ?? image;
 
           const defaultAvatar =
-            "https://res.cloudinary.com/dc5khnuiu/image/upload/v1752627019/uxokaq0djttd7gsslwj9.png";
+            process.env.NEXT_PUBLIC_DEFAULT_AVATAR_URL || "/logo.png";
 
           await prisma.user.upsert({
             where: { email },

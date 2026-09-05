@@ -17,12 +17,29 @@ const CONCURRENCY = 3;
 const SOURCE_LOOKUP_TIMEOUT_MS = 10000;
 const IMAGE_REQUEST_TIMEOUT_MS = 15000;
 const requestedLimit = Number(process.argv.find((value) => value.startsWith('--limit='))?.split('=')[1] || 0);
+const migrateExisting = process.argv.includes('--migrate-existing');
+const targetCloudName = (process.env.CLOUDINARY_CLOUD_NAME || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '').trim();
+const publicTargetCloudName = (process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || '').trim();
+
+if (!targetCloudName) throw new Error('A destination Cloudinary cloud name is required.');
+if (publicTargetCloudName && publicTargetCloudName !== targetCloudName) {
+  throw new Error(`Cloudinary cloud mismatch: CLOUDINARY_CLOUD_NAME=${targetCloudName}, NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME=${publicTargetCloudName}`);
+}
 
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  cloud_name: targetCloudName,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+function isTargetCloudinaryUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.hostname === 'res.cloudinary.com' && url.pathname.includes(`/${targetCloudName}/`);
+  } catch {
+    return false;
+  }
+}
 
 function uploadBuffer(buffer, publicId) {
   return new Promise((resolve, reject) => {
@@ -196,23 +213,28 @@ async function processProduct(product, sourceImageMap) {
     .filter((url, index, urls) => urls.indexOf(url) === index)
     .slice(0, 12);
 
-  if (images.length === 0 || current.length >= images.length) {
+  const hasCompleteTargetThumbnails = current.length >= images.length && current.slice(0, images.length).every(isTargetCloudinaryUrl);
+  if (images.length === 0 || hasCompleteTargetThumbnails) {
     return { status: 'skipped', product };
   }
 
   const thumbnailUrls = [];
   for (let index = 0; index < images.length; index += 1) {
-    const existing = current[index];
+    const existing = !migrateExisting && isTargetCloudinaryUrl(current[index]) ? current[index] : null;
     if (existing) {
       thumbnailUrls.push(existing);
       continue;
     }
 
-    const candidates = [images[index], sourceImages[index], ...sourceImages];
+    const candidates = [images[index], current[index], sourceImages[index], ...sourceImages];
     if (sourceImages.length > 0) console.warn(`Trying scraped source image for ${product.name}`);
     const thumbnail = await createThumbnailFromCandidates(candidates);
     const uploaded = await uploadBuffer(thumbnail, `${product.id}-${index}`);
-    thumbnailUrls.push(uploaded.secure_url || uploaded.url);
+    const uploadedUrl = uploaded.secure_url || uploaded.url;
+    if (!isTargetCloudinaryUrl(uploadedUrl)) {
+      throw new Error(`Thumbnail upload returned a non-target Cloudinary URL: ${uploadedUrl}`);
+    }
+    thumbnailUrls.push(uploadedUrl);
   }
 
   await prisma.product.update({
@@ -230,9 +252,13 @@ async function run() {
     orderBy: { createdAt: 'asc' },
   });
 
+  const needsThumbnailMigration = (product) => {
+    const thumbnails = Array.isArray(product.thumbnailUrls) ? product.thumbnailUrls : [];
+    return thumbnails.length < product.images.length || thumbnails.slice(0, product.images.length).some((url) => !isTargetCloudinaryUrl(url));
+  };
   const processableProducts = requestedLimit > 0
-    ? products.filter((product) => (product.thumbnailUrls || []).length < product.images.length).slice(0, requestedLimit)
-    : products.filter((product) => (product.thumbnailUrls || []).length < product.images.length);
+    ? products.filter(needsThumbnailMigration).slice(0, requestedLimit)
+    : products.filter(needsThumbnailMigration);
 
   const localSourceImageMap = processableProducts.length > 0 ? loadLocalSourceImageMap() : new Map();
   const remoteSourceImageMap = processableProducts.length > 0
@@ -244,7 +270,8 @@ async function run() {
   }
   console.log(`Loaded ${localSourceImageMap.size} local and ${remoteSourceImageMap.size} remote scraped image fallbacks.`);
 
-  console.log(`Found ${products.length} products with images. Processing ${processableProducts.length}.`);
+  console.log(`Destination Cloudinary cloud: ${targetCloudName}`);
+  console.log(`Found ${products.length} products with images. Processing ${processableProducts.length}${migrateExisting ? ' for migration' : ''}.`);
   let updated = 0;
   let skipped = 0;
   let failed = 0;

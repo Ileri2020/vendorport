@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { toggleWishlist } from "@/action/wishlist";
@@ -158,8 +159,6 @@ export function ProductCard({
   const categoryName = categoryNames[0] || "Pharmacy";
   const images = Array.isArray(product?.images) ? product.images.filter((img: any) => typeof img === 'string' && img.trim()) : [];
   const thumbnailUrls = Array.isArray(product?.thumbnailUrls) ? product.thumbnailUrls.filter((img: any) => typeof img === 'string' && img.trim()) : [];
-  const thumbnail = thumbnailUrls[0];
-  const realImage = images[0];
   const platformLogo = PLATFORM_LOGO;
   const fallbackImage = PLACEHOLDER_IMAGE;
   const imageCandidates = React.useMemo(() => getProductImageCandidates(product), [product]);

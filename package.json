@@ -9,6 +9,7 @@
     "scrape:market2home": "node scripts/scrape-market2home.js",
     "scrape:pricepally": "node scripts/scrape-pricepally.js",
     "import:scraped-platform": "node scripts/import-scraped-platform-catalog.js",
+    "thumbnails:migrate": "node scripts/generate-product-thumbnails.js --migrate-existing",
     "start": "next start",
     "lint": "next lint"
   },

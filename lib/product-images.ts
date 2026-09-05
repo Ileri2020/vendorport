@@ -22,8 +22,8 @@ export function getProductImageCandidates(product: any): string[] {
   if (!product) return [PLATFORM_LOGO];
 
   const candidates = [
-    ...normalizeProductImageList(product?.thumbnailUrls),
     ...normalizeProductImageList(product?.images),
+    ...normalizeProductImageList(product?.thumbnailUrls),
     ...normalizeProductImageList(product?.image ? [product.image] : []),
     ...normalizeProductImageList(product?.coverImage ? [product.coverImage] : []),
     PLATFORM_LOGO,
