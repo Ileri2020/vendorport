@@ -11,7 +11,7 @@ import { Search, ChevronLeft, ChevronRight, ArrowUpDown, X, CheckCircle, CheckCi
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useAppContext } from '@/hooks/useAppContext';
-import { prepareImageForUpload } from '@/lib/compress-image';
+import { prepareImageForUpload, prepareThumbnailForUpload } from '@/lib/compress-image';
 
 const PLAN_CATALOG = [
   {
@@ -77,6 +77,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     variants: initialProduct?.variants || [],
   });
   const [files, setFiles] = useState<File[]>([]);
+  const [thumbnailFiles, setThumbnailFiles] = useState<File[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [allBrands, setAllBrands] = useState<string[]>([]);
   const [preview, setPreview] = useState<string | null>(null);
@@ -360,6 +361,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     const pformData = new FormData();
 
     files.forEach((selectedFile) => pformData.append("file", selectedFile));
+    thumbnailFiles.forEach((thumbnailFile) => pformData.append("thumbnail", thumbnailFile));
 
     pformData.append("name", formData.name);
     pformData.append("description", formData.description);
@@ -458,7 +460,9 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
 
     try {
       const preparedFiles = await Promise.all(selectedFiles.map((selectedFile) => prepareImageForUpload(selectedFile)));
+      const preparedThumbnails = await Promise.all(preparedFiles.map((preparedFile) => prepareThumbnailForUpload(preparedFile)));
       setFiles(preparedFiles);
+      setThumbnailFiles(preparedThumbnails);
       setPreview(URL.createObjectURL(preparedFiles[0]));
       if (preparedFiles.some((preparedFile, index) => preparedFile !== selectedFiles[index])) {
         toast.success("Image compressed to WebP and prepared for upload");
@@ -485,6 +489,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   const handleEdit = (product: any) => {
     setEditId(product.id);
     setFiles([]);
+    setThumbnailFiles([]);
     setPreview(null);
 
     setFormData({

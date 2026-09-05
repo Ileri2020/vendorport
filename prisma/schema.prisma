@@ -380,6 +380,7 @@ model Product {
   cartItems                 CartItem[]
   Featured                  FeaturedProduct?
   images                    String[]
+  thumbnailUrls             String[]                   @default([])
   costPrice                 Float?
   //orderItems OrderItem[]
   createdAt                 DateTime                   @default(now())

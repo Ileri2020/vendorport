@@ -14,10 +14,16 @@ export async function POST(req , res) {
   console.log("about to post product", Formdata)
   
   const files = Formdata.getAll("file").filter((value: any) => value && typeof value.size === "number" && value.size > 0) as File[];
+  const thumbnailFiles = Formdata.getAll("thumbnail").filter((value: any) => value && typeof value.size === "number" && value.size > 0) as File[];
   if (files.some((file) => file.size > (300 * 1024)) && Formdata.get("title") === 'profile image'){
     return NextResponse.json({"error" : "file greater 300kb"}, {status : 413})
   }
   const uploadedImages = await Promise.all(files.map(async (file) => {
+    const buffer = await file.arrayBuffer();
+    const b64 = Buffer.from(buffer).toString("base64");
+    return handleUpload(`data:${file.type};base64,${b64}`);
+  }));
+  const uploadedThumbnails = await Promise.all(thumbnailFiles.map(async (file) => {
     const buffer = await file.arrayBuffer();
     const b64 = Buffer.from(buffer).toString("base64");
     return handleUpload(`data:${file.type};base64,${b64}`);
@@ -73,6 +79,7 @@ export async function POST(req , res) {
     weight: Formdata.get("weight") || "",
     bulkPrices: Formdata.get("bulkPrices") ? JSON.parse(Formdata.get("bulkPrices") as string) : [],
     urls: uploadedImages.map((result) => result.url),
+    thumbnailUrls: uploadedThumbnails.map((result) => result.url),
     url: uploadedImages[0]?.url,
     ...(businessId ? { businessId: String(businessId) } : {}),
   };

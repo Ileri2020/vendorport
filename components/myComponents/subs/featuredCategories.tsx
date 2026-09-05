@@ -46,7 +46,7 @@ async function getCategories(businessId?: string) {
   const categories = await res.json();
     return categories.map((cat: any) => {
     // Collect up to 3 images from related products
-    const productImages = cat.products?.flatMap((p: any) => p.images).slice(0, 3) || [];
+    const productImages = cat.products?.flatMap((p: any) => p.thumbnailUrls?.length ? p.thumbnailUrls : p.images).slice(0, 3) || [];
     const images = productImages.length > 0 ? productImages : [cat.image || "/logo.png"];
     
     const businessNameRaw = cat.business?.name || null;

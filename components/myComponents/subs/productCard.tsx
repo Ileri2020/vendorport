@@ -156,7 +156,8 @@ export function ProductCard({
   const categoryNames = [product?.category?.name, ...(product?.productCategories || []).map((item: any) => item.category?.name || item.name), product?.categoryName].filter(Boolean).filter((name, index, names) => names.indexOf(name) === index);
   const categoryName = categoryNames[0] || "Pharmacy";
   const images = Array.isArray(product?.images) ? product.images : [];
-  const image = images[0] || "/placeholder.png";
+  const thumbnailUrls = Array.isArray(product?.thumbnailUrls) ? product.thumbnailUrls : [];
+  const image = thumbnailUrls[0] || images[0] || "/placeholder.png";
   const regClass = product?.regulatoryClassification || "OTC";
   const isPrescription = regClass === "Prescription Medicine";
   const businessName = product?.business?.name || "HCVP";

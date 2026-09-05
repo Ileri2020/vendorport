@@ -1,6 +1,7 @@
 import imageCompression from "browser-image-compression";
 
 const DEFAULT_MAX_BYTES = 100 * 1024;
+const THUMBNAIL_MAX_BYTES = 20 * 1024;
 
 /** Preserve small originals; convert oversized images to a WebP under the target size. */
 export async function prepareImageForUpload(file: File, maxBytes = DEFAULT_MAX_BYTES): Promise<File> {
@@ -40,4 +41,38 @@ export async function prepareImageForUpload(file: File, maxBytes = DEFAULT_MAX_B
   }
 
   throw new Error(`Image could not be compressed below ${Math.round(maxBytes / 1024)} KB. Please choose a smaller image.`);
+}
+
+export async function prepareThumbnailForUpload(file: File): Promise<File> {
+  if (!file.type.startsWith("image/")) {
+    throw new Error("Please select an image file");
+  }
+
+  const attempts = [
+    { maxWidthOrHeight: 480, initialQuality: 0.62 },
+    { maxWidthOrHeight: 360, initialQuality: 0.52 },
+    { maxWidthOrHeight: 280, initialQuality: 0.42 },
+    { maxWidthOrHeight: 220, initialQuality: 0.34 },
+    { maxWidthOrHeight: 160, initialQuality: 0.26 },
+  ];
+
+  for (const attempt of attempts) {
+    const compressed = await imageCompression(file, {
+      maxSizeMB: THUMBNAIL_MAX_BYTES / (1024 * 1024),
+      maxWidthOrHeight: attempt.maxWidthOrHeight,
+      initialQuality: attempt.initialQuality,
+      fileType: "image/webp",
+      useWebWorker: true,
+    });
+
+    if (compressed.size < THUMBNAIL_MAX_BYTES) {
+      return new File(
+        [compressed],
+        `${file.name.replace(/\.[^/.]+$/, "")}-thumbnail.webp`,
+        { type: "image/webp", lastModified: Date.now() },
+      );
+    }
+  }
+
+  throw new Error("Image thumbnail could not be compressed below 20 KB. Please choose a simpler image.");
 }

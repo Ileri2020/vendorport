@@ -63,6 +63,7 @@ async function dbHandler({
             categoryId: body.categoryId,
             price: Number(body.price),
             images: Array.isArray(body.urls) ? body.urls : (body.url ? [body.url] : []),
+            thumbnailUrls: Array.isArray(body.thumbnailUrls) ? body.thumbnailUrls : [],
             shortDescription: body.shortDescription || undefined,
             barcode: body.barcode || undefined,
             volume: body.volume || undefined,

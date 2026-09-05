@@ -438,7 +438,7 @@ export async function GET(req: NextRequest) {
               image: true,
               businessId: true,
               _count: { select: { products: true } },
-              ...(carousel ? { products: { take: 1, select: { images: true } } } : {}),
+              ...(carousel ? { products: { take: 1, select: { images: true, thumbnailUrls: true } } } : {}),
               business: {
                 select: {
                   id: true,
@@ -464,7 +464,7 @@ export async function GET(req: NextRequest) {
           skip: offset,
           where,
           include: { 
-            products: { take: 1, select: { images: true } },
+            products: { take: 1, select: { images: true, thumbnailUrls: true } },
             _count: { select: { products: true } },
             business: { select: { id: true, name: true } },
           }
@@ -566,6 +566,22 @@ export async function GET(req: NextRequest) {
         }
 
         // Lightweight business include for store-scoped product queries to reduce JSON payload footprint
+        if (searchParams.get("compact") === "true") {
+          if (include.category) {
+            include.category = {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                businessId: true,
+              },
+            };
+          }
+          if (include.brandData) {
+            include.brandData = { select: { id: true, name: true } };
+          }
+        }
+
         if (businessId) {
           include.business = { select: { id: true, name: true } };
         } else {
@@ -860,7 +876,7 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const filesByField: Record<string, File[]> = {};
 
-    ["file", "images", "cvDocuments", "certificationDocuments", "documents", "portfolioImages"]
+    ["file", "images", "thumbnail", "cvDocuments", "certificationDocuments", "documents", "portfolioImages"]
       .forEach((field) => {
         const values = formData.getAll(field) as File[];
         const validFiles = values.filter((file) => file && typeof (file as File).size === "number" && (file as File).size > 0);
@@ -879,6 +895,9 @@ export async function POST(req: NextRequest) {
       if (field === "cvDocuments") {
         body.cvDocuments = [...(body.cvDocuments || []), ...urls];
       }
+      if (field === "thumbnail") {
+        body.thumbnailUrls = urls;
+      }
       if (field === "certificationDocuments" || field === "documents") {
         body.certificationDocuments = [...(body.certificationDocuments || []), ...urls];
       }
@@ -889,7 +908,7 @@ export async function POST(req: NextRequest) {
     }
 
     formData.forEach((value, key) => {
-      if (["file", "images", "cvDocuments", "certificationDocuments", "documents", "portfolioImages"].includes(key)) return;
+      if (["file", "images", "thumbnail", "cvDocuments", "certificationDocuments", "documents", "portfolioImages"].includes(key)) return;
       body[key] = value;
     });
   } else {
