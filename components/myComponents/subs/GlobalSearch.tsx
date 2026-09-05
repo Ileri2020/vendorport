@@ -63,6 +63,14 @@ export const GlobalSearch = ({ placeholder, className = "", businessId: provided
   const [brands, setBrands] = useState<string[]>([]);
   const filtersLoadedRef = useRef(false);
 
+  useEffect(() => {
+    filtersLoadedRef.current = false;
+    setCategories([]);
+    setBrands([]);
+    setFilterCategory("All");
+    setFilterBrand("All");
+  }, [businessId]);
+
   const loadSearchFilters = useCallback(() => {
     if (filtersLoadedRef.current || !isStoreBusinessReady) return;
     filtersLoadedRef.current = true;

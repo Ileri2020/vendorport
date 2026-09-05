@@ -54,7 +54,7 @@ const Store = () => {
     } finally {
       setSetupLoaded(true)
     }
-  }, [currentBusiness, isPlatformStore])
+  }, [currentBusiness?.id, currentBusiness?._count?.categories, currentBusiness?._count?.products, isPlatformStore])
 
   useEffect(() => {
     loadStoreContentState()

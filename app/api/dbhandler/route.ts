@@ -429,7 +429,19 @@ export async function GET(req: NextRequest) {
               description: true,
               businessId: true,
               _count: { select: { products: true } },
-              business: { select: { id: true, name: true } },
+              business: {
+                select: {
+                  id: true,
+                  name: true,
+                  siteSettings: {
+                    select: {
+                      address: true,
+                      physicalLocation: true,
+                      operatingStates: true,
+                    },
+                  },
+                },
+              },
             }
           });
           return NextResponse.json(dedupeCatalogCategories(categories));
