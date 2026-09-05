@@ -79,7 +79,7 @@ const Stocks = () => {
     setLoading(true);
     try {
       const bizQ = businessId ? `&businessId=${businessId}` : "";
-      let url = `/api/dbhandler?model=product&include=category,brand,stock${bizQ}`;
+      let url = `/api/dbhandler?model=product&include=category,brand,stock&compact=true${bizQ}`;
       
       if (brandFilter) url += `&brand=${encodeURIComponent(brandFilter)}`;
       if (categoryFilter && categoryFilter.trim().toLowerCase() !== "all") {

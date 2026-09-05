@@ -231,6 +231,13 @@ function dedupeCatalogProducts(products: any[]) {
   return [...seen.values()];
 }
 
+function compactCatalogProducts(products: any[]) {
+  return products.map((product) => ({
+    ...product,
+    images: Array.isArray(product?.images) ? product.images.slice(0, 1) : [],
+  }));
+}
+
 function dedupeCatalogCategories(categories: any[]) {
   const seen = new Map<string, any>();
 
@@ -452,10 +459,9 @@ export async function GET(req: NextRequest) {
           skip: offset,
           where,
           include: { 
-            products: { take: 3, select: { images: true } },
-            productCategories: { take: 3, include: { product: { select: { id: true, name: true, images: true } } } },
+            products: { take: 1, select: { images: true } },
             _count: { select: { products: true } },
-            business: { include: { siteSettings: { select: { address: true, physicalLocation: true, operatingStates: true } } } },
+            business: { select: { id: true, name: true } },
           }
         });
         return NextResponse.json(dedupeCatalogCategories(categories));
@@ -611,12 +617,15 @@ export async function GET(req: NextRequest) {
           const productMap = new Map(pageProducts.map((p) => [p.id, p]));
           const orderedProducts = pageIds.map((id) => productMap.get(id)).filter(Boolean);
           const finalProducts = dedupeCatalogProducts(orderedProducts);
+          const responseProducts = searchParams.get("compact") === "true"
+            ? compactCatalogProducts(finalProducts)
+            : finalProducts;
 
           if (searchParams.get("pagination") === "true") {
-            return NextResponse.json({ data: finalProducts, total });
+            return NextResponse.json({ data: responseProducts, total });
           }
 
-          return NextResponse.json(finalProducts);
+          return NextResponse.json(responseProducts);
         }
 
         const query = {
@@ -632,10 +641,17 @@ export async function GET(req: NextRequest) {
             prisma.product.findMany(query),
             prisma.product.count({ where })
           ]);
-          return NextResponse.json({ data: dedupeCatalogProducts(data), total });
+          const responseProducts = dedupeCatalogProducts(data);
+          return NextResponse.json({
+            data: searchParams.get("compact") === "true" ? compactCatalogProducts(responseProducts) : responseProducts,
+            total,
+          });
         }
 
-        return NextResponse.json(dedupeCatalogProducts(await prisma.product.findMany(query)));
+        const responseProducts = dedupeCatalogProducts(await prisma.product.findMany(query));
+        return NextResponse.json(searchParams.get("compact") === "true"
+          ? compactCatalogProducts(responseProducts)
+          : responseProducts);
       }
 
       if (model === "portfolio") {
