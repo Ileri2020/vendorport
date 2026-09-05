@@ -59,8 +59,22 @@ const Nav = ({ basePath }: NavProps) => {
     currentBusiness?.ownerId &&
     ((user?.id && user.id !== "nil" && String(currentBusiness.ownerId) === String(user.id)) ||
      (session?.user?.id && String(currentBusiness.ownerId) === String(session.user.id)));
+  const isPlatformManager = !basePath && (session?.user?.role === "admin" || session?.user?.role === "supreme");
 
   const navLinks = [...Links.Links];
+
+  if (isPlatformManager) {
+    navLinks.push({
+      name: <AiOutlineSetting />,
+      title: "Platform Admin",
+      path: "/admin",
+    });
+    navLinks.push({
+      name: <BarChart3 />,
+      title: "Platform Analytics",
+      path: "/admin/analytics",
+    });
+  }
 
   if (isStoreOwner) {
     navLinks.push({

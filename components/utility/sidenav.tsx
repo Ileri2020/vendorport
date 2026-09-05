@@ -146,11 +146,17 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                         <nav className="flex flex-col gap-1">
                             {(() => {
                                 const navLinks = [...Links.Links];
+                                const isPlatformManager = !basePath && (session?.user?.role === "admin" || session?.user?.role === "supreme");
                                 const isStoreOwner =
                                     basePath &&
                                     currentBusiness?.ownerId &&
                                     ((user?.id && user.id !== "nil" && String(currentBusiness.ownerId) === String(user.id)) ||
                                      (session?.user?.id && String(currentBusiness.ownerId) === String(session.user.id)));
+
+                                if (isPlatformManager) {
+                                    navLinks.push({ name: <AiOutlineSetting />, title: "Platform Admin", path: "/admin" });
+                                    navLinks.push({ name: <BarChart3 className="w-5 h-5" />, title: "Platform Analytics", path: "/admin/analytics" });
+                                }
 
                                 if (isStoreOwner) {
                                     navLinks.push({ name: <AiOutlineSetting />, title: "Store Admin", path: "/admin" });

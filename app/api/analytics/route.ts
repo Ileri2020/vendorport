@@ -224,18 +224,23 @@ export async function GET(req: Request) {
     });
 
     /* ================= POSTS BY CATEGORY ================= */
-    const postsByCategoryRaw = await prisma.post.groupBy({
-      by: ["category"],
+    const postsForPeriod = await prisma.post.findMany({
       where: { 
         createdAt: { gte: from, lte: to },
         ...(businessId && { businessId }),
       },
-      _count: { category: true }
+      select: { for: true },
     });
-    
-    const postsByCategory = postsByCategoryRaw.map(p => ({
-      name: p.category || "Uncategorized",
-      value: p._count.category
+
+    const postsByCategoryCounts: Record<string, number> = {};
+    postsForPeriod.forEach((post) => {
+      const category = post.for || "Uncategorized";
+      postsByCategoryCounts[category] = (postsByCategoryCounts[category] || 0) + 1;
+    });
+
+    const postsByCategory = Object.entries(postsByCategoryCounts).map(([name, value]) => ({
+      name,
+      value,
     }));
 
     /* ================= USER ROLES OVERVIEW ================= */
