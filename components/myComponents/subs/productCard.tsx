@@ -48,6 +48,7 @@ function cleanProductDescription(value: unknown) {
 import ProductForm from "@/prisma/forms/ProductForm";
 import axios from "axios";
 import { VariantCard, getVariantAmount, getVariantPriceRange } from "./variantCard";
+import { getProductImageCandidates, PLATFORM_LOGO, PLACEHOLDER_IMAGE } from "@/lib/product-images";
 
 type ProductCardProps = Omit<
   React.HTMLAttributes<HTMLDivElement>,
@@ -159,9 +160,16 @@ export function ProductCard({
   const thumbnailUrls = Array.isArray(product?.thumbnailUrls) ? product.thumbnailUrls.filter((img: any) => typeof img === 'string' && img.trim()) : [];
   const thumbnail = thumbnailUrls[0];
   const realImage = images[0];
-  const platformLogo = "/logo.png";
-  const fallbackImage = "/placeholderFemale.webp";
-  const image = thumbnail || realImage || platformLogo;
+  const platformLogo = PLATFORM_LOGO;
+  const fallbackImage = PLACEHOLDER_IMAGE;
+  const imageCandidates = React.useMemo(() => getProductImageCandidates(product), [product]);
+  const [selectedImageIndex, setSelectedImageIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    setSelectedImageIndex(0);
+  }, [product?.id, product?.images, product?.thumbnailUrls]);
+
+  const currentImage = imageCandidates[selectedImageIndex] || platformLogo;
   const regClass = product?.regulatoryClassification || "OTC";
   const isPrescription = regClass === "Prescription Medicine";
   const businessName = product?.business?.name || "HCVP";
@@ -382,29 +390,14 @@ export function ProductCard({
           >
             <img
               alt={product?.name || "Product"}
-              src={image}
+              src={currentImage}
               loading="lazy"
               decoding="async"
-              onError={(event) => {
-                const element = event.currentTarget;
-                const currentSrc = element.src || "";
-
-                // 1. If thumbnail failed (e.g. 401/404), try real image if available
-                if (thumbnail && currentSrc.includes(thumbnail) && realImage && realImage !== thumbnail) {
-                  element.src = realImage;
-                  return;
-                }
-
-                // 2. If real image or thumbnail failed, fall back to platform logo
-                if (!currentSrc.includes(platformLogo) && !currentSrc.includes(fallbackImage)) {
-                  element.src = platformLogo;
-                  return;
-                }
-
-                // 3. Final safety fallback to female placeholder
-                if (!currentSrc.includes(fallbackImage)) {
-                  element.src = fallbackImage;
-                }
+              onError={() => {
+                setSelectedImageIndex((prev) => {
+                  const nextIndex = prev + 1;
+                  return nextIndex < imageCandidates.length ? nextIndex : prev;
+                });
               }}
               className={cn(
                 "object-cover w-full h-full transition-transform duration-300 ease-in-out",

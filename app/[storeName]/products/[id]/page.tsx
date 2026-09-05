@@ -19,6 +19,7 @@ import Similar from "@/components/myComponents/subs/similar"
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 import { VariantCard, getVariantAmount, getVariantPriceRange } from "@/components/myComponents/subs/variantCard";
+import { getProductImageCandidates, PLATFORM_LOGO } from "@/lib/product-images";
 
 const Description = () => {
   const [product, setProduct] = useState<any>(null);
@@ -26,6 +27,7 @@ const Description = () => {
   const [loading, setLoading] = useState(true);
   const [showFullDesc, setShowFullDesc] = useState(false);
   const [selectedBulk, setSelectedBulk] = useState<any>(null);
+  const [selectedDetailImageIndex, setSelectedDetailImageIndex] = useState(0);
   const params = useParams();
   const rawId = Array.isArray(params?.id) ? params.id[0] : params?.id;
   const productId = typeof rawId === 'string' ? rawId : null;
@@ -44,6 +46,12 @@ const Description = () => {
   const whatsappNumber = "2348000000000"; // Replace with real company number
   const speakToRepUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hello, I'm interested in the controlled medicine: ${product?.name}. Please guide me on how to proceed.`)}`;
   const whatsappOrderUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(`Hello, I'd like to order: ${product?.name}`)}`;
+  const detailImageCandidates = getProductImageCandidates(product);
+  const detailImage = detailImageCandidates[selectedDetailImageIndex] || PLATFORM_LOGO;
+
+  useEffect(() => {
+    setSelectedDetailImageIndex(0);
+  }, [productId, product?.id]);
 
   useEffect(() => {
     const fetchProductDetails = async () => {
@@ -72,21 +80,29 @@ const Description = () => {
 
         setProduct(data);
 
-        const bizQ = businessId ? `&businessId=${businessId}` : "";
-        let simUrl = `/api/dbhandler?model=product${bizQ}`;
-        if (data.categoryId) simUrl += `&categoryId=${data.categoryId}`;
+        const bizQ = businessId ? `&businessId=${encodeURIComponent(businessId)}` : "";
+        const simParams = new URLSearchParams({
+          model: "product",
+          compact: "true",
+          limit: "8",
+          requireImages: "true",
+          ...(businessId ? { businessId } : {}),
+          ...(data.categoryId ? { categoryId: data.categoryId } : {}),
+        });
 
-        const simRes = await fetch(simUrl);
+        const simRes = await fetch(`/api/dbhandler?${simParams.toString()}`);
         if (!simRes.ok) {
           setSimilarProducts([]);
           return;
         }
 
         const allProds = await simRes.json();
-        const filtered = allProds
-          .filter((p: any) => p.id !== productId && p.price > 0 && p.images && p.images.length > 0)
-          .sort(() => 0.5 - Math.random())
-          .slice(0, 10);
+        const filtered = Array.isArray(allProds)
+          ? allProds
+              .filter((p: any) => p.id !== productId && Number(p.price || 0) > 0)
+              .sort(() => 0.5 - Math.random())
+              .slice(0, 8)
+          : [];
         setSimilarProducts(filtered);
       } catch (error) {
         console.error("Error fetching product:", error);
@@ -207,9 +223,15 @@ const Description = () => {
         {/* Product Image */}
         <div className="relative aspect-square overflow-hidden rounded-3xl border bg-white p-8 shadow-sm">
           <img
-            src={product.images?.[0] || "/logo.png"}
+            src={detailImage}
             alt={product.name}
             className="h-full w-full object-contain"
+            onError={() => {
+              setSelectedDetailImageIndex((prev) => {
+                const nextIndex = prev + 1;
+                return nextIndex < detailImageCandidates.length ? nextIndex : prev;
+              });
+            }}
           />
         </div>
 
