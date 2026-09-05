@@ -275,6 +275,11 @@ export const GlobalSearch = ({ placeholder, className = "", businessId: provided
               <div className="max-h-[300px] overflow-y-auto">
                 {searchResults.map((product: any) => {
                   const productHref = currentStoreSlug ? `/${currentStoreSlug}/products/${product.id}` : `/products/${product.id}`;
+                  const thumbnail = product.thumbnailUrls?.[0];
+                  const realImage = product.images?.[0];
+                  const platformLogo = "/logo.png";
+                  const searchImg = thumbnail || realImage || platformLogo;
+
                   return (
                     <Link 
                       key={product.id} 
@@ -282,12 +287,27 @@ export const GlobalSearch = ({ placeholder, className = "", businessId: provided
                       onClick={() => setIsSearchOpen(false)}
                       className="flex items-center gap-4 p-3 hover:bg-accent/50 transition-colors group"
                     >
-                    <div className="w-10 h-10 rounded bg-muted flex items-center justify-center overflow-hidden">
-                      {product.images?.[0] ? (
-                        <img src={product.images[0]} alt={product.name} className="object-cover w-full h-full" />
-                      ) : (
-                        <HeartPulse className="w-5 h-5 text-muted-foreground" />
-                      )}
+                    <div className="w-10 h-10 rounded bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                      <img
+                        src={searchImg}
+                        alt={product.name}
+                        onError={(e) => {
+                          const el = e.currentTarget;
+                          const currentSrc = el.src || "";
+                          if (thumbnail && currentSrc.includes(thumbnail) && realImage && realImage !== thumbnail) {
+                            el.src = realImage;
+                            return;
+                          }
+                          if (!currentSrc.includes(platformLogo) && !currentSrc.includes("/placeholderFemale.webp")) {
+                            el.src = platformLogo;
+                            return;
+                          }
+                          if (!currentSrc.includes("/placeholderFemale.webp")) {
+                            el.src = "/placeholderFemale.webp";
+                          }
+                        }}
+                        className="object-cover w-full h-full"
+                      />
                     </div>
                     <div className="flex-1">
                       <div className="text-sm font-semibold group-hover:text-primary transition-colors">{product.name}</div>

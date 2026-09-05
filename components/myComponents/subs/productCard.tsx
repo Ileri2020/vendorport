@@ -155,10 +155,13 @@ export function ProductCard({
   const inStock = typeof product.inStock === 'boolean' ? product.inStock : isProductInStock(product);
   const categoryNames = [product?.category?.name, ...(product?.productCategories || []).map((item: any) => item.category?.name || item.name), product?.categoryName].filter(Boolean).filter((name, index, names) => names.indexOf(name) === index);
   const categoryName = categoryNames[0] || "Pharmacy";
-  const images = Array.isArray(product?.images) ? product.images : [];
-  const thumbnailUrls = Array.isArray(product?.thumbnailUrls) ? product.thumbnailUrls : [];
-  const image = thumbnailUrls[0] || images[0] || "/placeholderFemale.webp";
+  const images = Array.isArray(product?.images) ? product.images.filter((img: any) => typeof img === 'string' && img.trim()) : [];
+  const thumbnailUrls = Array.isArray(product?.thumbnailUrls) ? product.thumbnailUrls.filter((img: any) => typeof img === 'string' && img.trim()) : [];
+  const thumbnail = thumbnailUrls[0];
+  const realImage = images[0];
+  const platformLogo = "/logo.png";
   const fallbackImage = "/placeholderFemale.webp";
+  const image = thumbnail || realImage || platformLogo;
   const regClass = product?.regulatoryClassification || "OTC";
   const isPrescription = regClass === "Prescription Medicine";
   const businessName = product?.business?.name || "HCVP";
@@ -384,8 +387,24 @@ export function ProductCard({
               decoding="async"
               onError={(event) => {
                 const element = event.currentTarget;
-                if (element.src.endsWith(fallbackImage)) return;
-                element.src = fallbackImage;
+                const currentSrc = element.src || "";
+
+                // 1. If thumbnail failed (e.g. 401/404), try real image if available
+                if (thumbnail && currentSrc.includes(thumbnail) && realImage && realImage !== thumbnail) {
+                  element.src = realImage;
+                  return;
+                }
+
+                // 2. If real image or thumbnail failed, fall back to platform logo
+                if (!currentSrc.includes(platformLogo) && !currentSrc.includes(fallbackImage)) {
+                  element.src = platformLogo;
+                  return;
+                }
+
+                // 3. Final safety fallback to female placeholder
+                if (!currentSrc.includes(fallbackImage)) {
+                  element.src = fallbackImage;
+                }
               }}
               className={cn(
                 "object-cover w-full h-full transition-transform duration-300 ease-in-out",
