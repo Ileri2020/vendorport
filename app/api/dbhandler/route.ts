@@ -417,6 +417,24 @@ export async function GET(req: NextRequest) {
         const where: any = {};
         if (businessId) where.businessId = businessId;
         if (searchParams.get("platform") === "true") where.businessId = null;
+
+        if (minimal) {
+          const categories = await prisma.category.findMany({
+            take: limit,
+            skip: offset,
+            where,
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              businessId: true,
+              _count: { select: { products: true } },
+              business: { select: { id: true, name: true } },
+            }
+          });
+          return NextResponse.json(dedupeCatalogCategories(categories));
+        }
+
         const categories = await prisma.category.findMany({
           take: limit,
           skip: offset,
@@ -524,8 +542,12 @@ export async function GET(req: NextRequest) {
           include.category = true;
         }
 
-        // Always include business data so UI can render ownership badges correctly.
-        include.business = { include: { siteSettings: { select: { address: true, physicalLocation: true, operatingStates: true } } } };
+        // Lightweight business include for store-scoped product queries to reduce JSON payload footprint
+        if (businessId) {
+          include.business = { select: { id: true, name: true } };
+        } else {
+          include.business = { include: { siteSettings: { select: { address: true, physicalLocation: true, operatingStates: true } } } };
+        }
 
         // For category diversity across pages, perform category-interleaved fetching when listing storefront products
         const isFilteredSingleCategory = Boolean(categoryId || categoryName || concern);

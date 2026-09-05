@@ -29,6 +29,13 @@ const Store = () => {
       return
     }
 
+    if (currentBusiness?._count) {
+      setHasCategories(Number(currentBusiness._count.categories || 0) > 0)
+      setHasProducts(Number(currentBusiness._count.products || 0) > 0)
+      setSetupLoaded(true)
+      return
+    }
+
     try {
       const businessQuery = isPlatformStore ? "" : `&businessId=${encodeURIComponent(currentBusiness.id)}`
       const [categoryRes, productRes] = await Promise.all([
@@ -47,7 +54,7 @@ const Store = () => {
     } finally {
       setSetupLoaded(true)
     }
-  }, [currentBusiness?.id, isPlatformStore])
+  }, [currentBusiness, isPlatformStore])
 
   useEffect(() => {
     loadStoreContentState()

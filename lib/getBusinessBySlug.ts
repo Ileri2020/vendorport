@@ -82,14 +82,29 @@ export interface StorefrontBusiness {
  * Convert URL storeName (slug format, e.g. "my-store") back to business name
  */
 async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusiness | null> {
-  const businesses = await prisma.business.findMany({
+  const normalizedSlug = storeName.trim().toLowerCase();
+  
+  // 1. Try direct indexed match first to avoid scanning 500 businesses on every miss/cold load
+  let match = await prisma.business.findFirst({
+    where: {
+      OR: [
+        { name: { equals: storeName, mode: "insensitive" } },
+        { name: { equals: storeName.replace(/-/g, " "), mode: "insensitive" } },
+      ],
+    },
     select: { id: true, name: true },
-    take: 500,
   });
 
-  const match = businesses.find(
-    (b) => b.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") === storeName
-  );
+  if (!match) {
+    const businesses = await prisma.business.findMany({
+      select: { id: true, name: true },
+      take: 500,
+    });
+
+    match = businesses.find(
+      (b) => b.name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") === normalizedSlug
+    ) || null;
+  }
 
   if (!match) return null;
 
@@ -154,20 +169,20 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
         },
       },
       staff: {
+        take: 5,
         select: { id: true, name: true, role: true, bio: true, image: true },
       },
       stats: {
+        take: 5,
         select: { id: true, label: true, value: true, icon: true },
       },
       partners: {
+        take: 5,
         select: { id: true, name: true, logo: true, website: true },
       },
       promotions: {
+        take: 5,
         select: { id: true, title: true, description: true, image: true, discount: true },
-      },
-      helpArticles: {
-        take: 50,
-        select: { id: true, title: true, content: true, category: true },
       },
     },
   });
@@ -176,6 +191,7 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
 
   return {
     ...business,
+    helpArticles: [],
     slug: storeName,
   } as StorefrontBusiness;
 }
@@ -185,3 +201,4 @@ export const getCachedBusiness = unstable_cache(
   ["business-by-slug"],
   { revalidate: 300, tags: ["business"] }
 );
+

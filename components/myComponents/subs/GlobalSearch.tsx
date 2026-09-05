@@ -59,32 +59,30 @@ export const GlobalSearch = ({ placeholder, className = "", businessId: provided
     : "Find products...";
   const resolvedPlaceholder = placeholder || defaultPlaceholder;
 
-  // Fetch products once on mount, scoped to business only on store-style routes
-  useEffect(() => {
-    if (!isStoreBusinessReady) {
-      setAllProducts([]);
-      return;
-    }
+  const [categories, setCategories] = useState<string[]>([]);
+  const [brands, setBrands] = useState<string[]>([]);
+  const filtersLoadedRef = useRef(false);
+
+  const loadSearchFilters = useCallback(() => {
+    if (filtersLoadedRef.current || !isStoreBusinessReady) return;
+    filtersLoadedRef.current = true;
 
     const scopedBusinessId = isStoreScopedRoute ? businessId : undefined;
     const bizQ = scopedBusinessId ? `&businessId=${scopedBusinessId}` : "";
-    setIsLoading(true);
-    axios.get(`/api/dbhandler?model=product&include=category,brand,stock,activeIngredients${bizQ}`)
-      .then(res => {
-        setAllProducts(res.data);
-      })
-      .catch(console.error)
-      .finally(() => setIsLoading(false));
+
+    Promise.all([
+      axios.get(`/api/dbhandler?model=category&minimal=true&limit=100${bizQ}`),
+      axios.get(`/api/dbhandler?model=brand&limit=100${bizQ}`),
+    ]).then(([catRes, brandRes]) => {
+      const catData = Array.isArray(catRes.data) ? catRes.data : [];
+      const brandData = Array.isArray(brandRes.data) ? brandRes.data : [];
+      setCategories(catData.map((c: any) => c.name).filter(Boolean));
+      setBrands(brandData.map((b: any) => b.name).filter(Boolean));
+    }).catch(console.error);
   }, [businessId, isStoreBusinessReady, isStoreScopedRoute]);
 
-  // Memoize unique categories and brands to prevent unnecessary recalculations
-  const uniqueCategories = useMemo(() => {
-    return Array.from(new Set(allProducts.map(p => p.category?.name || "Uncategorized")));
-  }, [allProducts]);
-
-  const uniqueBrands = useMemo(() => {
-    return Array.from(new Set(allProducts.map((p: any) => p.brand?.name).filter(Boolean)));
-  }, [allProducts]);
+  const uniqueCategories = useMemo(() => Array.from(new Set(categories)), [categories]);
+  const uniqueBrands = useMemo(() => Array.from(new Set(brands)), [brands]);
 
   const countSearchLetters = (value: string) => (value.match(/[a-zA-Z]/g) || []).length;
 
@@ -188,7 +186,10 @@ export const GlobalSearch = ({ placeholder, className = "", businessId: provided
           className="h-12 pl-12 pr-12 text-base border-2 border-muted hover:border-primary/50 focus:border-primary transition-all rounded-xl shadow-sm"
           value={searchValue}
           onChange={handleInputChange}
-          onFocus={() => searchResults.length > 0 && setIsSearchOpen(true)}
+          onFocus={() => {
+            loadSearchFilters();
+            if (searchResults.length > 0) setIsSearchOpen(true);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
