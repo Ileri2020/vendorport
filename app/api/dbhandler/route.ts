@@ -231,11 +231,41 @@ function dedupeCatalogProducts(products: any[]) {
   return [...seen.values()];
 }
 
+function sanitizeCatalogImageUrls(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  const seen = new Set<string>();
+  const urls: string[] = [];
+
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+
+    const url = item.trim();
+    if (!url || seen.has(url)) continue;
+
+    const normalized = url.replace(/\?[^#]*$/, "");
+    if (!normalized) continue;
+
+    seen.add(url);
+    urls.push(url);
+  }
+
+  return urls;
+}
+
 function compactCatalogProducts(products: any[]) {
-  return products.map((product) => ({
-    ...product,
-    images: Array.isArray(product?.images) ? product.images.slice(0, 1) : [],
-  }));
+  return products.map((product) => {
+    const thumbnailUrls = sanitizeCatalogImageUrls(product?.thumbnailUrls);
+    const images = sanitizeCatalogImageUrls(product?.images);
+    const fallbackImage = thumbnailUrls[0] || images[0] || product?.image || "/logo.png";
+
+    return {
+      ...product,
+      thumbnailUrls: thumbnailUrls.slice(0, 4),
+      images: images.slice(0, 4),
+      image: fallbackImage,
+    };
+  });
 }
 
 function dedupeCatalogCategories(categories: any[]) {
@@ -546,7 +576,27 @@ export async function GET(req: NextRequest) {
           healthConcerns: { healthConcerns: true },
         };
 
-        if (includeParams) {
+        const compactMode = searchParams.get("compact") === "true";
+
+        if (compactMode) {
+          include.category = {
+            select: {
+              id: true,
+              name: true,
+              description: true,
+              businessId: true,
+            },
+          };
+          include.brandData = { select: { id: true, name: true } };
+          include.business = {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          };
+          include.bulkPrices = true;
+        } else if (includeParams) {
           includeParams.forEach((inc) => {
             const mapped = includeMap[inc];
             if (mapped) {
@@ -565,8 +615,18 @@ export async function GET(req: NextRequest) {
           include.category = true;
         }
 
+        if (compactMode && !include.business) {
+          include.business = {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          };
+        }
+
         // Lightweight business include for store-scoped product queries to reduce JSON payload footprint
-        if (searchParams.get("compact") === "true") {
+        if (compactMode) {
           if (include.category) {
             include.category = {
               select: {
