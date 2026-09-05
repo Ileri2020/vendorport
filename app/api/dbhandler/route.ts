@@ -591,7 +591,9 @@ export async function GET(req: NextRequest) {
         // For category diversity across pages, perform category-interleaved fetching when listing storefront products
         const isFilteredSingleCategory = Boolean(categoryId || categoryName || concern);
         
-        if (!isFilteredSingleCategory) {
+        const useCategoryInterleaving = !isFilteredSingleCategory && searchParams.get("compact") !== "true";
+
+        if (useCategoryInterleaving) {
           const allLightProducts = await prisma.product.findMany({
             where,
             select: { id: true, categoryId: true, createdAt: true },

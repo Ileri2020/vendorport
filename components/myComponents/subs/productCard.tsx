@@ -379,6 +379,8 @@ export function ProductCard({
             <img
               alt={product?.name || "Product"}
               src={image}
+              loading="lazy"
+              decoding="async"
               className={cn(
                 "object-cover w-full h-full transition-transform duration-300 ease-in-out",
                 isHovered ? "scale-105" : "scale-100"

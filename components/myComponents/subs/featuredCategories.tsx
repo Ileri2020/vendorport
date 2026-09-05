@@ -160,6 +160,8 @@ const CategoryCard = ({ category, isAdmin, canDelete, onRefresh }: { category: a
               key={idx}
               src={img}
               alt={category.name}
+              loading="lazy"
+              decoding="async"
               className={`absolute inset-0 object-contain p-4 transition-opacity duration-1000 w-full h-full ${
                 idx === currentImageIndex ? "opacity-100" : "opacity-0"
               }`}
