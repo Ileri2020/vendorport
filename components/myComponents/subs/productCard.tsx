@@ -157,7 +157,8 @@ export function ProductCard({
   const categoryName = categoryNames[0] || "Pharmacy";
   const images = Array.isArray(product?.images) ? product.images : [];
   const thumbnailUrls = Array.isArray(product?.thumbnailUrls) ? product.thumbnailUrls : [];
-  const image = thumbnailUrls[0] || images[0] || "/placeholder.png";
+  const image = thumbnailUrls[0] || images[0] || "/placeholderFemale.webp";
+  const fallbackImage = "/placeholderFemale.webp";
   const regClass = product?.regulatoryClassification || "OTC";
   const isPrescription = regClass === "Prescription Medicine";
   const businessName = product?.business?.name || "HCVP";
@@ -381,6 +382,11 @@ export function ProductCard({
               src={image}
               loading="lazy"
               decoding="async"
+              onError={(event) => {
+                const element = event.currentTarget;
+                if (element.src.endsWith(fallbackImage)) return;
+                element.src = fallbackImage;
+              }}
               className={cn(
                 "object-cover w-full h-full transition-transform duration-300 ease-in-out",
                 isHovered ? "scale-105" : "scale-100"
