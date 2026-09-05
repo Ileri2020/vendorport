@@ -33,7 +33,7 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
         const scopeQuery = businessId
           ? `&businessId=${encodeURIComponent(businessId)}`
           : "&platform=true";
-        const res = await fetch(`/api/dbhandler?model=category${scopeQuery}&limit=100`);
+        const res = await fetch(`/api/dbhandler?model=category${scopeQuery}&minimal=true&limit=100`);
         const data = await res.json();
         setCategories(Array.isArray(data) ? data : []);
       } catch (err) {

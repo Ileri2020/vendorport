@@ -39,8 +39,8 @@ interface FeaturedCategoriesProps {
 }
 async function getCategories(businessId?: string) {
   const url = businessId
-    ? `/api/dbhandler?model=category&businessId=${businessId}`
-    : `/api/dbhandler?model=category`;
+    ? `/api/dbhandler?model=category&carousel=true&businessId=${businessId}`
+    : `/api/dbhandler?model=category&carousel=true`;
   const res = await fetch(url);
   if (!res.ok) return [];
   const categories = await res.json();

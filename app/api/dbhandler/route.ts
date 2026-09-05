@@ -425,7 +425,8 @@ export async function GET(req: NextRequest) {
         if (businessId) where.businessId = businessId;
         if (searchParams.get("platform") === "true") where.businessId = null;
 
-        if (minimal) {
+        const carousel = searchParams.get("carousel") === "true";
+        if (minimal || carousel) {
           const categories = await prisma.category.findMany({
             take: limit,
             skip: offset,
@@ -434,19 +435,23 @@ export async function GET(req: NextRequest) {
               id: true,
               name: true,
               description: true,
+              image: true,
               businessId: true,
               _count: { select: { products: true } },
+              ...(carousel ? { products: { take: 1, select: { images: true } } } : {}),
               business: {
                 select: {
                   id: true,
                   name: true,
-                  siteSettings: {
-                    select: {
-                      address: true,
-                      physicalLocation: true,
-                      operatingStates: true,
+                  ...(minimal ? {
+                    siteSettings: {
+                      select: {
+                        address: true,
+                        physicalLocation: true,
+                        operatingStates: true,
+                      },
                     },
-                  },
+                  } : {}),
                 },
               },
             }

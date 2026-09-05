@@ -50,7 +50,9 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
             try {
                 const shouldUseBusinessScope = Boolean(basePath) && (business?.id || currentBusiness?.id);
                 const businessId = shouldUseBusinessScope ? (business?.id || currentBusiness?.id) : undefined;
-                const categoryQuery = businessId ? `?model=category&businessId=${businessId}` : "?model=category";
+                const categoryQuery = businessId
+                    ? `?model=category&minimal=true&limit=100&businessId=${businessId}`
+                    : "?model=category&minimal=true&limit=100";
                 const [catRes, concernRes] = await Promise.all([
                     axios.get(`/api/dbhandler${categoryQuery}`),
                     axios.get("/api/dbhandler?model=healthConcern")
