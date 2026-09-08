@@ -1,64 +1,20 @@
 "use client"
-import { useCallback, useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
 import { Stocks, GlobalSearch } from "@/components/myComponents/subs"
 import CategoryNavigator from "@/components/myComponents/subs/categoryNavigator"
-import StoreSetupPrompt, { StoreSetupSkeleton } from "@/components/myComponents/subs/StoreSetupPrompt"
 import { useAppContext } from "@/hooks/useAppContext"
 
 // Store hero/marketing texts sourced from SiteSettings
 
 
 const Store = () => {
-  const { currentBusiness, user } = useAppContext();
+  const { currentBusiness } = useAppContext();
   const pathname = usePathname();
   const isPlatformStore = !currentBusiness?.id && (pathname || "").replace(/\/+$/, "") === "/store";
-  const [hasCategories, setHasCategories] = useState<boolean | undefined>(undefined)
-  const [hasProducts, setHasProducts] = useState<boolean | undefined>(undefined)
-  const [setupLoaded, setSetupLoaded] = useState(false)
   const settings = currentBusiness?.siteSettings || {}
   const isPharmacy = currentBusiness?.template === "pharmacy"
-  const isOwner = Boolean(currentBusiness?.ownerId && currentBusiness?.ownerId === user?.id)
-
-  const loadStoreContentState = useCallback(async () => {
-    if (!isPlatformStore && !currentBusiness?.id) {
-      setHasCategories(undefined)
-      setHasProducts(undefined)
-      setSetupLoaded(false)
-      return
-    }
-
-    if (currentBusiness?._count) {
-      setHasCategories(Number(currentBusiness._count.categories || 0) > 0)
-      setHasProducts(Number(currentBusiness._count.products || 0) > 0)
-      setSetupLoaded(true)
-      return
-    }
-
-    try {
-      const businessQuery = isPlatformStore ? "" : `&businessId=${encodeURIComponent(currentBusiness.id)}`
-      const [categoryRes, productRes] = await Promise.all([
-        fetch(`/api/dbhandler?model=category&limit=1${businessQuery}`),
-        fetch(`/api/dbhandler?model=product&compact=true&pagination=true&limit=1&offset=0&requirePrice=true${businessQuery}`),
-      ])
-
-      const categories = categoryRes.ok ? await categoryRes.json() : null
-      const products = productRes.ok ? await productRes.json() : null
-      setHasCategories((Array.isArray(categories) && categories.length > 0) || Number(currentBusiness?._count?.categories || 0) > 0)
-      setHasProducts((Array.isArray(products?.data) && products.data.length > 0) || (Array.isArray(products) && products.length > 0) || Number(currentBusiness?._count?.products || 0) > 0)
-    } catch (error) {
-      console.error("Failed to load store content state", error)
-      setHasCategories(Number(currentBusiness?._count?.categories || 0) > 0)
-      setHasProducts(Number(currentBusiness?._count?.products || 0) > 0)
-    } finally {
-      setSetupLoaded(true)
-    }
-  }, [currentBusiness?.id, currentBusiness?._count, isPlatformStore])
-
-  useEffect(() => {
-    loadStoreContentState()
-  }, [loadStoreContentState])
+  const businessReady = isPlatformStore || Boolean(currentBusiness?.id)
 
   return (
     <motion.section
@@ -74,19 +30,8 @@ const Store = () => {
           <GlobalSearch placeholder={settings?.heroSubtitle || "Search more products in our store..."} />
         </div>
 
-        {!setupLoaded || (!isPlatformStore && !currentBusiness) ? (
-          <StoreSetupSkeleton />
-        ) : (!hasProducts) ? (
-          <div className="space-y-6">
-            {hasCategories && <CategoryNavigator />}
-            <StoreSetupPrompt
-              businessName={currentBusiness?.name || "Platform"}
-              isOwner={isOwner}
-              hasCategories={!!hasCategories}
-              hasProducts={!!hasProducts}
-              onRefresh={loadStoreContentState}
-            />
-          </div>
+        {!businessReady ? (
+          <div className="min-h-40" aria-label="Loading store" />
         ) : (
           <>
             <CategoryNavigator />
