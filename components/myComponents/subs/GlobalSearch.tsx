@@ -79,7 +79,7 @@ export const GlobalSearch = ({ placeholder, className = "", businessId: provided
     const bizQ = scopedBusinessId ? `&businessId=${scopedBusinessId}` : "";
 
     Promise.all([
-      axios.get(`/api/dbhandler?model=category&minimal=true&limit=100${bizQ}`),
+      axios.get(`/api/dbhandler?model=category&minimal=true&storeNav=true&limit=100${bizQ}`),
       axios.get(`/api/dbhandler?model=brand&limit=100${bizQ}`),
     ]).then(([catRes, brandRes]) => {
       const catData = Array.isArray(catRes.data) ? catRes.data : [];
