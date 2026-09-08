@@ -642,7 +642,9 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        if (businessId) {
+        if (compactMode) {
+          include.business = { select: { id: true, name: true, slug: true } };
+        } else if (businessId) {
           include.business = { select: { id: true, name: true } };
         } else {
           include.business = { include: { siteSettings: { select: { address: true, physicalLocation: true, operatingStates: true } } } };

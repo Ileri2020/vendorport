@@ -49,7 +49,7 @@ function cleanProductDescription(value: unknown) {
 import ProductForm from "@/prisma/forms/ProductForm";
 import axios from "axios";
 import { VariantCard, getVariantAmount, getVariantPriceRange } from "./variantCard";
-import { getProductImageCandidates, PLATFORM_LOGO, PLACEHOLDER_IMAGE } from "@/lib/product-images";
+import { getProductImageCandidates, getProductImageUrl, PLATFORM_LOGO, PLACEHOLDER_IMAGE } from "@/lib/product-images";
 
 type ProductCardProps = Omit<
   React.HTMLAttributes<HTMLDivElement>,
@@ -62,6 +62,7 @@ type ProductCardProps = Omit<
   variant?: "compact" | "default";
   showDiscount?: boolean;
   priceEditor?: React.ReactNode;
+  priority?: boolean;
 };
 
 export function ProductCard({
@@ -73,6 +74,7 @@ export function ProductCard({
   variant = "default",
   showDiscount = false,
   priceEditor,
+  priority = false,
   ...props
 }: ProductCardProps) {
   const [isHovered, setIsHovered] = React.useState(false);
@@ -168,7 +170,7 @@ export function ProductCard({
     setSelectedImageIndex(0);
   }, [product?.id, product?.images, product?.thumbnailUrls]);
 
-  const currentImage = imageCandidates[selectedImageIndex] || platformLogo;
+  const currentImage = getProductImageUrl(imageCandidates[selectedImageIndex] || platformLogo);
   const regClass = product?.regulatoryClassification || "OTC";
   const isPrescription = regClass === "Prescription Medicine";
   const businessName = product?.business?.name || "HCVP";
@@ -390,7 +392,8 @@ export function ProductCard({
             <img
               alt={product?.name || "Product"}
               src={currentImage}
-              loading="lazy"
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
               decoding="async"
               onError={() => {
                 setSelectedImageIndex((prev) => {

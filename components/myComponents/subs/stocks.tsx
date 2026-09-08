@@ -261,11 +261,12 @@ const Stocks = () => {
 
       {currentItems.length > 0 ? (
         <div className={`grid ${cardOrientation === 'horizontal' ? 'grid-cols-1' : 'grid-cols-2'} md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 px-1 md:px-4 max-w-7xl w-full`}>
-          {currentItems.map((product) => (
+          {currentItems.map((product, index) => (
             <ProductCard
               key={product.id}
               className="w-full group mx-auto shadow-md shadow-accent"
               orientation={cardOrientation}
+              priority={index < 6}
               product={{ 
                 ...product, 
                 inStock: true, 
