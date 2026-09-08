@@ -41,7 +41,8 @@ const Stocks = () => {
   const pathname = usePathname();
   const { currentBusiness, user } = useAppContext();
   const routePath = (pathname || "").replace(/\/+$/, "");
-  const isPlatformStore = !currentBusiness?.id && routePath === "/store";
+  const isPlatformStore = routePath === "/store";
+  const businessContextReady = isPlatformStore || Boolean(currentBusiness?.id);
   const categoryFilter = searchParams.get("category");
   const concernFilter = searchParams.get("concern"); // ✅ NEW: health concern filter
   const brandFilter = searchParams.get("brand");
@@ -79,6 +80,7 @@ const Stocks = () => {
   }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted, closestToMe]);
 
   const fetchProducts = useCallback(async () => {
+    if (!businessContextReady) return;
     setLoading(true);
     try {
       const bizQ = businessId ? `&businessId=${businessId}` : "";
@@ -156,7 +158,7 @@ const Stocks = () => {
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted, closestToMe, isAdmin, currentPage, businessId]);
+  }, [categoryFilter, brandFilter, concernFilter, minPriceFilter, maxPriceFilter, locationFilter, isFeatured, isDiscounted, closestToMe, isAdmin, currentPage, businessId, businessContextReady]);
 
   useEffect(() => {
     fetchProducts();

@@ -40,13 +40,13 @@ const Store = () => {
       const businessQuery = isPlatformStore ? "" : `&businessId=${encodeURIComponent(currentBusiness.id)}`
       const [categoryRes, productRes] = await Promise.all([
         fetch(`/api/dbhandler?model=category&limit=1${businessQuery}`),
-        fetch(`/api/dbhandler?model=product&limit=1${businessQuery}`),
+        fetch(`/api/dbhandler?model=product&compact=true&pagination=true&limit=1&offset=0&requirePrice=true${businessQuery}`),
       ])
 
       const categories = categoryRes.ok ? await categoryRes.json() : null
       const products = productRes.ok ? await productRes.json() : null
       setHasCategories((Array.isArray(categories) && categories.length > 0) || Number(currentBusiness?._count?.categories || 0) > 0)
-      setHasProducts((Array.isArray(products) && products.length > 0) || Number(currentBusiness?._count?.products || 0) > 0)
+      setHasProducts((Array.isArray(products?.data) && products.data.length > 0) || (Array.isArray(products) && products.length > 0) || Number(currentBusiness?._count?.products || 0) > 0)
     } catch (error) {
       console.error("Failed to load store content state", error)
       setHasCategories(Number(currentBusiness?._count?.categories || 0) > 0)
@@ -54,7 +54,7 @@ const Store = () => {
     } finally {
       setSetupLoaded(true)
     }
-  }, [currentBusiness?.id, currentBusiness?._count?.categories, currentBusiness?._count?.products, isPlatformStore])
+  }, [currentBusiness?.id, currentBusiness?._count, isPlatformStore])
 
   useEffect(() => {
     loadStoreContentState()
