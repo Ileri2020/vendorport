@@ -36,11 +36,16 @@ export function normalizeProductImageList(value: unknown): string[] {
 export function getProductImageCandidates(product: any): string[] {
   if (!product) return [PLATFORM_LOGO];
 
+  const thumbnails = normalizeProductImageList(product?.thumbnailUrls);
+  const images = normalizeProductImageList(product?.images).map((url) => getProductImageUrl(url, 400));
+  const singleImage = normalizeProductImageList(product?.image ? [product.image] : []).map((url) => getProductImageUrl(url, 400));
+  const coverImage = normalizeProductImageList(product?.coverImage ? [product.coverImage] : []).map((url) => getProductImageUrl(url, 400));
+
   const candidates = [
-    ...normalizeProductImageList(product?.images),
-    ...normalizeProductImageList(product?.thumbnailUrls),
-    ...normalizeProductImageList(product?.image ? [product.image] : []),
-    ...normalizeProductImageList(product?.coverImage ? [product.coverImage] : []),
+    ...thumbnails,
+    ...images,
+    ...singleImage,
+    ...coverImage,
     PLATFORM_LOGO,
     PLACEHOLDER_IMAGE,
   ];
