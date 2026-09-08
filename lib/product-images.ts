@@ -1,6 +1,6 @@
 export const PLATFORM_LOGO = "/logo.png";
 export const PLACEHOLDER_IMAGE = "/placeholderFemale.webp";
-const UNAVAILABLE_CLOUDINARY_CLOUDS = new Set(["dplw2vykw"]);
+const UNAVAILABLE_CLOUDINARY_CLOUDS = new Set<string>([]);
 
 function isUnavailableImage(value: string): boolean {
   return [...UNAVAILABLE_CLOUDINARY_CLOUDS].some((cloudName) => value.includes(`res.cloudinary.com/${cloudName}/`));
