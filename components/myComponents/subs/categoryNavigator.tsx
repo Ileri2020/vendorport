@@ -18,6 +18,9 @@ type Category = {
 }
 
 const CATEGORY_LANES = 3
+const CATEGORY_CACHE_TTL_MS = 3000
+const categoryCache = new Map<string, { timestamp: number; data: Category[] }>()
+const categoryRequests = new Map<string, Promise<Category[]>>()
 
 function splitCategories(value: string | null) {
   return value ? value.split(",").map((item) => item.trim()).filter(Boolean) : []
@@ -43,6 +46,7 @@ export default function CategoryNavigator() {
   const { currentBusiness } = useAppContext()
   const routePath = (pathname || "").replace(/\/+$/, "")
   const isPlatformStore = !currentBusiness?.id && routePath === "/store"
+  const businessId = currentBusiness?.id
   const [categories, setCategories] = useState<Category[]>([])
   const [locations, setLocations] = useState<string[]>([])
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false)
@@ -58,10 +62,10 @@ export default function CategoryNavigator() {
   const [locationRevision, setLocationRevision] = useState(0)
 
   useEffect(() => {
-    const requestKey = `${currentBusiness?.id || "unknown"}:${isPlatformStore ? "platform" : "store"}:${locationRevision}`
-    const shouldUseBusinessScope = !isPlatformStore && Boolean(currentBusiness?.id)
+    const requestKey = `${businessId || "unknown"}:${isPlatformStore ? "platform" : "store"}:${locationRevision}`
+    const shouldUseBusinessScope = !isPlatformStore && Boolean(businessId)
     const query = shouldUseBusinessScope
-      ? `&businessId=${encodeURIComponent(currentBusiness.id)}`
+      ? `&businessId=${encodeURIComponent(businessId)}`
       : ""
 
     if (!shouldUseBusinessScope && !isPlatformStore) {
@@ -72,16 +76,31 @@ export default function CategoryNavigator() {
 
     let cancelled = false
 
-    fetch(`/api/dbhandler?model=category&limit=500&minimal=true${query}`)
-      .then((response) => response.ok ? response.json() : [])
+    const categoriesUrl = `/api/dbhandler?model=category&limit=100&minimal=true&storeNav=true${query}`
+    const cached = categoryCache.get(categoriesUrl)
+    let request: Promise<Category[]>
+    if (cached && Date.now() - cached.timestamp < CATEGORY_CACHE_TTL_MS) {
+      request = Promise.resolve(cached.data)
+    } else {
+      request = categoryRequests.get(categoriesUrl) || fetch(categoriesUrl)
+        .then((response) => response.ok ? response.json() : [])
+        .then((data) => {
+          const normalized = Array.isArray(data) ? data : []
+          categoryCache.set(categoriesUrl, { timestamp: Date.now(), data: normalized })
+          return normalized
+        })
+      categoryRequests.set(categoriesUrl, request)
+      request.finally(() => categoryRequests.delete(categoriesUrl))
+    }
+    request
       .then(async (data) => {
-        if (cancelled || requestKey !== `${currentBusiness?.id || "unknown"}:${isPlatformStore ? "platform" : "store"}:${locationRevision}`) return
+        if (cancelled || requestKey !== `${businessId || "unknown"}:${isPlatformStore ? "platform" : "store"}:${locationRevision}`) return
 
         const available = Array.isArray(data)
           ? data.filter((category) => {
               if (isPlatformStore) return true
-              if (!currentBusiness?.id) return false
-              return category?.businessId && String(category.businessId) === String(currentBusiness.id)
+              if (!businessId) return false
+              return category?.businessId && String(category.businessId) === String(businessId)
             })
           : []
         const filtered = available.filter((category) => category?._count?.products !== 0)
@@ -94,7 +113,7 @@ export default function CategoryNavigator() {
       })
 
     const locationsQuery = shouldUseBusinessScope
-      ? `?businessId=${encodeURIComponent(currentBusiness.id)}`
+      ? `?businessId=${encodeURIComponent(businessId)}`
       : ""
     fetch(`/api/store-locations${locationsQuery}`)
       .then((response) => response.ok ? response.json() : [])
@@ -108,7 +127,7 @@ export default function CategoryNavigator() {
     return () => {
       cancelled = true
     }
-  }, [currentBusiness?.id, isPlatformStore, pathname, locationRevision])
+  }, [businessId, isPlatformStore, pathname, locationRevision])
 
   useEffect(() => {
     const refreshCategories = () => setLocationRevision((revision) => revision + 1)
@@ -216,13 +235,13 @@ export default function CategoryNavigator() {
 
   const businessScopedCategories = useMemo(() => {
     if (isPlatformStore) return categories
-    if (!currentBusiness?.id) return []
+    if (!businessId) return []
 
     return categories.filter((category) => {
       if (!category?.businessId) return false
-      return String(category.businessId) === String(currentBusiness.id)
+      return String(category.businessId) === String(businessId)
     })
-  }, [categories, currentBusiness?.id, isPlatformStore])
+  }, [categories, businessId, isPlatformStore])
 
   const selectedCategories = businessScopedCategories.filter((category) => selected.includes(category.name))
   const useThreeLanes = businessScopedCategories.length >= CATEGORY_LANES * 5

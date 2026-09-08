@@ -456,6 +456,7 @@ export async function GET(req: NextRequest) {
         if (searchParams.get("platform") === "true") where.businessId = null;
 
         const carousel = searchParams.get("carousel") === "true";
+        const storeNav = searchParams.get("storeNav") === "true";
         if (minimal || carousel) {
           const categories = await prisma.category.findMany({
             take: limit,
@@ -464,8 +465,7 @@ export async function GET(req: NextRequest) {
             select: {
               id: true,
               name: true,
-              description: true,
-              image: true,
+              ...(storeNav ? {} : { description: true, image: true }),
               businessId: true,
               _count: { select: { products: true } },
               ...(carousel ? { products: { take: 1, select: { images: true, thumbnailUrls: true } } } : {}),
@@ -473,7 +473,7 @@ export async function GET(req: NextRequest) {
                 select: {
                   id: true,
                   name: true,
-                  ...(minimal ? {
+                  ...(minimal && !storeNav ? {
                     siteSettings: {
                       select: {
                         address: true,
