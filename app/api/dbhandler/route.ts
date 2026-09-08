@@ -643,7 +643,7 @@ export async function GET(req: NextRequest) {
         }
 
         if (compactMode) {
-          include.business = { select: { id: true, name: true, slug: true } };
+          include.business = { select: { id: true, name: true } };
         } else if (businessId) {
           include.business = { select: { id: true, name: true } };
         } else {

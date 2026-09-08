@@ -23,6 +23,9 @@ import ProductForm from "@/prisma/forms/ProductForm";
 import { getSavedUserLocation, locationMatchesBusiness, rankByDistance, USER_LOCATION_CHANGED_EVENT } from "@/lib/user-location";
 
 const ITEMS_PER_PAGE = 30;
+const PRODUCT_CACHE_TTL_MS = 3000;
+const productCache = new Map<string, { timestamp: number; data: any[]; total: number }>();
+const productRequests = new Map<string, Promise<{ data: any[]; total: number }>>();
 
 const shuffleArray = <T,>(array: T[]): T[] => {
   const copy = [...array];
@@ -122,9 +125,27 @@ const Stocks = () => {
         // Server-side pagination for lightning fast store loading
         const offset = (currentPage - 1) * ITEMS_PER_PAGE;
         url += `&pagination=true&limit=${ITEMS_PER_PAGE}&offset=${offset}`;
-        const res = await axios.get(url);
-        const fetchedData = res.data.data ?? (Array.isArray(res.data) ? res.data : []);
-        const total = res.data.total ?? (Array.isArray(fetchedData) ? fetchedData.length : 0);
+        const cached = productCache.get(url);
+        if (cached && Date.now() - cached.timestamp < PRODUCT_CACHE_TTL_MS) {
+          setProducts(cached.data);
+          setTotalProducts(cached.total);
+          return;
+        }
+
+        let request = productRequests.get(url);
+        if (!request) {
+          request = axios.get(url).then((res) => {
+            const data = res.data.data ?? (Array.isArray(res.data) ? res.data : []);
+            const total = res.data.total ?? data.length;
+            return { data, total };
+          });
+          productRequests.set(url, request);
+          request.catch(() => productRequests.delete(url));
+        }
+
+        const { data: fetchedData, total } = await request;
+        productRequests.delete(url);
+        productCache.set(url, { timestamp: Date.now(), data: fetchedData, total });
 
         setProducts(fetchedData);
         setTotalProducts(total);
