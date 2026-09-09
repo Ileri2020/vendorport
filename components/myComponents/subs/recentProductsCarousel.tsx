@@ -24,10 +24,13 @@ const RecentProductsCarousel = () => {
     const fetchRecentProducts = async () => {
       try {
         setLoading(true)
-        if (!businessId) return
+        if (!businessId) {
+          setRecentProducts([])
+          return
+        }
 
         const response = await axios.get(
-          `/api/dbhandler?model=product&businessId=${businessId}&limit=12&orderBy=createdAt&orderDirection=desc&include=category,brand,stock,business`
+          `/api/dbhandler?model=product&businessId=${businessId}&compact=true&pagination=true&limit=12&offset=0&requirePrice=true`
         )
 
         const products = Array.isArray(response.data) ? response.data : response.data.data || []

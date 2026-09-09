@@ -486,7 +486,19 @@ export async function GET(req: NextRequest) {
               },
             }
           });
-          return NextResponse.json(dedupeCatalogCategories(categories));
+          const dedupedCategories = dedupeCatalogCategories(categories);
+          if (!carousel) return NextResponse.json(dedupedCategories);
+
+          return NextResponse.json(dedupedCategories.map((category: any) => ({
+            ...category,
+            products: Array.isArray(category.products)
+              ? category.products.map((product: any) => ({
+                  ...product,
+                  images: sanitizeCatalogImageUrls(product.images).slice(0, 3),
+                  thumbnailUrls: sanitizeCatalogImageUrls(product.thumbnailUrls).slice(0, 3),
+                }))
+              : [],
+          })));
         }
 
         const categories = await prisma.category.findMany({
@@ -653,7 +665,7 @@ export async function GET(req: NextRequest) {
         // For category diversity across pages, perform category-interleaved fetching when listing storefront products
         const isFilteredSingleCategory = Boolean(categoryId || categoryName || concern);
         
-        const useCategoryInterleaving = !isFilteredSingleCategory && searchParams.get("compact") !== "true";
+        const useCategoryInterleaving = !isFilteredSingleCategory;
 
         if (useCategoryInterleaving) {
           const allLightProducts = await prisma.product.findMany({
