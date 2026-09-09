@@ -6,6 +6,7 @@ Move this entire folder to Google Drive or upload it to Colab. It contains every
 - `.env.example`
 - `schema.prisma`
 - `package.json`
+- `migrate-healthclique-drugs.js`
 
 The real `.env` file is intentionally not included. Copy `.env.example` to `.env` and fill in the database and Cloudinary credentials.
 
@@ -35,6 +36,16 @@ Test only five products first:
 ```python
 !cd /content/drive/MyDrive/thumbnail-migration-colab && npx prisma generate --schema schema.prisma && node migrate-thumbnails.js --limit=5
 ```
+
+Import HealthClique categories and products into the platform as drugs:
+
+```python
+!cd /content/drive/MyDrive/thumbnail-migration-colab && node migrate-healthclique-drugs.js --dry-run
+!cd /content/drive/MyDrive/thumbnail-migration-colab && node migrate-healthclique-drugs.js --limit=5
+!cd /content/drive/MyDrive/thumbnail-migration-colab && node migrate-healthclique-drugs.js
+```
+
+The importer reads `HEALTHCLIQUE_MONGODB_URL` as the source and `MONGODB_URL` as the platform destination. It is idempotent by product name and destination category, marks imported records as `catalogType: "drug"`, and prints progress for every category and product.
 
 The script uses Prisma with only the app-style `MONGODB_URL`. Cloudinary is configured through one `CLOUDINARY_URL`, targeting the app cloud `dc5khnuiu`. Products whose original image and old thumbnail are both inaccessible are reported as failed and are not updated.
 

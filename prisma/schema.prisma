@@ -348,6 +348,7 @@ model Category {
   name              String // removed unique to allow same name in different businesses
   description       String?
   image             String?
+  catalogType       String            @default("general") // general or drug
   //slug     String   @unique
   products          Product[]
   productCategories ProductCategory[]
@@ -362,6 +363,7 @@ model Category {
 model Product {
   id                        String                     @id @default(auto()) @map("_id") @db.ObjectId
   name                      String
+  catalogType               String                     @default("general") // general or drug
   description               String?
   shortDescription          String?
   barcode                   String?

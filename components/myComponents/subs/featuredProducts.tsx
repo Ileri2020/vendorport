@@ -59,7 +59,7 @@ const FeaturedProducts = () => {
 
       // If no featured products, fetch latest 10 products as fallback
       if (featData.length === 0) {
-        const fallbackRes = await fetch(`/api/dbhandler?model=product&minimal=true&limit=10${bizQ}`);
+        const fallbackRes = await fetch(`/api/dbhandler?model=product&compact=true&limit=10${bizQ}`);
         const fallbackData = await fallbackRes.json();
         setProducts(filterVisibleItems(fallbackData.map((p: any) => ({
             ...p,
@@ -70,11 +70,11 @@ const FeaturedProducts = () => {
       // 2. Fetch Subset Sections via Server-side filtering
       // Fetch Brands (Server-side filtered)
       const brandsPromises = ["Emzor", "Vitabiotics", "Pfizer", "GSK", "Shalina", "Fidson"].map(brand => 
-        fetch(`/api/dbhandler?model=product&brand=${brand}&minimal=true&limit=6${bizQ}`).then(res => res.json())
+        fetch(`/api/dbhandler?model=product&brand=${brand}&compact=true&limit=6${bizQ}`).then(res => res.json())
       );
       
       // Fetch Oral Care (Search by name on server)
-      const oralCarePromise = fetch(`/api/dbhandler?model=product&include=category&minimal=true&limit=10${bizQ}`).then(res => res.json());
+      const oralCarePromise = fetch(`/api/dbhandler?model=product&compact=true&limit=10${bizQ}`).then(res => res.json());
 
       const [brandResults, allProdData] = await Promise.all([
         Promise.all(brandsPromises),

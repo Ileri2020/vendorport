@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Search, ChevronLeft, ChevronRight, ArrowUpDown, X, CheckCircle, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -52,6 +53,8 @@ export const HEALTH_CONCERNS = [
 ];
 
 export default function ProductForm({ initialProduct, hideList = false }: { initialProduct?: any, hideList?: boolean }) {
+  const { currentBusiness } = useAppContext();
+  const isPharmacy = String(currentBusiness?.template || "estore").toLowerCase() === "pharmacy";
   const [products, setProducts] = useState<any>([]);
   const [formData, setFormData] = useState<any>({ 
     name: initialProduct?.name || '',
@@ -75,6 +78,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     weight: initialProduct?.weight || '',
     bulkPrices: initialProduct?.bulkPrices || [],
     variants: initialProduct?.variants || [],
+    catalogType: initialProduct?.catalogType || (isPharmacy ? 'drug' : 'general'),
   });
   const [files, setFiles] = useState<File[]>([]);
   const [thumbnailFiles, setThumbnailFiles] = useState<File[]>([]);
@@ -137,8 +141,6 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   }, [products]);
 
   const [healthConcernInput, setHealthConcernInput] = useState("");
-  const { currentBusiness } = useAppContext();
-  const isPharmacy = String(currentBusiness?.template || "estore").toLowerCase() === "pharmacy";
   const [markupEnabled, setMarkupEnabled] = useState(false);
   const [markupPercentage, setMarkupPercentage] = useState(0);
   const [showPlanDialog, setShowPlanDialog] = useState(false);
@@ -207,17 +209,19 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       const bizQ = businessId ? `&businessId=${businessId}` : "";
       const res = await axios.get(`/api/dbhandler?model=category${bizQ}`);
       setCategories(res.data);
-      if (res.data.length > 0 && !formData.categoryId) {
+      const defaultCatalogType = isPharmacy ? "drug" : "general";
+      const matchingCategories = res.data.filter((category: any) => (category.catalogType || "general") === defaultCatalogType);
+      if (matchingCategories.length > 0 && !formData.categoryId) {
         setFormData(prev => ({
           ...prev,
-          categoryId: res.data[0].id,
-          category: res.data[0].name
+          categoryId: matchingCategories[0].id,
+          category: matchingCategories[0].name
         }));
       }
     } catch (err) {
       console.error('Failed to fetch categories', err);
     }
-  }, [currentBusiness?.id, formData.categoryId]);
+  }, [currentBusiness?.id, formData.categoryId, isPharmacy]);
 
   const createInlineCategory = async () => {
     if (!newCategory.name.trim()) {
@@ -228,6 +232,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     try {
       const response = await axios.post("/api/categories", {
         ...newCategory,
+        catalogType: formData.catalogType,
         ...(currentBusiness?.id ? { businessId: currentBusiness.id } : {}),
       });
       const category = response.data;
@@ -267,10 +272,11 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
         weight: initialProduct.weight || '',
         bulkPrices: Array.isArray(initialProduct.bulkPrices) ? initialProduct.bulkPrices : [],
         variants: Array.isArray(initialProduct.variants) ? initialProduct.variants : [],
+        catalogType: initialProduct.catalogType || (isPharmacy ? 'drug' : 'general'),
       });
       setEditId(initialProduct.id);
     }
-  }, [initialProduct]);
+  }, [initialProduct, isPharmacy]);
 
   useEffect(() => {
     if (!hideList) fetchProducts();
@@ -305,6 +311,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
       weight: '',
       bulkPrices: [],
       variants: [],
+      catalogType: isPharmacy ? 'drug' : 'general',
     });
     setEditId(null);
     setFiles([]);
@@ -372,6 +379,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
     pformData.append("metadata", formData.metadata || "");
     pformData.append("categoryId", formData.categoryId);
     pformData.append("categoryIds", JSON.stringify(formData.categoryIds || []));
+    pformData.append("catalogType", formData.catalogType || (isPharmacy ? "drug" : "general"));
     pformData.append("price", String(formData.price || formData.costPrice || ""));
     if (currentBusiness?.id) {
       pformData.append("businessId", currentBusiness.id);
@@ -574,6 +582,10 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, sortOrder, sortBy]);
+
+  const catalogCategories = categories.filter((category: any) =>
+    (category.catalogType || "general") === (formData.catalogType || (isPharmacy ? "drug" : "general")),
+  );
 
   return (
     <div>
@@ -808,6 +820,16 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
         )}
 
         <div className="w-full space-y-1 text-center flex flex-col items-center">
+          <Label htmlFor="product-catalog-type" className="mb-2">Product Type</Label>
+          <Tabs
+            value={formData.catalogType || (isPharmacy ? "drug" : "general")}
+            onValueChange={(value) => setFormData((previous: any) => ({ ...previous, catalogType: value, categoryId: "", categoryIds: [] }))}
+          >
+            <TabsList className="grid w-full grid-cols-2" id="product-catalog-type">
+              <TabsTrigger value="general">General products</TabsTrigger>
+              <TabsTrigger value="drug">Drugs / medicines</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Label htmlFor="product-category" className='mb-2'>Product Category</Label>
           <div className="w-full space-y-2">
             <Input
@@ -837,7 +859,7 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
               </SelectTrigger>
               <SelectContent className="max-h-48 overflow-y-auto">
                 <SelectItem value="__new__">+ Create new category</SelectItem>
-                {categories.length > 0 ? categories
+                {catalogCategories.length > 0 ? catalogCategories
                   .filter((category: any) => 
                     category.name.toLowerCase().includes(categorySearch.toLowerCase())
                   )
@@ -859,14 +881,14 @@ export default function ProductForm({ initialProduct, hideList = false }: { init
                 </div>
               </div>
             )}
-            {categories.length > 0 && (
+            {catalogCategories.length > 0 && (
               <div className="space-y-2 rounded-md border bg-muted/20 p-3 text-left">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs font-bold">Additional categories</Label>
                   <span className="text-[10px] text-muted-foreground">{formData.categoryIds.length} selected</span>
                 </div>
                 <div className="grid max-h-32 grid-cols-2 gap-2 overflow-y-auto">
-                  {categories.filter((category: any) => category.id !== formData.categoryId).map((category: any) => (
+                  {catalogCategories.filter((category: any) => category.id !== formData.categoryId).map((category: any) => (
                     <label key={category.id} className="flex cursor-pointer items-center gap-2 text-xs">
                       <Checkbox checked={formData.categoryIds.includes(category.id)} onCheckedChange={(checked) => setFormData((previous: any) => ({ ...previous, categoryIds: checked ? [...new Set([...previous.categoryIds, category.id])] : previous.categoryIds.filter((id: string) => id !== category.id) }))} />
                       <span className="truncate">{category.name}</span>

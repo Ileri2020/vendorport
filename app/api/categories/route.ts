@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
   const name = String(body.name || "").trim();
   const description = String(body.description || "").trim() || null;
   const businessId = body.businessId ? String(body.businessId) : null;
+  const catalogType = body.catalogType === "drug" ? "drug" : "general";
 
   if (!name) return NextResponse.json({ error: "Category name is required" }, { status: 400 });
 
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const category = await prisma.category.create({
-      data: { name, description, ...(businessId ? { businessId } : {}) },
+      data: { name, description, catalogType, ...(businessId ? { businessId } : {}) },
     });
     return NextResponse.json(category, { status: 201 });
   } catch (error: any) {

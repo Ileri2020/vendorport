@@ -468,7 +468,7 @@ export async function GET(req: NextRequest) {
               ...(storeNav ? {} : { description: true, image: true }),
               businessId: true,
               _count: { select: { products: true } },
-              ...(carousel ? { products: { take: 1, select: { images: true, thumbnailUrls: true } } } : {}),
+              ...(carousel && !storeNav ? { products: { take: 1, select: { images: true, thumbnailUrls: true } } } : {}),
               business: {
                 select: {
                   id: true,
@@ -1162,6 +1162,8 @@ export async function POST(req: NextRequest) {
       } else if (body.brand !== undefined) {
         delete body.brand;
       }
+
+      body.catalogType = body.catalogType === "drug" ? "drug" : "general";
 
       if (Array.isArray(body.activeIngredients)) {
         body.activeIngredients = body.activeIngredients.map((name: any) => String(name).trim()).filter(Boolean);

@@ -48,7 +48,7 @@ const CommonMedications = () => {
     try {
       const bizQ = businessId ? `&businessId=${businessId}` : "";
       const [prodRes, featRes] = await Promise.all([
-        fetch(`/api/dbhandler?model=product&include=category&minimal=true&limit=50${bizQ}`),
+        fetch(`/api/dbhandler?model=product&compact=true&limit=50${bizQ}`),
         fetch(`/api/dbhandler?model=featuredProduct&minimal=true&limit=50${bizQ}`),
       ]);
       const prodData = await prodRes.json();
