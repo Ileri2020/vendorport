@@ -37,14 +37,14 @@ const Home = () => {
     try {
       const businessId = currentBusiness.id
       const [categoryRes, productRes] = await Promise.all([
-        fetch(`/api/dbhandler?model=category&businessId=${businessId}&limit=1`),
-        fetch(`/api/dbhandler?model=product&businessId=${businessId}&limit=1`),
+        fetch(`/api/dbhandler?model=category&businessId=${businessId}&minimal=true&storeNav=true&limit=1`),
+        fetch(`/api/dbhandler?model=product&businessId=${businessId}&compact=true&pagination=true&requirePrice=true&limit=1&offset=0`),
       ])
 
       const categories = categoryRes.ok ? await categoryRes.json() : null
       const products = productRes.ok ? await productRes.json() : null
       setHasCategories((Array.isArray(categories) && categories.length > 0) || Number(currentBusiness._count?.categories || 0) > 0)
-      setHasProducts((Array.isArray(products) && products.length > 0) || Number(currentBusiness._count?.products || 0) > 0)
+      setHasProducts((Array.isArray(products?.data) && products.data.length > 0) || (Array.isArray(products) && products.length > 0) || Number(currentBusiness._count?.products || 0) > 0)
     } catch (error) {
       console.error("Failed to load store content state", error)
       setHasCategories(Number(currentBusiness._count?.categories || 0) > 0)
@@ -70,7 +70,7 @@ const Home = () => {
       {/* <Filters /> */}
       <Hero storeTemplate={currentBusiness?.template} />
 
-      {!currentBusiness || !setupLoaded ? <StoreSetupSkeleton /> : currentBusiness && (!hasCategories || !hasProducts) ? (
+      {!currentBusiness ? <StoreSetupSkeleton /> : setupLoaded && (!hasCategories || !hasProducts) ? (
         <StoreSetupPrompt
           businessName={currentBusiness.name}
           isOwner={isOwner}
@@ -81,7 +81,7 @@ const Home = () => {
       ) : null}
 
      <div className="mx-auto w-full">
-       {!currentBusiness || !setupLoaded || (currentBusiness && (!hasCategories || !hasProducts)) ? null : (
+       {!currentBusiness || (setupLoaded && currentBusiness && (!hasCategories || !hasProducts)) ? null : (
          <>
            {/* Pharmacy-only sections */}
            {isPharmacy && <CommonMedications />}
