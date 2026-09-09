@@ -52,7 +52,7 @@ const Home = () => {
     } finally {
       setSetupLoaded(true)
     }
-  }, [currentBusiness?.id])
+  }, [currentBusiness?.id, currentBusiness?._count])
 
   useEffect(() => {
     loadStoreContentState()
