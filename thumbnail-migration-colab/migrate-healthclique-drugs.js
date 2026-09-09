@@ -140,7 +140,12 @@ async function main() {
     const document = productDocument(sourceProduct, categoryId);
     const filter = { name: document.name, categoryId, businessId: null };
     if (!dryRun) {
-      await destinationProducts.updateOne(filter, { $set: document, $setOnInsert: { createdAt: document.createdAt } }, { upsert: true });
+      const { createdAt, ...mutableDocument } = document;
+      await destinationProducts.updateOne(
+        filter,
+        { $set: mutableDocument, $setOnInsert: { createdAt } },
+        { upsert: true },
+      );
     }
     imported += 1;
     log(`${dryRun ? "Would import" : "Imported"} product ${imported}/${sourceProductList.length}: ${document.name}`);

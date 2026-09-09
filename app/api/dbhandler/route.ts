@@ -468,7 +468,7 @@ export async function GET(req: NextRequest) {
               ...(storeNav ? {} : { description: true, image: true }),
               businessId: true,
               _count: { select: { products: true } },
-              ...(carousel && !storeNav ? { products: { take: 1, select: { images: true, thumbnailUrls: true } } } : {}),
+              ...(carousel ? { products: { take: 1, select: { images: true, thumbnailUrls: true } } } : {}),
               business: {
                 select: {
                   id: true,
