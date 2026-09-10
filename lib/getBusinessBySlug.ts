@@ -21,6 +21,8 @@ export interface StorefrontBusiness {
   ownerId: string;
   template: string;
   isArchived: boolean;
+  planStatus: string;
+  planExpiresAt: Date | null;
   _count: { categories: number; products: number };
   siteSettings: {
     id: string;
@@ -116,6 +118,8 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
       ownerId: true,
       template: true,
       isArchived: true,
+      planStatus: true,
+      planExpiresAt: true,
       _count: { select: { categories: true, products: true } },
       siteSettings: {
         select: {
@@ -188,6 +192,7 @@ async function resolveBusinessSlug(storeName: string): Promise<StorefrontBusines
   });
 
   if (!business) return null;
+  if (business.planStatus !== "active" && business.planExpiresAt && business.planExpiresAt.getTime() < Date.now()) return null;
 
   return {
     ...business,

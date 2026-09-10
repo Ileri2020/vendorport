@@ -75,6 +75,12 @@ model Business {
   ratings          Float             @default(0)
   numReviews       Int               @default(0)
   isArchived       Boolean           @default(false) // app owner can archive businesses
+  plan             String            @default("basic")
+  planStatus       String            @default("pending")
+  planExpiresAt    DateTime?
+  planPaymentRef   String?
+  planPaymentMethod String?
+  planAmount       Float?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
   settings         ProjectSettings?
@@ -669,12 +675,16 @@ model CartItem {
 
 model Payment {
   id         String    @id @default(auto()) @map("_id") @db.ObjectId
-  cart       Cart      @relation(fields: [cartId], references: [id], onDelete: Cascade)
-  cartId     String    @unique @db.ObjectId
+  cart       Cart?     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  cartId     String?   @unique @db.ObjectId
   //method must be converted to an enum
   tx_ref     String?   @unique
   barcodeImageUrl String?
   method     String
+  status     String    @default("pending")
+  planId     String?
+  durationCount Int?
+  durationUnit String?
   amount     Float
   payeeName  String?
   receiptUrl String?

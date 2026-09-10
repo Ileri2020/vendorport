@@ -1026,6 +1026,11 @@ export async function POST(req: NextRequest) {
       }
 
       const normalizedTemplate = (body.template || "estore").toString().toLowerCase() === "pharmacy" ? "pharmacy" : "estore";
+      const selectedPlan = ["basic", "premium", "custom"].includes(body.plan) ? body.plan : null;
+      if (!selectedPlan) {
+        return NextResponse.json({ error: "A plan selection is required" }, { status: 400 });
+      }
+      const graceExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
       const business = await prisma.business.create({
         data: {
@@ -1033,6 +1038,10 @@ export async function POST(req: NextRequest) {
           description: (body.description || `Welcome to ${businessName}`).toString(),
           ownerId: body.ownerId,
           template: normalizedTemplate,
+          plan: selectedPlan,
+          planStatus: body.couponCode ? "coupon_pending" : "pending_payment",
+          planExpiresAt: graceExpiry,
+          planAmount: Number.isFinite(Number(body.planAmount)) ? Number(body.planAmount) : undefined,
         },
       });
 

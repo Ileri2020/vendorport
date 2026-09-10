@@ -19,8 +19,8 @@ import axios from "axios";
 
 export const ManualTransfer = React.forwardRef<
   HTMLButtonElement, 
-  { tx_ref: string, amount: number, cartId: string, userId: string, guestDetails?: any }
->(({ tx_ref, amount, cartId, userId, guestDetails }, ref) => {
+  { tx_ref: string, amount: number, cartId: string, userId: string, guestDetails?: any, paymentAction?: string, onSuccess?: () => void }
+>(({ tx_ref, amount, cartId, userId, guestDetails, paymentAction = "confirm", onSuccess }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [copiedAccount, setCopiedAccount] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -77,7 +77,15 @@ export const ManualTransfer = React.forwardRef<
         }
       }
 
-      await axios.post("/api/payment?action=confirm", { 
+      await axios.post(paymentAction === "business_plan" ? "/api/business-plan" : "/api/payment?action=confirm", paymentAction === "business_plan" ? {
+        businessId: cartId,
+        plan: guestDetails?.planId,
+        amount,
+        reference: tx_ref,
+        method: "manual_transfer",
+        durationCount: guestDetails?.durationCount || 1,
+        durationUnit: guestDetails?.durationUnit || "month",
+      } : {
         tx_ref, 
         method: "manual_transfer",
         cartId,
@@ -88,9 +96,10 @@ export const ManualTransfer = React.forwardRef<
 
       toast.success("Transfer notification submitted! Your order is pending verification.");
       
-      clearCart();
+      if (paymentAction !== "business_plan") clearCart();
       setCheckoutData(null);
       setIsOpen(false);
+      onSuccess?.();
     } catch (err) {
        console.error("Manual confirm error:", err);
        toast.error("Failed to submit transfer notification.");
