@@ -6,15 +6,17 @@ import { Search, PackagePlus, Link2, Check, Plus, X, ChevronLeft, ChevronRight, 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface PlatformProductWorkspaceProps {
-  business?: { id: string; ownerId: string; name: string } | null;
+  business?: { id: string; ownerId: string; name: string; template?: string | null } | null;
 }
 
 export default function PlatformProductWorkspace({ business = null }: PlatformProductWorkspaceProps) {
   const { data: session } = useSession();
+  const isPharmacy = String(business?.template || "estore").toLowerCase() === "pharmacy";
   const isOwner = Boolean(business && session?.user?.id && (String(business.ownerId) === String(session.user.id) || session.user.role === "admin"));
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
@@ -28,7 +30,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false);
   const [categoryId, setCategoryId] = useState("");
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", price: "", costPrice: "", categoryId: "", variants: [] as Array<{ title: string; weight: string; volume: string; price: string }> });
+  const [form, setForm] = useState({ name: "", description: "", price: "", costPrice: "", categoryId: "", catalogType: isPharmacy ? "drug" : "general", variants: [] as Array<{ title: string; weight: string; volume: string; price: string }> });
   const [newCategory, setNewCategory] = useState({ name: "", description: "" });
   const [showNewCategory, setShowNewCategory] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -312,7 +314,7 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("vport:clear-api-cache"));
       }
-      setForm({ name: "", description: "", price: "", costPrice: "", categoryId: "", variants: [] });
+          setForm({ name: "", description: "", price: "", costPrice: "", categoryId: "", catalogType: isPharmacy ? "drug" : "general", variants: [] });
       toast.success("Platform product created");
       await loadProducts();
     } catch (error) {
@@ -570,6 +572,18 @@ export default function PlatformProductWorkspace({ business = null }: PlatformPr
           <div className="flex items-center gap-2 font-bold"><PackagePlus className="h-5 w-5 text-primary" /> Create platform product</div>
           <div><Label htmlFor="platform-product-name">Name</Label><Input id="platform-product-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
           <div><Label htmlFor="platform-product-description">Description</Label><Input id="platform-product-description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+          <div className="space-y-2">
+            <Label>Product type</Label>
+            <Tabs
+              value={form.catalogType}
+              onValueChange={(catalogType) => setForm({ ...form, catalogType, categoryId: "" })}
+            >
+              <TabsList className="grid w-full grid-cols-2" id="platform-product-catalog-type">
+                <TabsTrigger value="general">General products</TabsTrigger>
+                <TabsTrigger value="drug">Drugs / medicines</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label htmlFor="platform-product-cost">Cost</Label><Input id="platform-product-cost" type="number" min="0" value={form.costPrice} onChange={(e) => setForm({ ...form, costPrice: e.target.value })} /></div>
             <div><Label htmlFor="platform-product-price">Price</Label><Input id="platform-product-price" required type="number" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} /></div>

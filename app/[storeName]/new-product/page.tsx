@@ -7,5 +7,5 @@ export default async function StoreNewProductPage({ params }: { params: Promise<
   const business = await getCachedBusiness(storeName);
   if (!business) notFound();
 
-  return <PlatformProductWorkspace business={{ id: business.id, ownerId: business.ownerId, name: business.name }} />;
+  return <PlatformProductWorkspace business={{ id: business.id, ownerId: business.ownerId, name: business.name, template: business.template }} />;
 }
