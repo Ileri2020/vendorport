@@ -18,6 +18,7 @@ import axios from 'axios'
 import { toast } from 'sonner'
 import { Signup } from '@/components/myComponents/subs'
 import { getSavedUserLocation, rankByDistance } from '@/lib/user-location'
+import { getOptimizedImageUrl } from '@/lib/product-images'
 import dynamic from 'next/dynamic'
 
 const StatsSection = dynamic(() => import('@/components/myComponents/subs/StatsSection'), {
@@ -578,7 +579,7 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
                         <Card className="h-full shadow-md shadow-accent flex flex-col overflow-hidden border-2 hover:border-accent transition-all rounded-3xl group">
                           <div className="h-24 bg-muted relative overflow-hidden">
                               {biz.siteSettings?.storefrontImageUrl ? (
-                               <img src={biz.siteSettings.storefrontImageUrl} alt={`${biz.name} storefront`} loading="lazy" decoding="async" width="300" height="96" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                               <img src={getOptimizedImageUrl(biz.siteSettings.storefrontImageUrl, 600)} alt={`${biz.name} storefront`} loading="lazy" decoding="async" width="300" height="96" className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                               ) : (
                                <div className="absolute inset-0 flex items-center justify-center bg-accent/5 group-hover:bg-accent/10 transition-colors">
                                  <Globe className="h-14 w-14 text-accent/10 group-hover:scale-120 transition-transform duration-700" />
@@ -606,7 +607,7 @@ const Home = ({ businesses = [], isAdmin = false }: { businesses?: Business[], i
                               <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center border-2 border-primary/5 overflow-hidden">
                                  {biz.owner.image ? (
                                    // eslint-disable-next-line @next/next/no-img-element
-                                   <img src={biz.owner.image} alt={biz.owner.name || ""} title={biz.owner.name || ""} loading="lazy" decoding="async" width="40" height="40" className="h-full w-full rounded-xl object-cover" />
+                                   <img src={getOptimizedImageUrl(biz.owner.image, 80)} alt={biz.owner.name || ""} title={biz.owner.name || ""} loading="lazy" decoding="async" width="40" height="40" className="h-full w-full rounded-xl object-cover" />
                                  ) : (
                                    <User className="h-5 w-5 text-primary" />
                                  )}

@@ -15,9 +15,7 @@ import {
   AiOutlineContacts,
 } from "react-icons/ai";
 import { Advert } from "@/components/myComponents/subs";
-import logo from "@/public/greenlogo.png";
 import greenlogo from "@/public/greenlogo.png";
-import Image from "next/image";
 import { Cart } from "../myComponents/subs/cart";
 import { GlobalSearch } from "../myComponents/subs/GlobalSearch";
 import { NotificationBell } from "../myComponents/subs/NotificationUI";
@@ -50,7 +48,7 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
       : [];
 
     const resolved = candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
-    return resolved || greenlogo;
+    return resolved || greenlogo.src;
   })();
 
   useEffect(() => {
@@ -74,7 +72,7 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
             href={homeHref}
             className="flex mx-4 my-1 flex-1 md:flex-none max-h-[65px] bg-accent/10 max-w-[65px] overflow-clip border-1 border-accent shadow-md rounded-md shadow-accent justify-center items-center py-5 /rounded-full"
           >
-            <Image src={customLogo} alt={`${brandName} logo`} width={80} height={80} className="h-[63px] w-auto m-1" />
+            <img src={customLogo} alt={`${brandName} logo`} width="80" height="80" decoding="async" className="h-[63px] w-auto m-1" />
           </Link>
           {/* <Link
             href={homeHref}

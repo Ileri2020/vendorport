@@ -16,6 +16,16 @@ export function getProductImageUrl(value: string, width = 600): string {
   return query ? `${transformed}?${query}` : transformed;
 }
 
+export function getOptimizedImageUrl(value: string, width: number): string {
+  if (!value || !value.includes("res.cloudinary.com/") || !value.includes("/image/upload/")) return value;
+
+  const [base, query] = value.split("?", 2);
+  if (base.includes("/c_limit,w_") || base.includes("/f_auto,q_auto")) return value;
+
+  const transformed = base.replace("/image/upload/", `/image/upload/c_limit,w_${width},q_auto:good,f_auto/`);
+  return query ? `${transformed}?${query}` : transformed;
+}
+
 export function normalizeProductImageList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
 
