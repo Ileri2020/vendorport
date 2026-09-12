@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 import path from "path";
 
+const staticAssetExtensions = [
+  "woff2", "woff", "ttf", "otf", "eot", "ico", "png", "webp",
+  "svg", "jpg", "jpeg", "gif", "css", "js",
+];
+
 const nextConfig: NextConfig = {
   compress: true, // Enable gzip/brotli compression for all responses
   images: {
@@ -23,13 +28,13 @@ const nextConfig: NextConfig = {
   // Cache headers for static assets + CORS for API routes
   headers: async () => {
     return [
-      // Long-lived cache for static public files (fonts, icons, placeholders, logo)
-      {
-        source: "/(:file(.*\\.(?:woff2?|ttf|otf|eot|ico|png|webp|svg|jpg|jpeg|gif|css|js)))",
+      // Long-lived cache for static public files (fonts, icons, placeholders, logo).
+      ...staticAssetExtensions.map((extension) => ({
+        source: `/:path*.${extension}`,
         headers: [
           { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
-      },
+      })),
       // CDN cache for Cloudinary image proxies (shorter since URLs can change)
       {
         source: "/_next/image",
