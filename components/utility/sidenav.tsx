@@ -17,6 +17,7 @@ import { SpecialOrderForm } from "../myComponents/subs/SpecialOrderForm";
 import { FlaskConical } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
 import { signOut, useSession } from "next-auth/react";
+import { Login, Signup } from "../myComponents/subs";
 import logo from "@/public/logo.png";
 
 interface SidenavProps {

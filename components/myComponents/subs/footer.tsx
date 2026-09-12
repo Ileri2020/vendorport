@@ -28,19 +28,30 @@ export function Footer({ className, basePath, business, businessId }: FooterProp
   const isStorefront = Boolean(basePath || businessId || business);
 
   React.useEffect(() => {
+    let cancelled = false;
     const fetchCategories = async () => {
       try {
         const scopeQuery = businessId
           ? `&businessId=${encodeURIComponent(businessId)}`
           : "&platform=true";
-        const res = await fetch(`/api/dbhandler?model=category${scopeQuery}&minimal=true&storeNav=true&limit=100`);
+        const res = await fetch(`/api/dbhandler?model=category${scopeQuery}&minimal=true&storeNav=true&limit=10`);
         const data = await res.json();
-        setCategories(Array.isArray(data) ? data : []);
+        if (!cancelled) setCategories(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error("Footer: Failed to fetch categories", err);
+        if (!cancelled) console.error("Footer: Failed to fetch categories", err);
       }
     };
-    fetchCategories();
+    const idleCallback = window.requestIdleCallback?.(() => fetchCategories());
+    const timeoutId = window.setTimeout(() => {
+      if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback);
+      fetchCategories();
+    }, 1500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      if (idleCallback !== undefined) window.cancelIdleCallback?.(idleCallback);
+    };
   }, [businessId]);
 
   const resolveHref = (path: string) => {

@@ -257,12 +257,13 @@ function compactCatalogProducts(products: any[]) {
   return products.map((product) => {
     const thumbnailUrls = sanitizeCatalogImageUrls(product?.thumbnailUrls);
     const images = sanitizeCatalogImageUrls(product?.images);
+    // Prefer thumbnails (already resized by Cloudinary) over originals
     const fallbackImage = thumbnailUrls[0] || images[0] || product?.image || "/logo.png";
 
     return {
       ...product,
-      thumbnailUrls: thumbnailUrls.slice(0, 4),
-      images: images.slice(0, 4),
+      thumbnailUrls: thumbnailUrls.slice(0, 2), // 2 is enough for card + hover
+      images: images.slice(0, 2),
       image: fallbackImage,
     };
   });
@@ -668,11 +669,17 @@ export async function GET(req: NextRequest) {
         const useCategoryInterleaving = !isFilteredSingleCategory;
 
         if (useCategoryInterleaving) {
-          const allLightProducts = await prisma.product.findMany({
-            where,
-            select: { id: true, categoryId: true, createdAt: true },
-            orderBy: { createdAt: 'desc' as const },
-          });
+          // Fetch a capped set of light product rows for interleaving instead of scanning the entire table.
+          // 2000 rows is more than enough to build diverse pages while keeping the query fast.
+          const [allLightProducts, exactTotal] = await Promise.all([
+            prisma.product.findMany({
+              where,
+              select: { id: true, categoryId: true, createdAt: true },
+              orderBy: { createdAt: 'desc' as const },
+              take: 2000,
+            }),
+            prisma.product.count({ where }),
+          ]);
 
           const categoryGroups = new Map<string, typeof allLightProducts>();
           for (const p of allLightProducts) {
@@ -696,7 +703,8 @@ export async function GET(req: NextRequest) {
             }
           }
 
-          const total = interleavedIds.length;
+          // Use exact DB count for pagination total so users know the real product count
+          const total = exactTotal;
           const pageIds = interleavedIds.slice(offset, offset + Math.min(limit, 100));
 
           if (pageIds.length === 0) {
@@ -719,10 +727,19 @@ export async function GET(req: NextRequest) {
             : finalProducts;
 
           if (searchParams.get("pagination") === "true") {
-            return NextResponse.json({ data: responseProducts, total });
+            const res = NextResponse.json({ data: responseProducts, total });
+            // Cache compact product lists at the CDN edge for 30s
+            if (compactMode) {
+              res.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+            }
+            return res;
           }
 
-          return NextResponse.json(responseProducts);
+          const res = NextResponse.json(responseProducts);
+          if (compactMode) {
+            res.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+          }
+          return res;
         }
 
         const query = {
@@ -739,10 +756,12 @@ export async function GET(req: NextRequest) {
             prisma.product.count({ where })
           ]);
           const responseProducts = dedupeCatalogProducts(data);
-          return NextResponse.json({
-            data: searchParams.get("compact") === "true" ? compactCatalogProducts(responseProducts) : responseProducts,
-            total,
-          });
+          const body = searchParams.get("compact") === "true" ? compactCatalogProducts(responseProducts) : responseProducts;
+          const res = NextResponse.json({ data: body, total });
+          if (compactMode) {
+            res.headers.set("Cache-Control", "public, s-maxage=30, stale-while-revalidate=60");
+          }
+          return res;
         }
 
         const responseProducts = dedupeCatalogProducts(await prisma.product.findMany(query));

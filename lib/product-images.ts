@@ -1,9 +1,19 @@
 export const PLATFORM_LOGO = "/logo.png";
 export const PLACEHOLDER_IMAGE = "/placeholderFemale.webp";
-const UNAVAILABLE_CLOUDINARY_CLOUDS = new Set<string>([]);
+
+/**
+ * Cloudinary cloud names that are known to return 401 / 403 for public access.
+ * Images hosted on these clouds are skipped immediately without browser fetch attempts.
+ * dplw2vykw = old cloud where original product images were uploaded before migration.
+ */
+const UNAVAILABLE_CLOUDINARY_CLOUDS = new Set<string>(["dplw2vykw"]);
 
 function isUnavailableImage(value: string): boolean {
-  return [...UNAVAILABLE_CLOUDINARY_CLOUDS].some((cloudName) => value.includes(`res.cloudinary.com/${cloudName}/`));
+  if (!value) return false;
+  for (const cloudName of UNAVAILABLE_CLOUDINARY_CLOUDS) {
+    if (value.includes(`res.cloudinary.com/${cloudName}/`)) return true;
+  }
+  return false;
 }
 
 export function getProductImageUrl(value: string, width = 400): string {
