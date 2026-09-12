@@ -49,7 +49,7 @@ function cleanProductDescription(value: unknown) {
 import ProductForm from "@/prisma/forms/ProductForm";
 import axios from "axios";
 import { VariantCard, getVariantAmount, getVariantPriceRange } from "./variantCard";
-import { getProductImageCandidates, getProductImageUrl, PLATFORM_LOGO, PLACEHOLDER_IMAGE } from "@/lib/product-images";
+import { getProductImageCandidates, getProductImageUrl, getProductSrcSet, PLATFORM_LOGO, PLACEHOLDER_IMAGE } from "@/lib/product-images";
 
 type ProductCardProps = Omit<
   React.HTMLAttributes<HTMLDivElement>,
@@ -392,9 +392,13 @@ export function ProductCard({
             <img
               alt={product?.name || "Product"}
               src={currentImage}
+              srcSet={getProductSrcSet(currentImage)}
+              sizes="(max-width: 640px) calc(100vw - 2rem), (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
               loading={priority ? "eager" : "lazy"}
               fetchPriority={priority ? "high" : "auto"}
               decoding="async"
+              width={400}
+              height={400}
               onError={() => {
                 setSelectedImageIndex((prev) => {
                   const nextIndex = prev + 1;

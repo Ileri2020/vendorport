@@ -23,7 +23,9 @@ import ProductForm from "@/prisma/forms/ProductForm";
 import { getSavedUserLocation, locationMatchesBusiness, rankByDistance, USER_LOCATION_CHANGED_EVENT } from "@/lib/user-location";
 
 const ITEMS_PER_PAGE = 30;
-const PRODUCT_CACHE_TTL_MS = 3000;
+// Client-side product cache: matches the CDN s-maxage=30s + stale-while-revalidate window.
+// Browsing back to a previously-seen page will serve from memory instantly.
+const PRODUCT_CACHE_TTL_MS = 60_000;
 const productCache = new Map<string, { timestamp: number; data: any[]; total: number }>();
 const productRequests = new Map<string, Promise<{ data: any[]; total: number }>>();
 

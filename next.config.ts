@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  compress: true, // Enable gzip/brotli compression for all responses
   images: {
     remotePatterns: [
       {
@@ -19,20 +20,40 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname),
   },
-  // Support for subdomain routing
-  // Allows requests to [storename].hcvp.com to be processed
+  // Cache headers for static assets + CORS for API routes
   headers: async () => {
     return [
+      // Long-lived cache for static public files (fonts, icons, placeholders, logo)
       {
-        source: '/:path*',
+        source: "/(:file(.*\\.(?:woff2?|ttf|otf|eot|ico|png|webp|svg|jpg|jpeg|gif|css|js)))",
         headers: [
-          {
-            key: 'Access-Control-Allow-Origin',
-            value: '*',
-          },
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
         ],
       },
-    ]
+      // CDN cache for Cloudinary image proxies (shorter since URLs can change)
+      {
+        source: "/_next/image",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+        ],
+      },
+      // CORS for all API routes
+      {
+        source: "/api/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET,POST,PUT,PATCH,DELETE,OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+        ],
+      },
+      // Default CORS for other routes
+      {
+        source: "/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+        ],
+      },
+    ];
   },
 };
 

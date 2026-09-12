@@ -35,6 +35,17 @@ export function getProductImageUrl(value: string, width = 400): string {
   return query ? `${transformed}?${query}` : transformed;
 }
 
+/**
+ * Generate a srcset string for a Cloudinary image URL.
+ * Returns a srcset with 200w, 400w, and 600w variants so the browser
+ * picks the smallest image that fits the display context.
+ */
+export function getProductSrcSet(value: string): string {
+  if (!value || !value.includes("res.cloudinary.com/") || !value.includes("/image/upload/")) return "";
+  const widths = [200, 400, 600];
+  return widths.map((w) => `${getProductImageUrl(value, w)} ${w}w`).join(", ");
+}
+
 export function getOptimizedImageUrl(value: string, width = 400): string {
   return getProductImageUrl(value, width);
 }
