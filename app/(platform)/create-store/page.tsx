@@ -52,8 +52,8 @@ export default function CreateStorePage() {
     name: '',
     description: '',
     template: 'estore',
-    plan: '',
-    couponCode: '',
+    plan: 'basic',
+    couponCode: '20thsept2026',
   });
   const customAmount = Math.min(2000000, Math.max(120000, 120000 + (customConfig.storeType === 'ecommerce' ? 180000 : customConfig.storeType === 'pharmacy' ? 220000 : 0) + (customConfig.mobile ? 300000 : 0) + (customConfig.desktop ? 250000 : 0)));
   const selectedAmount = formData.plan === 'custom' ? customAmount : plans.find((plan) => plan.id === formData.plan)?.amount || 0;
@@ -119,6 +119,9 @@ export default function CreateStorePage() {
         setCreatedStore({ ...response.data, slug: businessSlug || slug, planId: formData.plan, planAmount: selectedAmount });
         if (formData.couponCode.trim() === '20thsept2026') {
           setCouponOpen(true);
+          window.setTimeout(() => {
+            window.location.assign(getStoreUrl(businessSlug || slug));
+          }, 1500);
         } else {
           setPaymentOpen(true);
         }

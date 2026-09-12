@@ -22,6 +22,7 @@ import { toast } from 'sonner'
 import { Signup } from '@/components/myComponents/subs'
 import PortfolioForm from '@/prisma/forms/PortfolioForm'
 import { getSavedUserLocation, rankByDistance } from '@/lib/user-location'
+import Image from 'next/image'
 
 interface Business {
   id: string

@@ -32,6 +32,7 @@ import Autoplay from "embla-carousel-autoplay";
 
 import { useAppContext } from "@/hooks/useAppContext";
 import { getStoreUrl } from "@/lib/store-url";
+import Image from "next/image";
 
 interface FeaturedCategoriesProps {
   fetchAll?: boolean;
@@ -39,8 +40,8 @@ interface FeaturedCategoriesProps {
 }
 async function getCategories(businessId?: string) {
   const url = businessId
-    ? `/api/dbhandler?model=category&carousel=true&storeNav=true&businessId=${businessId}`
-    : `/api/dbhandler?model=category&carousel=true&storeNav=true`;
+    ? `/api/dbhandler?model=category&carousel=true&storeNav=true&limit=20&businessId=${businessId}`
+    : `/api/dbhandler?model=category&carousel=true&storeNav=true&limit=20`;
   const res = await fetch(url);
   if (!res.ok) return [];
   const categories = await res.json();
@@ -156,12 +157,14 @@ const CategoryCard = ({ category, isAdmin, canDelete, onRefresh }: { category: a
       >
         <div className="relative aspect-square overflow-hidden bg-muted/20">
           {category.images.map((img: string, idx: number) => (
-            <img
+            <Image
               key={idx}
               src={img}
               alt={category.name}
               loading="lazy"
               decoding="async"
+              fill
+              sizes="(max-width: 640px) 45vw, (max-width: 1024px) 22vw, 240px"
               className={`absolute inset-0 object-contain p-4 transition-opacity duration-1000 w-full h-full ${
                 idx === currentImageIndex ? "opacity-100" : "opacity-0"
               }`}
