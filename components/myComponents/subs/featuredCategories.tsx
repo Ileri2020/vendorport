@@ -33,6 +33,8 @@ import Autoplay from "embla-carousel-autoplay";
 import { useAppContext } from "@/hooks/useAppContext";
 import { getStoreUrl } from "@/lib/store-url";
 
+import { getOptimizedImageUrl } from "@/lib/product-images";
+
 interface FeaturedCategoriesProps {
   fetchAll?: boolean;
   businessId?: string;
@@ -45,9 +47,10 @@ async function getCategories(businessId?: string) {
   if (!res.ok) return [];
   const categories = await res.json();
     return categories.map((cat: any) => {
-    // Collect up to 3 images from related products
-    const productImages = cat.products?.flatMap((p: any) => p.thumbnailUrls?.length ? p.thumbnailUrls : p.images).slice(0, 3) || [];
-    const images = productImages.length > 0 ? productImages : [cat.image || "/logo.png"];
+    // Collect up to 3 images from related products and optimize size
+    const rawImages = cat.products?.flatMap((p: any) => p.thumbnailUrls?.length ? p.thumbnailUrls : p.images).slice(0, 3) || [];
+    const productImages = rawImages.map((img: string) => getOptimizedImageUrl(img, 240));
+    const images = productImages.length > 0 ? productImages : [cat.image ? getOptimizedImageUrl(cat.image, 240) : "/logo.png"];
     
     const businessNameRaw = cat.business?.name || null;
     const businessSlugDerived = businessNameRaw ? businessNameRaw.toString().trim().toLowerCase().replace(/\s+/g, '-') : null;
@@ -155,20 +158,15 @@ const CategoryCard = ({ category, isAdmin, canDelete, onRefresh }: { category: a
         onClick={() => router.push(getStoreUrl(badgeSlug || businessName, `/store?category=${encodeURIComponent(category.name)}`))}
       >
         <div className="relative aspect-square overflow-hidden bg-muted/20">
-          {category.images.map((img: string, idx: number) => (
-            <img
-              key={idx}
-              src={img}
-              alt={category.name}
-              loading="lazy"
-              decoding="async"
-              width="240"
-              height="240"
-              className={`absolute inset-0 object-contain p-4 transition-opacity duration-1000 w-full h-full ${
-                idx === currentImageIndex ? "opacity-100" : "opacity-0"
-              }`}
-            />
-          ))}
+          <img
+            src={category.images[currentImageIndex] || category.images[0] || "/logo.png"}
+            alt={category.name}
+            loading="lazy"
+            decoding="async"
+            width="240"
+            height="240"
+            className="absolute inset-0 object-contain p-4 transition-opacity duration-500 w-full h-full"
+          />
         </div>
         <div className="p-4 text-center mt-auto">
           <div className="text-sm font-bold truncate group-hover:text-primary transition-colors">

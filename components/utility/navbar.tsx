@@ -15,7 +15,7 @@ import {
   AiOutlineContacts,
 } from "react-icons/ai";
 import { Advert } from "@/components/myComponents/subs";
-import greenlogo from "@/public/greenlogo.png";
+import logo from "@/public/logo.png";
 import { Cart } from "../myComponents/subs/cart";
 import { GlobalSearch } from "../myComponents/subs/GlobalSearch";
 import { NotificationBell } from "../myComponents/subs/NotificationUI";
@@ -48,7 +48,7 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
       : [];
 
     const resolved = candidates.find((value): value is string => typeof value === "string" && value.trim().length > 0);
-    return resolved || greenlogo.src;
+    return resolved || logo.src;
   })();
 
   useEffect(() => {

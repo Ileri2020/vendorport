@@ -17,8 +17,7 @@ import { SpecialOrderForm } from "../myComponents/subs/SpecialOrderForm";
 import { FlaskConical } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
 import { signOut, useSession } from "next-auth/react";
-import { Login, Signup } from "../myComponents/subs";
-import greenlogo from "@/public/greenlogo.png";
+import logo from "@/public/logo.png";
 
 interface SidenavProps {
     basePath?: string;
@@ -41,8 +40,8 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                     activeBusiness?.siteSettings?.logoUrl ||
                     business?.siteSettings?.logoImageUrl ||
                     business?.siteSettings?.logoUrl ||
-                    greenlogo.src
-        : greenlogo.src;
+                    logo.src
+        : logo.src;
 
     useEffect(() => {
         if (!open) return;
