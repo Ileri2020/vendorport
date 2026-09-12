@@ -18,7 +18,6 @@ import { FlaskConical } from "lucide-react";
 import { useAppContext } from "@/hooks/useAppContext";
 import { signOut, useSession } from "next-auth/react";
 import { Login, Signup } from "../myComponents/subs";
-import Image from "next/image";
 import greenlogo from "@/public/greenlogo.png";
 
 interface SidenavProps {
@@ -42,10 +41,12 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                     activeBusiness?.siteSettings?.logoUrl ||
                     business?.siteSettings?.logoImageUrl ||
                     business?.siteSettings?.logoUrl ||
-                    greenlogo
-        : greenlogo;
+                    greenlogo.src
+        : greenlogo.src;
 
     useEffect(() => {
+        if (!open) return;
+
         const fetchData = async () => {
             try {
                 const shouldUseBusinessScope = Boolean(basePath) && (business?.id || currentBusiness?.id);
@@ -64,7 +65,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
             }
         };
         fetchData();
-    }, [basePath, business?.id, currentBusiness?.id]);
+    }, [open, basePath, business?.id, currentBusiness?.id]);
 
     const closeSheet = () => setOpen(false);
     const homeHref = basePath ? `${basePath}/home` : "/";
@@ -113,7 +114,7 @@ const Sidenav = ({ basePath, business }: SidenavProps) => {
                     <SheetTitle asChild>
                         <Link href={homeHref} onClick={closeSheet} className="flex items-center gap-3 text-left text-2xl font-black text-primary tracking-tighter italic">
                             <div className="flex h-[32px] w-[32px] items-center justify-center overflow-clip rounded-md border border-accent bg-accent/10 shadow-md shadow-accent">
-                                <Image src={customLogo} alt={`${brandName} logo`} width={50} height={50} className="m-1 h-[41px] w-auto" />
+                                <img src={customLogo} alt={`${brandName} logo`} width="50" height="50" decoding="async" className="m-1 h-[41px] w-auto" />
                             </div>
                             <span>{brandName}</span>
                         </Link>

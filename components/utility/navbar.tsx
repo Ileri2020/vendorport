@@ -74,13 +74,6 @@ const Navbar = ({ basePath, business, businessId }: NavbarProps): JSX.Element =>
           >
             <img src={customLogo} alt={`${brandName} logo`} width="80" height="80" decoding="async" className="h-[63px] w-auto m-1" />
           </Link>
-          {/* <Link
-            href={homeHref}
-            className="hidden dark:flex flex-1 md:flex-none max-h-[43px] md:max-h-[50px] overflow-clip justify-center items-center py-5 /rounded-full"
-          >
-            <Image src={logo} alt="" className="w-[100px] h-auto" />
-          </Link> */}
-
           {/* Business name badge — commented out
           {business && (
             <div className="hidden md:flex items-center px-3 py-1.5 rounded-full border border-border/60 bg-background/70 backdrop-blur">
