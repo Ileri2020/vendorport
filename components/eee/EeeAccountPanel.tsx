@@ -163,7 +163,7 @@ export default function EeeAccountPanel() {
         <div className="rounded-xl bg-blue-100 p-2.5 text-blue-700 dark:bg-blue-950 dark:text-blue-300"><KeyRound size={20} /></div>
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">EESimulator account</h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Sign in to sync your EEE app access and manage your personal AI provider key.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">AI drafts work without signing in using the HCVP server key. Sign in only to manage an optional personal key or create a publishing token.</p>
         </div>
       </div>
 
