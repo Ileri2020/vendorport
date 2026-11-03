@@ -1,10 +1,7 @@
 "use client"
 import React, { useEffect, useState, useRef } from "react"
 import { motion } from "framer-motion"
-import { Signup } from "@/components/myComponents/subs"
 import EditUser from "@/components/myComponents/subs/useredit"
-import dynamic from 'next/dynamic'
-const Login = dynamic(() => import('@/components/myComponents/subs').then((e) => e.Login), { ssr: false })
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +24,7 @@ import PortfolioForm from "@/prisma/forms/PortfolioForm"
 import { ProfileSkeleton, TableSkeleton } from "@/components/skeletons"
 import MonnifyPaymentButton from "@/components/payment/monnify"
 import { ManualTransfer } from "@/components/payment/manual"
+import EeeAccountPanel from "@/components/eee/EeeAccountPanel"
 import { getBrowserLocation, getLocationPermissionStatus, getSavedUserLocation, rankByDistance, saveUserLocation, type UserLocation } from "@/lib/user-location"
 import {
   User,
@@ -669,6 +667,9 @@ const Account = () => {
   if (user.name === "visitor" && user.email === "nil") {
     return (
       <div className="min-h-[60vh] w-full flex flex-col justify-center items-center gap-6 px-4">
+        <div className="w-full max-w-2xl">
+          <EeeAccountPanel />
+        </div>
         <div className="text-center space-y-3">
           <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mx-auto">
             <User className="h-10 w-10 text-muted-foreground" />
@@ -677,10 +678,6 @@ const Account = () => {
           <p className="text-muted-foreground text-sm max-w-xs">
             Sign in to view your profile, orders, wishlist and more.
           </p>
-        </div>
-        <div className="flex flex-row gap-3">
-          <Login />
-          <Signup />
         </div>
       </div>
     )
@@ -702,6 +699,8 @@ const Account = () => {
       className="w-full min-h-full"
     >
       <div className="max-w-2xl mx-auto px-4 py-10 flex flex-col gap-6">
+
+        <EeeAccountPanel />
 
         {/* ── Avatar & Hero ── */}
         <div className="flex flex-col items-center gap-4">

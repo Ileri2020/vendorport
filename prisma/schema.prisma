@@ -43,6 +43,58 @@ model User {
   createdProducts           Product[]                  @relation("UserCreatedProducts")
   portfolio                 Portfolio[]
   staffApplications         Staff[]                    @relation("UserStaffApplications")
+  communityExamples         CommunityExample[]
+  apiAccessTokens           ApiAccessToken[]
+  eeeApiKeys                EeeUserApiKey[]
+}
+
+model CommunityExample {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  title            String
+  category         String   @default("Community")
+  icon             String?
+  formula          String?
+  description      String?
+  componentSummary String?
+  contentJson      String
+  isPublished      Boolean  @default(true)
+  userId           String   @db.ObjectId
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([isPublished, createdAt])
+  @@index([userId, createdAt])
+}
+
+model ApiAccessToken {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  name       String    @default("EEE Simulator")
+  tokenHash  String    @unique
+  userId     String    @db.ObjectId
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+}
+
+model EeeUserApiKey {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  provider       String   @default("gemini")
+  ciphertext     String
+  iv             String
+  authTag         String
+  userId         String   @db.ObjectId
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId, provider])
+  @@index([userId])
 }
 
 model Portfolio {

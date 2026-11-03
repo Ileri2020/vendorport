@@ -28,12 +28,23 @@ function sanitizeUserPayload(body: Record<string, any>) {
 
 export async function POST(req: NextRequest) {
   try {
+    const contentLength = Number(req.headers.get("content-length") ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > 16_384) {
+      return NextResponse.json({ error: "Registration request is too large" }, { status: 413 });
+    }
     const body = await req.json();
     const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
     const password = typeof body?.password === "string" ? body.password : "";
+    const name = typeof body?.name === "string" ? body.name.trim() : "";
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+      return NextResponse.json({ error: "A valid email address is required" }, { status: 400 });
+    }
+    if (password.length < 8 || password.length > 128) {
+      return NextResponse.json({ error: "Password must be between 8 and 128 characters" }, { status: 400 });
+    }
+    if (name.length > 100) {
+      return NextResponse.json({ error: "Name must be 100 characters or fewer" }, { status: 400 });
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -41,7 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User already exists" }, { status: 409 });
     }
 
-    const payload = sanitizeUserPayload({ ...body, email });
+    const payload = sanitizeUserPayload({ name: name || email.split("@")[0], email, password });
     const createdUser = await prisma.user.create({ data: payload });
 
     return NextResponse.json({
