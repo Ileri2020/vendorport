@@ -10,10 +10,11 @@ Set `EEE_USER_API_KEY_ENCRYPTION_KEY` in the HCVP server environment to a crypto
 
 ## Database and API
 
-After updating the Prisma schema, regenerate the Prisma client and apply the MongoDB schema using the HCVP project's normal Prisma workflow. The new models are `CommunityExample`, `ApiAccessToken`, and `EeeUserApiKey`; they extend the existing `User` model relations.
+After updating the Prisma schema, regenerate the Prisma client and apply the MongoDB schema using the HCVP project's normal Prisma workflow. The EEE models include `CommunityExample`, `SavedEeeProject`, `ApiAccessToken`, and `EeeUserApiKey`; user-owned models extend the existing `User` relations. `SavedEeeProject.userId` is optional so anonymous saves are supported.
 
 - `GET /api/examples`: published community schematics.
 - `POST /api/examples`: publish a schematic using the user's EEE app bearer token.
+- `POST /api/projects`: save a private project with optional authentication. A valid EEE bearer token associates the record with its verified account; otherwise a valid HCVP browser session is used, and requests with neither are stored anonymously. The endpoint ignores owner IDs in request data, validates native EEE JSON, caps content at 1 MB / 1,000 components / 5,000 connections, and returns only `id`, `title`, nullable `ownerName`, and `savedAt`. Anonymous clients are limited to 10 saves per day per hashed client address; signed-in accounts are limited to 100 saves per day.
 - `POST /api/ai/schema-script`: generate a reviewable EESimulator draft using the user's own saved Gemini key and EEE app bearer token.
 - `/api/eee/ai-key`: authenticated account-only status, replace, and remove actions. The key is write-only from the browser; it is not returned after saving.
 - `/api/eee/token`: authenticated account-only creation, status, rotation, and revocation of a hashed EEE app token. The raw token is shown only once.
@@ -21,4 +22,4 @@ After updating the Prisma schema, regenerate the Prisma client and apply the Mon
 
 Users sign in or register on HCVP's existing `/account` page. In the EESimulator account panel they save their Gemini key and create an app token; they then paste the token into EESimulator's Settings. Configure the EEE API base URL to the HCVP HTTPS origin in production. Local HCVP development defaults to port 3000 (Android emulator host: `http://10.0.2.2:3000`).
 
-Use HTTPS in production. Apply rate limits at the edge as well as in the AI handler for deployments running multiple server instances.
+Use HTTPS in production. The anonymous save throttle is process-local, so enforce an additional shared edge/platform rate limit for deployments running multiple server instances. Never expose private project rows through the public community examples endpoint.
