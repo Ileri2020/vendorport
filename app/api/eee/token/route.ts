@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { createApiToken, hashApiToken } from "@/lib/eee-api";
+import { createApiToken, getApiTokenUserId, hashApiToken } from "@/lib/eee-api";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -12,8 +12,8 @@ async function currentUserId() {
   return typeof id === "string" && id.length > 0 ? id : null;
 }
 
-export async function GET() {
-  const userId = await currentUserId();
+export async function GET(request: NextRequest) {
+  const userId = await getApiTokenUserId(request) ?? await currentUserId();
   if (!userId) return NextResponse.json({ error: "Sign in to manage your EEE app token." }, { status: 401 });
 
   const token = await prisma.apiAccessToken.findFirst({
@@ -42,8 +42,8 @@ export async function POST() {
   return NextResponse.json({ token, expiresAt: new Date(now.getTime() + 365 * 24 * 60 * 60 * 1_000) }, { status: 201, headers: { "Cache-Control": "no-store" } });
 }
 
-export async function DELETE() {
-  const userId = await currentUserId();
+export async function DELETE(request: NextRequest) {
+  const userId = await getApiTokenUserId(request) ?? await currentUserId();
   if (!userId) return NextResponse.json({ error: "Sign in to revoke your EEE app token." }, { status: 401 });
   await prisma.apiAccessToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
   return NextResponse.json({ configured: false });
