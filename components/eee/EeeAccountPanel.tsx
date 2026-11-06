@@ -163,7 +163,7 @@ export default function EeeAccountPanel() {
         <div className="rounded-xl bg-blue-100 p-2.5 text-blue-700 dark:bg-blue-950 dark:text-blue-300"><KeyRound size={20} /></div>
         <div>
           <h2 className="text-lg font-bold text-slate-900 dark:text-white">EESimulator account</h2>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">AI drafts work without signing in using the HCVP server key. Sign in only to manage an optional personal key or create a publishing token.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Your personal Gemini key is encrypted and stored in the server database. For direct Gemini requests, the signed-in EEE app retrieves it just in time and holds it only in memory; it is not saved to device storage. Without a token, the app receives the HCVP server-key pool; those shared keys are extractable by anyone who can reach the public key endpoint.</p>
         </div>
       </div>
 
@@ -176,7 +176,7 @@ export default function EeeAccountPanel() {
 
           <form onSubmit={saveApiKey} className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-100"><ShieldCheck size={17} className="text-emerald-600" />Gemini API key {status.apiKeyConfigured ? <span className="font-normal text-emerald-700">· configured</span> : <span className="font-normal text-amber-700">· not set</span>}</div>
-            <label className="block text-xs text-slate-600 dark:text-slate-300" htmlFor="eee-gemini-key">Your key is encrypted before it is stored and is never returned by the API.</label>
+            <label className="block text-xs text-slate-600 dark:text-slate-300" htmlFor="eee-gemini-key">Your key is encrypted before it is stored in the server database. When the EEE app requests AI, HCVP returns the key over HTTPS for direct use; the app keeps it in memory only and does not persist it on the device.</label>
             <input id="eee-gemini-key" className={inputClass} type="password" autoComplete="new-password" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={status.apiKeyConfigured ? "Enter a replacement key" : "Paste your Gemini API key"} />
             <div className="flex flex-wrap gap-2">
               <button className={buttonClass} disabled={busy || apiKey.trim().length === 0}><KeyRound size={16} />Encrypt and save</button>
